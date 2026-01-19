@@ -249,21 +249,38 @@ def change_password(
 
 @router.post("/bypass-verify")
 async def bypass_verify_email(
-    email: str,
+    request: Request,
     db: Session = Depends(get_db)
 ):
     """Endpoint temporário para bypass de verificação (apenas para desenvolvimento)"""
     from app.models import User
+    import json
     
-    user = db.query(User).filter(User.email == email.lower()).first()
-    if not user:
+    try:
+        body = await request.json()
+        email = body.get("email")
+        
+        if not email:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email é obrigatório"
+            )
+        
+        user = db.query(User).filter(User.email == email.lower()).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Usuário não encontrado"
+            )
+        
+        user.is_verified = True
+        user.updated_at = datetime.now(timezone.utc)
+        db.commit()
+        
+        return {"message": "Conta verificada com sucesso (bypass)"}
+        
+    except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Usuário não encontrado"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Erro: {str(e)}"
         )
-    
-    user.is_verified = True
-    user.updated_at = datetime.now(timezone.utc)
-    db.commit()
-    
-    return {"message": "Conta verificada com sucesso (bypass)"}
