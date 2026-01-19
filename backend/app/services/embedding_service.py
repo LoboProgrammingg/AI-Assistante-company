@@ -110,16 +110,16 @@ class EmbeddingService:
                 continue
             
             # Inserir embedding no pgvector
+            emb_str = str(embedding)
             self.db.execute(
-                text("""
+                text(f"""
                     INSERT INTO document_embeddings (document_id, chunk_index, chunk_text, embedding)
-                    VALUES (:doc_id, :idx, :text, :emb::vector)
+                    VALUES (:doc_id, :idx, :text, '{emb_str}'::vector(768))
                 """),
                 {
                     "doc_id": document_id,
                     "idx": i,
-                    "text": chunk,
-                    "emb": str(embedding)
+                    "text": chunk
                 }
             )
             indexed += 1
