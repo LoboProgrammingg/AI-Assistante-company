@@ -57,7 +57,7 @@ class Settings(BaseSettings):
     BACKEND_CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"]
     
     # Timezone Default
-    DEFAULT_TIMEZONE: str = "America/Sao_Paulo"
+    DEFAULT_TIMEZONE: str = "America/Cuiaba"
     
     # Audio Processing
     MAX_AUDIO_SIZE_MB: int = 25
