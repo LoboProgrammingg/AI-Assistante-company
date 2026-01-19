@@ -4,6 +4,8 @@ from fastapi.responses import JSONResponse
 from datetime import datetime, timezone
 import logging
 
+from sqlalchemy import text
+
 from app.config import settings
 from app.database import engine
 from app.models import Base
@@ -15,8 +17,24 @@ from app.api.exceptions import register_exception_handlers
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Criar tabelas
-Base.metadata.create_all(bind=engine)
+# Criar extensão pgvector e tabelas
+def init_database():
+    """Inicializa o banco de dados com extensões necessárias."""
+    with engine.connect() as conn:
+        try:
+            # Criar extensão pgvector se não existir
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+            conn.commit()
+            logger.info("Extensão pgvector verificada/criada")
+        except Exception as e:
+            logger.warning(f"Não foi possível criar extensão pgvector: {e}")
+            conn.rollback()
+    
+    # Criar tabelas
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tabelas do banco de dados criadas/verificadas")
+
+init_database()
 
 # Inicializar FastAPI
 app = FastAPI(
