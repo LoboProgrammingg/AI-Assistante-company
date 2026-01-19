@@ -27,14 +27,23 @@ class CacheService:
     def __init__(self):
         if self._redis is None:
             try:
-                self._redis = redis.Redis(
-                    host=settings.REDIS_HOST,
-                    port=settings.REDIS_PORT,
-                    db=settings.REDIS_DB,
-                    decode_responses=True,
-                    socket_timeout=5,
-                    socket_connect_timeout=5
-                )
+                # Usar REDIS_URL se disponível (Railway), senão usar host/port
+                if settings.REDIS_URL:
+                    self._redis = redis.from_url(
+                        settings.get_redis_url,
+                        decode_responses=True,
+                        socket_timeout=5,
+                        socket_connect_timeout=5
+                    )
+                else:
+                    self._redis = redis.Redis(
+                        host=settings.REDIS_HOST,
+                        port=settings.REDIS_PORT,
+                        db=settings.REDIS_DB,
+                        decode_responses=True,
+                        socket_timeout=5,
+                        socket_connect_timeout=5
+                    )
                 self._redis.ping()
                 logger.info("Conexão com Redis estabelecida")
             except redis.ConnectionError as e:

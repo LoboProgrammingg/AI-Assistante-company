@@ -36,9 +36,12 @@ class Settings(BaseSettings):
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
     REDIS_DB: int = 0
+    REDIS_URL: Optional[str] = None  # Railway provides this directly
     
     @property
-    def REDIS_URL(self) -> str:
+    def get_redis_url(self) -> str:
+        if self.REDIS_URL:
+            return self.REDIS_URL
         return f"redis://{self.REDIS_HOST}:{self.REDIS_PORT}/{self.REDIS_DB}"
     
     # WhatsApp API (Twilio)

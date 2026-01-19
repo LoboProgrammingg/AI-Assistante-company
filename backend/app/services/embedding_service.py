@@ -1,5 +1,6 @@
 import logging
 import hashlib
+import json
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timezone
 
@@ -140,26 +141,27 @@ class EmbeddingService:
             return []
         
         # Buscar usando pgvector com filtro por usuário
+        # Usar formato de string para evitar conflito de sintaxe com ::
+        query_emb_str = str(query_embedding)
         result = self.db.execute(
-            text("""
+            text(f"""
                 SELECT 
                     de.chunk_text,
                     de.chunk_index,
                     d.id as document_id,
                     d.title,
                     d.category,
-                    1 - (de.embedding::vector <=> :query_emb::vector) as similarity
+                    1 - (de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)) as similarity
                 FROM document_embeddings de
                 JOIN documents d ON de.document_id = d.id
                 WHERE d.user_id = :user_id 
                     AND d.send_to_ai = true 
                     AND d.is_active = true
                     AND de.embedding IS NOT NULL
-                ORDER BY de.embedding::vector <=> :query_emb::vector
+                ORDER BY de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)
                 LIMIT :limit
             """),
             {
-                "query_emb": str(query_embedding),
                 "user_id": user_id,
                 "limit": limit
             }
