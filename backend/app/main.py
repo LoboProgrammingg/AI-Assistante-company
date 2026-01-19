@@ -77,6 +77,7 @@ async def root():
 
 
 @app.get("/health")
+@app.get("/api/v1/health")
 async def health_check():
     """Health check básico."""
     return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
