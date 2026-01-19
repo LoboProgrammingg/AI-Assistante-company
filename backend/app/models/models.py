@@ -457,11 +457,39 @@ class DocumentEmbedding(Base):
     chunk_index = Column(Integer, nullable=False)
     chunk_text = Column(Text, nullable=False)
     
-    # Embedding armazenado como JSON (pgvector será usado via raw SQL)
-    embedding = Column(JSON, nullable=True)
+    # Embedding armazenado como Text (lista JSON serializada)
+    embedding = Column(Text, nullable=True)
     
     # Timestamps
     created_at = Column(DateTime, default=utc_now)
     
     # Relationships
     document = relationship("Document", back_populates="embeddings")
+
+
+class ClassificationCache(Base):
+    """Cache de classificações de intenção para evitar chamadas repetidas à LLM."""
+    __tablename__ = "classification_cache"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    message_hash = Column(String(64), unique=True, nullable=False, index=True)
+    intent = Column(String(50), nullable=False)
+    confidence = Column(Float, nullable=False)
+    entities = Column(JSON, default={})
+    hit_count = Column(Integer, default=1)
+    last_used_at = Column(DateTime, default=utc_now)
+    created_at = Column(DateTime, default=utc_now)
+
+
+class AgentMetrics(Base):
+    """Métricas de performance dos agentes."""
+    __tablename__ = "agent_metrics"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    agent_name = Column(String(50), nullable=False)
+    action_type = Column(String(50), nullable=False)
+    success = Column(Boolean, default=True)
+    confidence = Column(Float, nullable=True)
+    response_time_ms = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=utc_now, index=True)

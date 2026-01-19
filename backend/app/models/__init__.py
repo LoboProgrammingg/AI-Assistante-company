@@ -23,6 +23,8 @@ from app.models.models import (
     Document,
     DocumentCategory,
     DocumentEmbedding,
+    ClassificationCache,
+    AgentMetrics,
 )
 
 __all__ = [
@@ -50,4 +52,6 @@ __all__ = [
     "Document",
     "DocumentCategory",
     "DocumentEmbedding",
+    "ClassificationCache",
+    "AgentMetrics",
 ]

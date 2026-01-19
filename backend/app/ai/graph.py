@@ -96,14 +96,18 @@ class WhatsAppAIAgent:
         
         # Tentar cache primeiro
         if db:
-            cache_service = ClassificationCacheService(db)
-            cached = cache_service.get_cached(last_message.content)
-            if cached and cached["confidence"] >= 0.8:
-                state["intent"] = cached["intent"]
-                state["entities"] = cached["entities"]
-                state["confidence"] = cached["confidence"]
-                logger.info(f"Cache hit para classificação: {cached['intent']}")
-                return state
+            try:
+                cache_service = ClassificationCacheService(db)
+                cached = cache_service.get_cached(last_message.content)
+                if cached and cached["confidence"] >= 0.8:
+                    state["intent"] = cached["intent"]
+                    state["entities"] = cached["entities"]
+                    state["confidence"] = cached["confidence"]
+                    logger.info(f"Cache hit para classificação: {cached['intent']}")
+                    return state
+            except Exception as e:
+                logger.warning(f"Erro ao buscar cache de classificação: {e}")
+                db.rollback()
         
         # Se há um pending_reminder, rotear diretamente para reminder
         if context.get("pending_reminder"):
