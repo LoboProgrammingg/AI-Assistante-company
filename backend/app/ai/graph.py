@@ -520,6 +520,8 @@ Gere sua resposta:"""
                     enriched_context["context_prompt"] += f"\n\n{rag_context}"
             except Exception as e:
                 logger.warning(f"Erro ao buscar RAG context: {e}")
+                # Rollback para limpar transação com erro
+                db.rollback()
             
             facts = memory_context.get("facts", {})
             if facts.get("name") and not enriched_context.get("user_name"):

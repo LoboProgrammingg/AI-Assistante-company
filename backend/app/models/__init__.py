@@ -22,6 +22,7 @@ from app.models.models import (
     SubscriptionStatus,
     Document,
     DocumentCategory,
+    DocumentEmbedding,
 )
 
 __all__ = [
@@ -48,4 +49,5 @@ __all__ = [
     "SubscriptionStatus",
     "Document",
     "DocumentCategory",
+    "DocumentEmbedding",
 ]

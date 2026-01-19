@@ -443,3 +443,25 @@ class Document(Base):
     
     # Relationships
     user = relationship("User", back_populates="documents")
+    embeddings = relationship("DocumentEmbedding", back_populates="document", cascade="all, delete-orphan")
+
+
+class DocumentEmbedding(Base):
+    """Embeddings de chunks de documentos para busca vetorial."""
+    __tablename__ = "document_embeddings"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id"), nullable=False)
+    
+    # Chunk info
+    chunk_index = Column(Integer, nullable=False)
+    chunk_text = Column(Text, nullable=False)
+    
+    # Embedding armazenado como JSON (pgvector será usado via raw SQL)
+    embedding = Column(JSON, nullable=True)
+    
+    # Timestamps
+    created_at = Column(DateTime, default=utc_now)
+    
+    # Relationships
+    document = relationship("Document", back_populates="embeddings")
