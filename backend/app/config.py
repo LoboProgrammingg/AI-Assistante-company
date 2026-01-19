@@ -59,19 +59,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
     
     # CORS
-    @field_validator("BACKEND_CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str) and not v:
-            return ["http://localhost:3000", "http://localhost:3001", "http://localhost:5173"]
-        return v
-    
-    BACKEND_CORS_ORIGINS: list[str] = [
-        "http://localhost:3000", 
-        "http://localhost:3001", 
-        "http://localhost:5173",
-        "https://ai-assistante-company-frontend-production.up.railway.app"
-    ]
+    BACKEND_CORS_ORIGINS: str = "http://localhost:3000,http://localhost:3001,http://localhost:5173,https://ai-assistante-company-frontend-production.up.railway.app"
     
     # Timezone Default
     DEFAULT_TIMEZONE: str = "America/Cuiaba"
