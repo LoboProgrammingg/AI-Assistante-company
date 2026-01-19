@@ -148,13 +148,13 @@ class EmbeddingService:
                     d.id as document_id,
                     d.title,
                     d.category,
-                    1 - (de.embedding <=> :query_emb::vector) as similarity
+                    1 - (de.embedding <=> :query_emb) as similarity
                 FROM document_embeddings de
                 JOIN documents d ON de.document_id = d.id
                 WHERE d.user_id = :user_id 
                     AND d.send_to_ai = true 
                     AND d.is_active = true
-                ORDER BY de.embedding <=> :query_emb::vector
+                ORDER BY de.embedding <=> :query_emb
                 LIMIT :limit
             """),
             {
