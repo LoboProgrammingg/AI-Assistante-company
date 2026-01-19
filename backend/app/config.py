@@ -4,7 +4,8 @@ Configurações da aplicação.
 import os
 from functools import lru_cache
 from typing import Optional
-from pydantic import field_validator, BaseSettings
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
