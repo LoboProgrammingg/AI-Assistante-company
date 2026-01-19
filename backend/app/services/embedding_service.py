@@ -136,50 +136,54 @@ class EmbeddingService:
         threshold: float = 0.7
     ) -> List[Dict[str, Any]]:
         """Busca chunks similares à query usando similaridade de cosseno."""
-        query_embedding = self.generate_query_embedding(query)
-        if not query_embedding:
+        try:
+            query_embedding = self.generate_query_embedding(query)
+            if not query_embedding:
+                return []
+            
+            # Buscar usando pgvector com filtro por usuário
+            query_emb_str = str(query_embedding)
+            result = self.db.execute(
+                text(f"""
+                    SELECT 
+                        de.chunk_text,
+                        de.chunk_index,
+                        d.id as document_id,
+                        d.title,
+                        d.category,
+                        1 - (de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)) as similarity
+                    FROM document_embeddings de
+                    JOIN documents d ON de.document_id = d.id
+                    WHERE d.user_id = :user_id 
+                        AND d.send_to_ai = true 
+                        AND d.is_active = true
+                        AND de.embedding IS NOT NULL
+                    ORDER BY de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)
+                    LIMIT :limit
+                """),
+                {
+                    "user_id": user_id,
+                    "limit": limit
+                }
+            )
+            
+            results = []
+            for row in result:
+                if row.similarity >= threshold:
+                    results.append({
+                        "chunk_text": row.chunk_text,
+                        "document_id": row.document_id,
+                        "title": row.title,
+                        "category": row.category,
+                        "similarity": float(row.similarity),
+                        "chunk_index": row.chunk_index
+                    })
+            
+            return results
+        except Exception as e:
+            logger.warning(f"Erro na busca semântica: {e}")
+            self.db.rollback()
             return []
-        
-        # Buscar usando pgvector com filtro por usuário
-        # Usar formato de string para evitar conflito de sintaxe com ::
-        query_emb_str = str(query_embedding)
-        result = self.db.execute(
-            text(f"""
-                SELECT 
-                    de.chunk_text,
-                    de.chunk_index,
-                    d.id as document_id,
-                    d.title,
-                    d.category,
-                    1 - (de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)) as similarity
-                FROM document_embeddings de
-                JOIN documents d ON de.document_id = d.id
-                WHERE d.user_id = :user_id 
-                    AND d.send_to_ai = true 
-                    AND d.is_active = true
-                    AND de.embedding IS NOT NULL
-                ORDER BY de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)
-                LIMIT :limit
-            """),
-            {
-                "user_id": user_id,
-                "limit": limit
-            }
-        )
-        
-        results = []
-        for row in result:
-            if row.similarity >= threshold:
-                results.append({
-                    "chunk_text": row.chunk_text,
-                    "document_id": row.document_id,
-                    "title": row.title,
-                    "category": row.category,
-                    "similarity": float(row.similarity),
-                    "chunk_index": row.chunk_index
-                })
-        
-        return results
 
     def get_relevant_context(self, user_id: int, query: str, max_tokens: int = 2000) -> str:
         """Retorna contexto relevante dos documentos para a query."""
@@ -218,29 +222,34 @@ class ClassificationCacheService:
 
     def get_cached(self, message: str) -> Optional[Dict[str, Any]]:
         """Busca classificação no cache."""
-        msg_hash = self._hash_message(message)
-        
-        result = self.db.execute(
-            text("""
-                UPDATE classification_cache 
-                SET hit_count = hit_count + 1, last_used_at = :now
-                WHERE message_hash = :hash
-                RETURNING intent, confidence, entities
-            """),
-            {"hash": msg_hash, "now": utc_now()}
-        )
-        
-        row = result.fetchone()
-        if row:
-            self.db.commit()
-            logger.debug(f"Cache hit para classificação: {msg_hash[:8]}...")
-            return {
-                "intent": row.intent,
-                "confidence": row.confidence,
-                "entities": row.entities or {}
-            }
-        
-        return None
+        try:
+            msg_hash = self._hash_message(message)
+            
+            result = self.db.execute(
+                text("""
+                    UPDATE classification_cache 
+                    SET hit_count = hit_count + 1, last_used_at = :now
+                    WHERE message_hash = :hash
+                    RETURNING intent, confidence, entities
+                """),
+                {"hash": msg_hash, "now": utc_now()}
+            )
+            
+            row = result.fetchone()
+            if row:
+                self.db.commit()
+                logger.debug(f"Cache hit para classificação: {msg_hash[:8]}...")
+                return {
+                    "intent": row.intent,
+                    "confidence": row.confidence,
+                    "entities": row.entities or {}
+                }
+            
+            return None
+        except Exception as e:
+            logger.warning(f"Erro ao buscar cache: {e}")
+            self.db.rollback()
+            return None
 
     def cache_classification(
         self, 
