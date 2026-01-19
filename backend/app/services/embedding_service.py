@@ -148,13 +148,14 @@ class EmbeddingService:
                     d.id as document_id,
                     d.title,
                     d.category,
-                    1 - (de.embedding <=> :query_emb) as similarity
+                    1 - (de.embedding::vector <=> :query_emb::vector) as similarity
                 FROM document_embeddings de
                 JOIN documents d ON de.document_id = d.id
                 WHERE d.user_id = :user_id 
                     AND d.send_to_ai = true 
                     AND d.is_active = true
-                ORDER BY de.embedding <=> :query_emb
+                    AND de.embedding IS NOT NULL
+                ORDER BY de.embedding::vector <=> :query_emb::vector
                 LIMIT :limit
             """),
             {
@@ -253,11 +254,11 @@ class ClassificationCacheService:
             self.db.execute(
                 text("""
                     INSERT INTO classification_cache (message_hash, intent, confidence, entities)
-                    VALUES (:hash, :intent, :confidence, :entities)
+                    VALUES (:hash, :intent, :confidence, :entities::jsonb)
                     ON CONFLICT (message_hash) DO UPDATE SET
                         intent = :intent,
                         confidence = :confidence,
-                        entities = :entities,
+                        entities = :entities::jsonb,
                         hit_count = classification_cache.hit_count + 1,
                         last_used_at = :now
                 """),
@@ -265,7 +266,7 @@ class ClassificationCacheService:
                     "hash": msg_hash,
                     "intent": intent,
                     "confidence": confidence,
-                    "entities": entities or {},
+                    "entities": json.dumps(entities or {}),
                     "now": utc_now()
                 }
             )
