@@ -12,7 +12,7 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-EMBEDDING_MODEL = "models/text-embedding-004"
+EMBEDDING_MODEL = "models/gemini-embedding-001"
 EMBEDDING_DIMENSION = 768
 CHUNK_SIZE = 1000
 CHUNK_OVERLAP = 200
@@ -109,17 +109,18 @@ class EmbeddingService:
             if not embedding:
                 continue
             
-            # Inserir embedding no pgvector
+            # Inserir embedding como texto (cast para vector será feito na busca)
             emb_str = str(embedding)
             self.db.execute(
-                text(f"""
+                text("""
                     INSERT INTO document_embeddings (document_id, chunk_index, chunk_text, embedding)
-                    VALUES (:doc_id, :idx, :text, '{emb_str}'::vector(768))
+                    VALUES (:doc_id, :idx, :text, :emb)
                 """),
                 {
                     "doc_id": document_id,
                     "idx": i,
-                    "text": chunk
+                    "text": chunk,
+                    "emb": emb_str
                 }
             )
             indexed += 1
