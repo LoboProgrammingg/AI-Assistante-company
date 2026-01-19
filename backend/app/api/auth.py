@@ -55,7 +55,7 @@ async def register(
             email=data.email,
             password=data.password,
             phone_number=data.phone_number,
-            timezone=data.timezone
+            user_timezone=data.timezone
         )
         
         # Autorizar telefone para IA
