@@ -2,6 +2,7 @@
 Endpoints de autenticação.
 """
 import logging
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 
