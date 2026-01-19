@@ -1,0 +1,54 @@
+# FastAPI & Server
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+python-multipart==0.0.6
+
+# Database
+sqlalchemy==2.0.25
+psycopg2-binary==2.9.9
+alembic==1.13.1
+
+# Redis
+redis==5.0.1
+hiredis==2.3.2
+
+# AI & LangGraph
+langchain==0.3.14
+langchain-core==0.3.29
+langchain-google-genai==2.0.8
+langgraph==0.2.60
+google-generativeai==0.8.3
+langsmith==0.2.10
+
+# WhatsApp (Twilio)
+twilio==8.11.1
+
+# Audio Processing
+pydub==0.25.1
+google-cloud-speech==2.23.0
+
+# Utils
+python-dotenv==1.0.0
+pydantic>=2.7.4
+pydantic-settings>=2.1.0
+email-validator>=2.1.0,<3.0.0
+httpx==0.26.0
+pytz==2023.3.post1
+python-dateutil==2.8.2
+aiofiles==23.2.1
+PyPDF2==3.0.1
+
+# Background Tasks
+apscheduler==3.10.4
+celery==5.3.6
+
+# Monitoring & Logging
+structlog==24.1.0
+
+# Security
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+
+# tests
+pytest==8.3.4
+pytest-asyncio==0.22.0
