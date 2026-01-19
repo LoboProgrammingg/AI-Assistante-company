@@ -62,7 +62,7 @@ class AuthService:
         email: str,
         password: str,
         phone_number: str,
-        timezone: str = None
+        user_timezone: str = None
     ) -> Tuple[User, str]:
         """
         Registra novo usuário.
@@ -96,7 +96,7 @@ class AuthService:
             session_id=str(uuid.uuid4()),
             is_verified=False,
             is_active=True,
-            timezone=timezone or settings.DEFAULT_TIMEZONE
+            timezone=user_timezone or settings.DEFAULT_TIMEZONE
         )
         
         self.db.add(user)
