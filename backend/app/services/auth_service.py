@@ -108,7 +108,7 @@ class AuthService:
             user_id=user.id,
             token=code,
             token_type=VerificationTokenType.EMAIL_VERIFICATION,
-            expires_at=datetime.now(timezone.utc) + timedelta(
+            expires_at=datetime.now(datetime.timezone.utc) + timedelta(
                 minutes=settings.VERIFICATION_CODE_EXPIRE_MINUTES
             )
         )
@@ -248,7 +248,7 @@ class AuthService:
             user_id=user.id,
             token=code,
             token_type=VerificationTokenType.EMAIL_VERIFICATION,
-            expires_at=datetime.now(timezone.utc) + timedelta(
+            expires_at=datetime.now(datetime.timezone.utc) + timedelta(
                 minutes=settings.VERIFICATION_CODE_EXPIRE_MINUTES
             )
         )
@@ -325,7 +325,7 @@ class AuthService:
             user_id=user.id,
             token=code,
             token_type=VerificationTokenType.PASSWORD_RESET,
-            expires_at=datetime.now(timezone.utc) + timedelta(
+            expires_at=datetime.now(datetime.timezone.utc) + timedelta(
                 minutes=settings.VERIFICATION_CODE_EXPIRE_MINUTES
             )
         )
