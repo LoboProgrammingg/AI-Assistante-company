@@ -1,7 +1,6 @@
 [build]
 builder = "dockerfile"
 dockerfilePath = "backend/Dockerfile"
-buildCommand = "cd backend && echo 'Building backend...'"
 
 [deploy]
 healthcheckPath = "/api/v1/health"
