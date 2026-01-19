@@ -244,3 +244,25 @@ def change_password(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
+
+
+@router.post("/bypass-verify")
+async def bypass_verify_email(
+    email: str,
+    db: Session = Depends(get_db)
+):
+    """Endpoint temporário para bypass de verificação (apenas para desenvolvimento)"""
+    from app.models import User
+    
+    user = db.query(User).filter(User.email == email.lower()).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Usuário não encontrado"
+        )
+    
+    user.is_verified = True
+    user.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    
+    return {"message": "Conta verificada com sucesso (bypass)"}
