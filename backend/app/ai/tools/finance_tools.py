@@ -4,7 +4,7 @@ Seguindo melhores práticas: validação automática de tipos.
 """
 
 import logging
-from datetime import date, datetime
+from datetime import datetime
 from typing import List, Literal, Optional
 
 from langchain_core.tools import tool
@@ -122,7 +122,7 @@ class FinanceTools:
         if action == "create_finance":
             finance_data = result.get("finance", {})
             try:
-                created = service.create_from_entities(user_id, finance_data)
+                service.create_from_entities(user_id, finance_data)
                 return {
                     "success": True,
                     "message": f"Transação de R${finance_data['amount']:.2f} registrada!",
@@ -144,7 +144,7 @@ class FinanceTools:
         elif action == "delete_finance":
             filters = result.get("filters", {})
             try:
-                deleted = service.delete_by_filters(user_id, filters)
+                service.delete_by_filters(user_id, filters)
                 return {"success": True, "message": "Transação deletada com sucesso!"}
             except Exception as e:
                 logger.error(f"Erro ao deletar transação: {e}")

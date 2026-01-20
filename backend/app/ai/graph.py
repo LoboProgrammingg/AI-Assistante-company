@@ -6,7 +6,6 @@ Orquestra os agentes especializados e gerencia o fluxo de processamento.
 import json
 import logging
 import operator
-from datetime import datetime
 from typing import Annotated, Optional, Sequence, TypedDict
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
@@ -360,7 +359,7 @@ class WhatsAppAIAgent:
         memory = context.get("memory", {})
 
         # Extrair primeiro nome para saudações mais naturais
-        first_name = user_name.split()[0] if user_name else ""
+        user_name.split()[0] if user_name else ""
 
         # Obter estilo de comunicação do usuário
         comm_style = self._get_communication_style_prompt(memory)

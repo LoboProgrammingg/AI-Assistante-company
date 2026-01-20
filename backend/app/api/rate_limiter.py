@@ -4,10 +4,8 @@ Rate Limiting usando Redis.
 
 import logging
 from datetime import datetime, timezone
-from typing import Callable, Optional
 
 from fastapi import HTTPException, Request, status
-from fastapi.responses import JSONResponse
 
 from app.services.cache_service import cache_service
 

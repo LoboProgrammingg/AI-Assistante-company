@@ -5,7 +5,7 @@ Utiliza prompts centralizados para fácil manutenção.
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict
 
 from app.ai.agents.base_agent import BaseAgent
@@ -138,7 +138,7 @@ class MeetingAgent(BaseAgent):
             }
 
         # Se falta informação, perguntar e salvar pending
-        missing = extracted.get("missing", [])
+        extracted.get("missing", [])
 
         if not extracted.get("scheduled_time"):
             return {

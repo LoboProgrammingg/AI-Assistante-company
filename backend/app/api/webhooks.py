@@ -5,18 +5,16 @@ Inclui rate limiting e sanitização de inputs.
 
 import logging
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
-from twilio.request_validator import RequestValidator
 from twilio.rest import Client
 
 from app.ai.graph import WhatsAppAIAgent
 from app.ai.graph_v2 import IRISGraphV2, get_iris_graph
 from app.config import settings
-from app.core.exceptions import IRISException, get_friendly_message
 from app.core.input_sanitizer import InputSanitizer
-from app.core.rate_limiter import RateLimiter, RateLimitExceeded
+from app.core.rate_limiter import RateLimiter
 from app.database import get_db
 from app.models import Message, User
 

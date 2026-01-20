@@ -6,7 +6,7 @@ from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.models import RecurrenceType, Reminder
-from app.schemas.reminder import ReminderCreate, ReminderFromAI, ReminderUpdate
+from app.schemas.reminder import ReminderCreate, ReminderUpdate
 
 
 def utc_now():

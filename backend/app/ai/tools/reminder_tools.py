@@ -3,7 +3,6 @@ Tools de Lembretes com Pydantic Schemas para LangGraph.
 """
 
 import logging
-from datetime import datetime
 from typing import List, Literal, Optional
 
 from langchain_core.tools import tool
@@ -102,7 +101,7 @@ class ReminderTools:
         if action == "create_reminder":
             reminder_data = result.get("reminder", {})
             try:
-                created = service.create_from_entities(user_id, reminder_data)
+                service.create_from_entities(user_id, reminder_data)
                 return {
                     "success": True,
                     "message": f"Lembrete '{reminder_data['title']}' criado!",
@@ -124,7 +123,7 @@ class ReminderTools:
         elif action == "delete_reminder":
             filters = result.get("filters", {})
             try:
-                deleted = service.delete_by_filters(user_id, filters)
+                service.delete_by_filters(user_id, filters)
                 return {"success": True, "message": "Lembrete deletado!"}
             except Exception as e:
                 logger.error(f"Erro ao deletar lembrete: {e}")

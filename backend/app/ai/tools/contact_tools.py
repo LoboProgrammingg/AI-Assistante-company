@@ -67,7 +67,7 @@ class ContactTools:
         if action == "create_contact":
             contact_data = result.get("contact", {})
             try:
-                created = service.create_contact(user_id, contact_data)
+                service.create_contact(user_id, contact_data)
                 return {"success": True, "message": f"Contato '{contact_data['name']}' salvo!", "data": contact_data}
             except Exception as e:
                 logger.error(f"Erro ao criar contato: {e}")

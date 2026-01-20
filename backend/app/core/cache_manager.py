@@ -3,7 +3,6 @@ Gerenciador de cache unificado para IRIS.
 Abstrai Redis e fallback para memória local.
 """
 
-import hashlib
 import logging
 import time
 from collections import OrderedDict
@@ -11,7 +10,6 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 

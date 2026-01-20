@@ -3,12 +3,10 @@ Estado tipado para LangGraph - IRIS.
 Seguindo melhores práticas: herda de MessagesState, tipagem rigorosa.
 """
 
-import operator
-from typing import Annotated, Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
-from langchain_core.messages import BaseMessage
 from langgraph.graph import MessagesState
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class FinanceContext(BaseModel):

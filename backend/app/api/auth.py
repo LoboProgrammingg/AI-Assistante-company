@@ -198,7 +198,6 @@ def change_password(
 @router.post("/bypass-verify")
 async def bypass_verify_email(request: Request, db: Session = Depends(get_db)):
     """Endpoint temporário para bypass de verificação (apenas para desenvolvimento)"""
-    import json
 
     from app.models import User
 

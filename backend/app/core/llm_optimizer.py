@@ -7,10 +7,8 @@ import hashlib
 import logging
 import time
 from dataclasses import dataclass
-from functools import lru_cache
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
-from app.config import settings
 
 logger = logging.getLogger(__name__)
 

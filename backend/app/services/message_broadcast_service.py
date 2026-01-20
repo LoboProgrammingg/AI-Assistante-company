@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models import Contact
 from app.services.contact_service import ContactService, normalize_group_name
 
 logger = logging.getLogger(__name__)

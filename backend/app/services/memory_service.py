@@ -190,9 +190,9 @@ class MemoryService:
         Returns:
             Dict com resumo dos dados
         """
-        from datetime import datetime, timedelta
+        from datetime import timedelta
 
-        from sqlalchemy import and_, func
+        from sqlalchemy import and_
 
         from app.models import Contact, Document, Finance, Meeting, Reminder
 

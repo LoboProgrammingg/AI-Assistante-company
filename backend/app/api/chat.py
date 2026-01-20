@@ -12,7 +12,8 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.ai import MeetingAgent, WhatsAppAIAgent
+from app.ai import MeetingAgent
+from app.ai.graph_v2 import get_iris_graph
 from app.api.deps import get_current_user, get_db
 from app.config import settings
 from app.models import (
@@ -48,7 +49,7 @@ def create_reminder_from_entities(
 
     import pytz
 
-    from app.utils.timezone_helper import convert_to_utc, get_current_time_for_user
+    from app.utils.timezone_helper import get_current_time_for_user
 
     # Obter horário atual no timezone do usuário
     user_tz = pytz.timezone(user_timezone)
@@ -140,7 +141,7 @@ def create_finance_from_entities(
     amount = finance_data.get("amount", 0)
     description = finance_data.get("description", "")
     category_name = finance_data.get("category", "Outros")
-    transaction_date_str = finance_data.get("transaction_date")
+    finance_data.get("transaction_date")
     is_recurring = finance_data.get("is_recurring", False)
     tags = finance_data.get("tags", [])
 
@@ -242,7 +243,7 @@ async def send_message(
     try:
         save_message(db=db, user_id=current_user.id, content=data.message, direction="incoming")
 
-        agent = WhatsAppAIAgent(api_key=settings.GOOGLE_API_KEY)
+        agent = get_iris_graph()
 
         result = await agent.process_message(
             user_id=current_user.id,
@@ -528,7 +529,7 @@ async def send_audio(
                 )
             else:
                 # Processar como comando normal
-                agent = WhatsAppAIAgent(api_key=settings.GOOGLE_API_KEY)
+                agent = get_iris_graph()
 
                 result = await agent.process_message(
                     user_id=current_user.id,
@@ -558,6 +559,13 @@ async def send_audio(
                     except Exception as e:
                         logger.error(f"Erro ao criar lembrete: {e}")
 
+                elif next_action == "create_reminders" and entities.get("reminders"):
+                    try:
+                        for reminder_data in entities["reminders"]:
+                            create_reminder_from_entities(db, current_user.id, {"reminder": reminder_data})
+                    except Exception as e:
+                        logger.error(f"Erro ao criar lembretes: {e}")
+
                 elif next_action == "create_finance" and entities.get("finance"):
                     try:
                         create_finance_from_entities(
@@ -565,6 +573,15 @@ async def send_audio(
                         )
                     except Exception as e:
                         logger.error(f"Erro ao criar transação: {e}")
+
+                elif next_action == "create_finances" and entities.get("finances"):
+                    try:
+                        for finance_data in entities["finances"]:
+                            create_finance_from_entities(
+                                db, current_user.id, {"finance": finance_data}, current_user.timezone or "America/Sao_Paulo"
+                            )
+                    except Exception as e:
+                        logger.error(f"Erro ao criar transações: {e}")
 
                 return AudioResponse(
                     response=result["response"],

@@ -5,7 +5,6 @@ Usa PostgreSQL para persistir estado entre conversas.
 
 import logging
 from contextlib import asynccontextmanager
-from typing import Optional
 
 from app.config import settings
 

@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List, Optional
+from typing import Optional
 
 import aiofiles
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status

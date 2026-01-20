@@ -80,7 +80,7 @@ class MeetingTools:
         if action == "create_meeting":
             meeting_data = result.get("meeting", {})
             try:
-                created = service.create_from_entities(user_id, meeting_data)
+                service.create_from_entities(user_id, meeting_data)
                 return {
                     "success": True,
                     "message": f"Reunião '{meeting_data['title']}' agendada!",

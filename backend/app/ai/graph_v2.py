@@ -11,13 +11,11 @@ Melhorias implementadas:
 
 import json
 import logging
-from datetime import datetime
-from typing import List, Literal, Optional
+from typing import Optional
 
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_core.messages import AIMessage, SystemMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
-from langgraph.prebuilt import ToolNode
 from sqlalchemy.orm import Session
 
 from app.ai.agents.prompts.classifier_prompts import ClassifierPrompts

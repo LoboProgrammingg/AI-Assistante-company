@@ -256,9 +256,9 @@ class FinanceAgent(BaseAgent):
 
         # Montar descrição
         if category_filter:
-            filter_desc = f" com **{category_filter}**"
+            pass
         else:
-            filter_desc = ""
+            pass
 
         if not finances:
             if category_filter:

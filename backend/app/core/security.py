@@ -8,11 +8,10 @@ import logging
 import re
 import secrets
 from datetime import datetime, timedelta
-from functools import wraps
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
-from fastapi import HTTPException, Request, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Request
+from fastapi.security import HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 

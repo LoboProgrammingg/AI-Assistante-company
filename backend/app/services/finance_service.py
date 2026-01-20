@@ -1,6 +1,6 @@
 import logging
 from calendar import monthrange
-from datetime import date, datetime, timedelta, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -9,7 +9,7 @@ def utc_now():
     return datetime.now(timezone.utc)
 
 
-from sqlalchemy import and_, extract, func
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.models import Finance, FinanceCategory, FinanceType

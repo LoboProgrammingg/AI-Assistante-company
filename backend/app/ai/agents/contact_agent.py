@@ -14,9 +14,8 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.ai.agents.prompts.contact_prompts import ContactPrompts
 from app.config import settings
-from app.models import Contact, ScheduledMessage, ScheduledMessageStatus
+from app.models import ScheduledMessage, ScheduledMessageStatus
 from app.services.contact_service import (
-    ContactGroupService,
     ContactService,
     normalize_group_name,
 )
@@ -44,8 +43,8 @@ class ContactAgent:
     def process(self, message: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Processa mensagem relacionada a contatos."""
         try:
-            db = context.get("db")
-            user_id = context.get("user_id")
+            context.get("db")
+            context.get("user_id")
 
             # Verificar se há contato pendente esperando informação
             pending = context.get("pending_contact") or context.get("memory", {}).get("pending_contact")
