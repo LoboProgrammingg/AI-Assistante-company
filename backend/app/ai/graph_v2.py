@@ -227,10 +227,30 @@ class IRISGraphV2:
 
         # System prompt específico do domínio
         system_prompts = {
-            "finance": "Você é um assistente especializado em finanças pessoais. Use as tools disponíveis para registrar gastos, receitas ou consultar histórico financeiro.",
-            "reminder": "Você é um assistente especializado em lembretes. Use as tools para criar, listar ou deletar lembretes.",
-            "meeting": "Você é um assistente especializado em reuniões. Use as tools para agendar ou listar reuniões.",
-            "contact": "Você é um assistente especializado em contatos. Use as tools para adicionar ou listar contatos.",
+            "finance": """Você é um assistente especializado em finanças pessoais.
+
+REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLAS transações, você DEVE chamar a tool registrar_transacao UMA VEZ PARA CADA transação.
+Exemplo: "Recebi 600 e gastei 200" = DUAS chamadas de tool:
+1. registrar_transacao(valor=600, tipo="income", descricao="...")  
+2. registrar_transacao(valor=200, tipo="expense", descricao="...")
+
+NUNCA ignore nenhuma transação mencionada. Registre TODAS.""",
+            "reminder": """Você é um assistente especializado em lembretes.
+
+REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLOS lembretes, você DEVE chamar a tool criar_lembrete UMA VEZ PARA CADA lembrete.
+Exemplo: "Me lembra de ligar pro João às 10h e enviar email às 14h" = DUAS chamadas de tool.
+
+NUNCA ignore nenhum lembrete mencionado. Registre TODOS.""",
+            "meeting": """Você é um assistente especializado em reuniões.
+
+REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLAS reuniões, você DEVE chamar a tool criar_reuniao UMA VEZ PARA CADA reunião.
+
+NUNCA ignore nenhuma reunião mencionada. Registre TODAS.""",
+            "contact": """Você é um assistente especializado em contatos.
+
+REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLOS contatos, você DEVE chamar a tool criar_contato UMA VEZ PARA CADA contato.
+
+NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
         }
 
         messages = [SystemMessage(content=system_prompts.get(domain, "")), last_message]
@@ -298,17 +318,61 @@ class IRISGraphV2:
             successful = [r for r in tool_results if r.get("success")]
             failed = [r for r in tool_results if not r.get("success")]
 
-            parts = []
+            # Agregar TODOS os resultados por tipo de ação
+            finances_list = []
+            reminders_list = []
+            meetings_list = []
+            contacts_list = []
+
             for r in successful:
                 result_data = r.get("result", {})
                 if result_data.get("status") == "pending_execution":
-                    # Tool retornou dados para executar
                     action = result_data.get("action", "")
-                    state["next_action"] = action
-                    state["entities"] = result_data
+                    
+                    if action == "create_finance" and result_data.get("finance"):
+                        finances_list.append(result_data["finance"])
+                    elif action == "create_reminder" and result_data.get("reminder"):
+                        reminders_list.append(result_data["reminder"])
+                    elif action == "create_meeting" and result_data.get("meeting"):
+                        meetings_list.append(result_data["meeting"])
+                    elif action == "create_contact" and result_data.get("contact"):
+                        contacts_list.append(result_data["contact"])
+                    else:
+                        # Ação única (consulta, delete, etc)
+                        state["next_action"] = action
+                        state["entities"] = result_data
+
+            # Definir ações para múltiplos registros
+            if len(finances_list) > 1:
+                state["next_action"] = "create_finances"
+                state["entities"] = {"finances": finances_list}
+            elif len(finances_list) == 1:
+                state["next_action"] = "create_finance"
+                state["entities"] = {"finance": finances_list[0]}
+
+            if len(reminders_list) > 1:
+                state["next_action"] = "create_reminders"
+                state["entities"] = {"reminders": reminders_list}
+            elif len(reminders_list) == 1:
+                state["next_action"] = "create_reminder"
+                state["entities"] = {"reminder": reminders_list[0]}
+
+            if len(meetings_list) > 1:
+                state["next_action"] = "create_meetings"
+                state["entities"] = {"meetings": meetings_list}
+            elif len(meetings_list) == 1:
+                state["next_action"] = "create_meeting"
+                state["entities"] = {"meeting": meetings_list[0]}
+
+            if len(contacts_list) > 1:
+                state["next_action"] = "create_contacts"
+                state["entities"] = {"contacts": contacts_list}
+            elif len(contacts_list) == 1:
+                state["next_action"] = "create_contact"
+                state["entities"] = {"contact": contacts_list[0]}
 
             if failed:
-                parts.append("Alguns itens não puderam ser processados.")
+                logger.warning(f"Alguns itens falharam: {failed}")
 
             # Gerar resposta humanizada
             response_prompt = ResponsePrompts.get_response_generation_prompt(

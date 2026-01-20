@@ -453,6 +453,20 @@ async def whatsapp_webhook(
             except Exception as e:
                 logger.error(f"Erro ao criar lembrete: {e}")
 
+        elif next_action == "create_reminders" and entities.get("reminders"):
+            # Múltiplos lembretes
+            try:
+                from app.services.reminder_service import ReminderService
+
+                reminder_service = ReminderService(db)
+                count = 0
+                for reminder_data in entities["reminders"]:
+                    reminder_service.create_from_entities(user_id=user.id, entities=reminder_data)
+                    count += 1
+                logger.info(f"{count} lembretes criados para {user.name}")
+            except Exception as e:
+                logger.error(f"Erro ao criar múltiplos lembretes: {e}")
+
         elif next_action == "create_meeting" and entities.get("meeting"):
             try:
                 from app.services.meeting_service import MeetingService
@@ -462,6 +476,44 @@ async def whatsapp_webhook(
                 logger.info(f"Reunião criada para {user.name}")
             except Exception as e:
                 logger.error(f"Erro ao criar reunião: {e}")
+
+        elif next_action == "create_meetings" and entities.get("meetings"):
+            # Múltiplas reuniões
+            try:
+                from app.services.meeting_service import MeetingService
+
+                meeting_service = MeetingService(db)
+                count = 0
+                for meeting_data in entities["meetings"]:
+                    meeting_service.create_from_entities(user_id=user.id, entities=meeting_data)
+                    count += 1
+                logger.info(f"{count} reuniões criadas para {user.name}")
+            except Exception as e:
+                logger.error(f"Erro ao criar múltiplas reuniões: {e}")
+
+        elif next_action == "create_contact" and entities.get("contact"):
+            try:
+                from app.services.contact_service import ContactService
+
+                contact_service = ContactService(db)
+                contact_service.create_from_entities(user_id=user.id, entities=entities["contact"])
+                logger.info(f"Contato criado para {user.name}")
+            except Exception as e:
+                logger.error(f"Erro ao criar contato: {e}")
+
+        elif next_action == "create_contacts" and entities.get("contacts"):
+            # Múltiplos contatos
+            try:
+                from app.services.contact_service import ContactService
+
+                contact_service = ContactService(db)
+                count = 0
+                for contact_data in entities["contacts"]:
+                    contact_service.create_from_entities(user_id=user.id, entities=contact_data)
+                    count += 1
+                logger.info(f"{count} contatos criados para {user.name}")
+            except Exception as e:
+                logger.error(f"Erro ao criar múltiplos contatos: {e}")
 
         # Salvar resposta
         save_whatsapp_message(db, user.id, response_text, "outgoing", ai_response=response_text)
