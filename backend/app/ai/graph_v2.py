@@ -227,12 +227,28 @@ class IRISGraphV2:
         system_prompts = {
             "finance": """Você é um assistente especializado em finanças pessoais.
 
-REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLAS transações, você DEVE chamar a tool registrar_transacao UMA VEZ PARA CADA transação.
-Exemplo: "Recebi 600 e gastei 200" = DUAS chamadas de tool:
-1. registrar_transacao(valor=600, tipo="income", descricao="...")  
-2. registrar_transacao(valor=200, tipo="expense", descricao="...")
+REGRAS CRÍTICAS:
 
-NUNCA ignore nenhuma transação mencionada. Registre TODAS.""",
+1. MÚLTIPLAS TRANSAÇÕES: Chame registrar_transacao UMA VEZ PARA CADA transação.
+   Exemplo: "Recebi 600 e gastei 200" = DUAS chamadas de tool.
+
+2. DESCRIÇÃO SIMPLES (MÁXIMO 2 PALAVRAS): Extraia apenas a palavra-chave principal.
+   - "Uber para voltar para casa" → descricao="Uber"
+   - "Mensalidade da creche do filho" → descricao="Creche"
+   - "Fralda para o filho" → descricao="Fralda"
+   - "Almoço no restaurante" → descricao="Almoço"
+   - "Jantar com esposa" → descricao="Jantar"
+   - "Salário do mês" → descricao="Salário"
+   - "Sistema em nuvem" → descricao="Sistema"
+
+3. CONSULTAS POR MÊS: Use o parâmetro 'periodo' com o nome do mês.
+   - "gastos de janeiro" → periodo="janeiro"
+   - "quanto gastei em fevereiro" → periodo="fevereiro"
+   - "receitas de dezembro" → periodo="dezembro"
+   Meses válidos: janeiro, fevereiro, março, abril, maio, junho, julho, agosto, setembro, outubro, novembro, dezembro.
+
+4. FILTRO POR CATEGORIA/DESCRIÇÃO: Ao consultar, se o usuário perguntar sobre algo específico (ex: "gastos com Uber"), 
+   busque na categoria ou filtre mentalmente os resultados para responder apenas sobre aquele item.""",
             "reminder": """Você é um assistente especializado em lembretes.
 
 REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLOS lembretes, você DEVE chamar a tool criar_lembrete UMA VEZ PARA CADA lembrete.

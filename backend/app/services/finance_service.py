@@ -337,23 +337,32 @@ class FinanceService:
 
         return self.get_summary(user_id, start, end)
 
-    def get_summary_by_period(self, user_id: int, periodo: str, ano: Optional[int] = None) -> Dict[str, Any]:
+    def get_summary_by_period(
+        self, user_id: int, periodo: str, ano: Optional[int] = None, busca: Optional[str] = None
+    ) -> Dict[str, Any]:
         """
         Retorna resumo financeiro baseado em período flexível.
         
         Suporta:
         - 'hoje', 'semana', 'mes', 'ano', 'tudo'
         - Nomes de meses: 'janeiro', 'fevereiro', etc.
+        - Busca por descrição (ex: 'uber', 'almoço')
         
         Args:
             user_id: ID do usuário
             periodo: Nome do período ou mês
             ano: Ano específico (opcional)
+            busca: Filtro por descrição (opcional)
         
         Returns:
             Dict com resumo financeiro
         """
         start_date, end_date = parse_period_to_dates(periodo, ano)
+        
+        # Se há busca, retornar transações filtradas
+        if busca:
+            return self.get_filtered_transactions(user_id, start_date, end_date, busca)
+        
         summary = self.get_summary(user_id, start_date, end_date)
         
         # Adicionar nome do período na resposta
@@ -366,6 +375,61 @@ class FinanceService:
             summary["period"]["name"] = periodo.capitalize()
         
         return summary
+
+    def get_filtered_transactions(
+        self, user_id: int, start_date: date, end_date: date, busca: str
+    ) -> Dict[str, Any]:
+        """
+        Retorna transações filtradas por descrição.
+        
+        Args:
+            user_id: ID do usuário
+            start_date: Data inicial
+            end_date: Data final
+            busca: Termo de busca na descrição
+        
+        Returns:
+            Dict com transações filtradas e totais
+        """
+        busca_lower = busca.lower().strip()
+        
+        # Buscar transações que contenham o termo na descrição
+        query = self.db.query(Finance).filter(
+            and_(
+                Finance.user_id == user_id,
+                Finance.transaction_date >= start_date,
+                Finance.transaction_date <= end_date,
+                Finance.description.ilike(f"%{busca_lower}%"),
+            )
+        ).order_by(Finance.transaction_date.desc())
+        
+        transactions = query.all()
+        
+        total_income = sum(t.amount for t in transactions if t.type == FinanceType.INCOME)
+        total_expenses = sum(t.amount for t in transactions if t.type == FinanceType.EXPENSE)
+        
+        return {
+            "period": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+            },
+            "search_term": busca,
+            "transactions": [
+                {
+                    "id": t.id,
+                    "description": t.description,
+                    "amount": float(t.amount),
+                    "type": t.type.value,
+                    "date": t.transaction_date.isoformat(),
+                }
+                for t in transactions
+            ],
+            "summary": {
+                "total_income": float(total_income),
+                "total_expenses": float(total_expenses),
+                "count": len(transactions),
+            },
+        }
 
     def get_monthly_trend(self, user_id: int, months: int = 6) -> List[Dict[str, Any]]:
         """

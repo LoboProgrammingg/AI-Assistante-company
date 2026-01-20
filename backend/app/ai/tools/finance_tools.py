@@ -45,6 +45,10 @@ class ConsultarFinancasSchema(BaseModel):
         description="Ano específico para consulta (ex: 2025, 2026). Se não informado, usa o ano atual.",
         default=None,
     )
+    busca: Optional[str] = Field(
+        description="Busca por descrição. Ex: 'uber', 'almoço', 'salário'. Filtra transações que contenham essa palavra.",
+        default=None,
+    )
     categoria: Optional[str] = Field(description="Filtrar por categoria específica (opcional)", default=None)
     tipo: Optional[Literal["expense", "income"]] = Field(
         description="Filtrar por tipo: expense ou income (opcional)", default=None
@@ -147,7 +151,8 @@ class FinanceTools:
             try:
                 periodo = filters.get("periodo", "mes")
                 ano = filters.get("ano")
-                finances = service.get_summary_by_period(user_id, periodo, ano)
+                busca = filters.get("busca")
+                finances = service.get_summary_by_period(user_id, periodo, ano, busca)
                 return {"success": True, "data": finances}
             except Exception as e:
                 logger.error(f"Erro ao consultar finanças: {e}")
