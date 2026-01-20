@@ -19,9 +19,9 @@ class CriarReuniaoSchema(BaseModel):
     data_hora: str = Field(
         description="Data e hora da reunião (formato: YYYY-MM-DD HH:MM)"
     )
-    participantes: Optional[List[str]] = Field(
-        description="Lista de participantes (nomes ou contatos)",
-        default=[]
+    participantes: Optional[str] = Field(
+        description="Participantes separados por vírgula (ex: 'João, Maria, Pedro')",
+        default=""
     )
     duracao_minutos: int = Field(
         description="Duração em minutos",
@@ -47,7 +47,7 @@ class ListarReunioesSchema(BaseModel):
 def criar_reuniao(
     titulo: str,
     data_hora: str,
-    participantes: List[str] = [],
+    participantes: str = "",
     duracao_minutos: int = 60,
     local: Optional[str] = None
 ) -> dict:
@@ -55,12 +55,15 @@ def criar_reuniao(
     Agenda uma nova reunião.
     Use quando o usuário quiser marcar uma reunião ou compromisso.
     """
+    # Converter string para lista
+    participants_list = [p.strip() for p in participantes.split(",") if p.strip()] if participantes else []
+    
     return {
         "action": "create_meeting",
         "meeting": {
             "title": titulo,
             "scheduled_time": data_hora,
-            "participants": participantes,
+            "participants": participants_list,
             "duration_minutes": duracao_minutos,
             "location": local
         },
