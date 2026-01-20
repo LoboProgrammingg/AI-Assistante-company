@@ -266,9 +266,21 @@ NUNCA ignore nenhum lembrete mencionado. Registre TODOS.""",
 REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLAS reuniões, você DEVE chamar a tool criar_reuniao UMA VEZ PARA CADA reunião.
 
 NUNCA ignore nenhuma reunião mencionada. Registre TODAS.""",
-            "contact": """Você é um assistente especializado em contatos.
+            "contact": """Você é um assistente especializado em contatos e mensagens.
 
-REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLOS contatos, você DEVE chamar a tool criar_contato UMA VEZ PARA CADA contato.
+REGRAS CRÍTICAS:
+
+1. CRIAR CONTATOS: Quando o usuário mencionar contatos com telefone, chame criar_contato.
+   - "Adiciona João 11999998888 no grupo Funcionários" → criar_contato(nome="João", telefone="11999998888", grupo="Funcionários")
+   - SEMPRE extraia o grupo mencionado (Família, Trabalho, Funcionários, Clientes, etc.)
+
+2. MÚLTIPLOS CONTATOS: Chame criar_contato UMA VEZ PARA CADA contato.
+
+3. AGENDAR MENSAGENS: Quando o usuário quiser enviar uma mensagem depois, use agendar_mensagem.
+   - "Manda uma mensagem pro João amanhã às 9h dizendo bom dia" → agendar_mensagem()
+   - "Envia para o grupo Funcionários às 18h: reunião cancelada" → agendar_mensagem(grupo="Funcionários")
+
+4. ENVIAR PARA GRUPO: Se for para um grupo inteiro, use o parâmetro 'grupo' com o nome do grupo.
 
 NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
         }
@@ -343,6 +355,7 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
             reminders_list = []
             meetings_list = []
             contacts_list = []
+            scheduled_messages_list = []
 
             for r in successful:
                 result_data = r.get("result", {})
@@ -357,6 +370,8 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
                         meetings_list.append(result_data["meeting"])
                     elif action == "create_contact" and result_data.get("contact"):
                         contacts_list.append(result_data["contact"])
+                    elif action == "schedule_message" and result_data.get("scheduled_message"):
+                        scheduled_messages_list.append(result_data["scheduled_message"])
                     else:
                         # Ação única (consulta, delete, etc)
                         state["next_action"] = action
@@ -407,10 +422,21 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
                     contact_service = ContactService(db)
                     for contact in contacts_list:
                         try:
-                            contact_service.create_from_entities(user_id, contact)
+                            contact_service.create_from_dict(user_id, contact)
                             logger.info(f"Contato salvo: {contact.get('name')}")
                         except Exception as e:
                             logger.error(f"Erro ao salvar contato: {e}")
+
+                # Salvar mensagens agendadas
+                if scheduled_messages_list:
+                    from app.services.scheduled_message_service import ScheduledMessageService
+                    scheduled_service = ScheduledMessageService(db)
+                    for msg in scheduled_messages_list:
+                        try:
+                            scheduled_service.create_from_entities(user_id, msg)
+                            logger.info(f"Mensagem agendada: {msg.get('recipient_name') or msg.get('group_name')}")
+                        except Exception as e:
+                            logger.error(f"Erro ao agendar mensagem: {e}")
 
             # Definir ações para resposta
             if len(finances_list) > 1:
@@ -440,6 +466,13 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
             elif len(contacts_list) == 1:
                 state["next_action"] = "create_contact"
                 state["entities"] = {"contact": contacts_list[0]}
+
+            if len(scheduled_messages_list) > 1:
+                state["next_action"] = "schedule_messages"
+                state["entities"] = {"scheduled_messages": scheduled_messages_list}
+            elif len(scheduled_messages_list) == 1:
+                state["next_action"] = "schedule_message"
+                state["entities"] = {"scheduled_message": scheduled_messages_list[0]}
 
             if failed:
                 logger.warning(f"Alguns itens falharam: {failed}")
