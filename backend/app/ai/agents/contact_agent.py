@@ -1,3 +1,7 @@
+"""
+Agente especializado em gerenciamento de contatos e envio de mensagens.
+Utiliza prompts centralizados para fácil manutenção.
+"""
 import logging
 import json
 import re
@@ -5,6 +9,7 @@ from typing import Dict, Any, Optional, List
 from langchain_google_genai import ChatGoogleGenerativeAI
 
 from app.config import settings
+from app.ai.agents.prompts.contact_prompts import ContactPrompts
 from app.services.contact_service import ContactService, ContactGroupService, normalize_group_name
 from app.services.message_broadcast_service import MessageBroadcastService
 from app.services.whatsapp_service import WhatsAppService
@@ -87,36 +92,7 @@ class ContactAgent:
         """Classifica a intenção específica relacionada a contatos."""
         history = self._get_conversation_history(context)
         
-        prompt = f"""Classifique a intenção do usuário relacionada a CONTATOS.
-
-HISTÓRICO:
-{history if history else "Sem histórico"}
-
-MENSAGEM: "{message}"
-
-INTENÇÕES POSSÍVEIS:
-1. schedule_message - AGENDAR envio de mensagem para um contato em horário específico (ex: "manda mensagem pra Maruza às 14h", "envia para João amanhã às 9h")
-2. send_broadcast - Enviar mensagem AGORA para um GRUPO de contatos (ex: "manda mensagem pros funcionários", "avisa a família que...")
-3. create_contact - Salvar/adicionar um novo contato
-4. list_groups - Listar grupos de contatos existentes
-5. list_contacts - Listar contatos (de um grupo específico ou todos)
-
-Retorne APENAS JSON:
-{{
-    "intent": "schedule_message|send_broadcast|create_contact|list_groups|list_contacts",
-    "contact_name": "nome do contato para agendar" ou null,
-    "group_names": ["lista de grupos mencionados"] ou null,
-    "message_to_send": "mensagem a ser enviada" ou null,
-    "scheduled_time": "horário extraído (ex: '14:00', '09:30', 'amanhã às 10h')" ou null,
-    "phone_number": "telefone" ou null
-}}
-
-EXEMPLOS:
-- "manda mensagem pra Maruza às 14h: reunião confirmada" → intent=schedule_message, contact_name="Maruza", scheduled_time="14:00", message_to_send="reunião confirmada"
-- "envia para João amanhã às 9h dizendo bom dia" → intent=schedule_message, contact_name="João", scheduled_time="amanhã às 9h", message_to_send="bom dia"
-- "manda pros funcionários: reunião amanhã" → intent=send_broadcast, group_names=["funcionarios"], message_to_send="reunião amanhã"
-- "salva João 11999998888 como funcionário" → intent=create_contact, contact_name="João", phone_number="11999998888", group_names=["funcionario"]
-"""
+        prompt = ContactPrompts.get_intent_classification_prompt(history, message)
         response = self.llm.invoke(prompt)
         return self._parse_json(response.content)
 
@@ -464,40 +440,7 @@ EXEMPLOS:
         db = context.get("db")
         user_id = context.get("user_id")
         
-        prompt = f"""Extraia informações de TODOS os contatos mencionados na mensagem.
-IMPORTANTE: O usuário pode mencionar MÚLTIPLOS contatos em uma única mensagem!
-
-HISTÓRICO DA CONVERSA:
-{history if history else "Sem histórico"}
-
-MENSAGEM ATUAL: "{message}"
-
-O usuário pode usar QUALQUER nome de grupo (não precisa ser de uma lista fixa).
-Exemplos de grupos: funcionários, família, amigos, clientes, fornecedores, equipe, etc.
-
-Retorne APENAS JSON:
-{{
-    "contacts": [
-        {{
-            "name": "nome do contato",
-            "phone_number": "telefone do contato",
-            "group_name": "grupo mencionado ou null"
-        }}
-    ],
-    "group_name_global": "grupo mencionado para todos os contatos ou null"
-}}
-
-EXEMPLOS:
-- "Salva João (11999998888) e Maria (11888887777) como funcionários" → 2 contatos
-- "Adiciona Maruza Lobo Lima (5565981407734) / Kleber Camara (5565956320582) no grupo funcionários" → 2 contatos
-- "Meus funcionários: Ana 11999999999, Pedro 11888888888, Carlos 11777777777" → 3 contatos
-
-REGRAS:
-- Extraia TODOS os contatos mencionados
-- Extraia números de telefone mesmo sem formatação
-- Se o grupo for mencionado uma vez, aplique para todos
-- Se não mencionar grupo, deixe null (será "outros" por padrão)
-"""
+        prompt = ContactPrompts.get_contact_extraction_prompt(history, message)
 
         response = self.llm.invoke(prompt)
         extracted = self._parse_json(response.content)

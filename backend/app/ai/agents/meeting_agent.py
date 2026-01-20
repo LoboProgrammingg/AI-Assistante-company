@@ -1,9 +1,14 @@
+"""
+Agente especializado em reuniões - agendamento e análise.
+Utiliza prompts centralizados para fácil manutenção.
+"""
 import json
 import logging
 from datetime import datetime, timedelta
 from typing import Dict, Any
 
 from app.ai.agents.base_agent import BaseAgent
+from app.ai.agents.prompts.meeting_prompts import MeetingPrompts
 from app.utils.timezone_helper import get_current_time_for_user
 
 logger = logging.getLogger(__name__)
@@ -21,17 +26,7 @@ class MeetingAgent(BaseAgent):
 
     @property
     def system_prompt(self) -> str:
-        return """Você é um assistente especializado em reuniões.
-
-Suas responsabilidades:
-1. AGENDAR reuniões (horário, título, participantes)
-2. Resumir transcrições de reuniões
-3. Extrair action items de reuniões
-
-Regras:
-- Sempre confirme o agendamento com data, hora e título
-- Seja objetivo e conciso
-- Mantenha o contexto da conversa anterior"""
+        return MeetingPrompts.SYSTEM_PROMPT
 
     def _get_conversation_history(self, context: Dict[str, Any]) -> str:
         """Extrai histórico de conversa do contexto."""
@@ -64,33 +59,12 @@ Regras:
         pending_meeting = context.get("pending_meeting")
         
         # Primeiro, classificar a intenção
-        intent_prompt = f"""
-Analise a mensagem do usuário sobre reunião.
-
-HISTÓRICO DA CONVERSA (IMPORTANTE - MANTENHA O CONTEXTO):
-{conversation_history if conversation_history else "Sem histórico"}
-
-DATA/HORA ATUAL: {current_time.strftime("%d/%m/%Y %H:%M")} ({current_time.strftime("%A")})
-
-MENSAGEM ATUAL: "{message}"
-
-{"REUNIÃO PENDENTE AGUARDANDO CONFIRMAÇÃO: " + json.dumps(pending_meeting, ensure_ascii=False) if pending_meeting else ""}
-
-Determine a intenção:
-1. "schedule" - agendar/marcar nova reunião (mencionou horário, data ou título)
-2. "confirm" - confirmando algo do histórico (ex: "sim", "ok", "pode ser", "isso", "confirma")
-3. "analyze" - analisar transcrição de reunião (texto longo, parece uma conversa/discussão)
-4. "clarify" - precisa de mais informações
-
-IMPORTANTE: Se o usuário disser "sim", "ok", "pode ser", "confirma" após uma pergunta sobre reunião no histórico, 
-a intenção é "confirm" e você deve usar os dados do histórico/pending_meeting.
-
-Retorne APENAS JSON:
-{{
-    "intent": "schedule|confirm|analyze|clarify",
-    "reasoning": "explicação breve"
-}}
-"""
+        intent_prompt = MeetingPrompts.get_intent_prompt(
+            conversation_history=conversation_history,
+            current_time=current_time,
+            message=message,
+            pending_meeting=pending_meeting
+        )
         intent_response = self.invoke_llm_sync(intent_prompt)
         
         try:
@@ -132,33 +106,11 @@ Retorne APENAS JSON:
     ) -> Dict[str, Any]:
         """Processa agendamento de reunião."""
         
-        extraction_prompt = f"""
-Extraia os detalhes da reunião a ser agendada.
-
-HISTÓRICO (USE PARA COMPLETAR INFORMAÇÕES FALTANTES):
-{conversation_history}
-
-DATA/HORA ATUAL: {current_time.strftime("%d/%m/%Y %H:%M")} (Ano: {current_time.year})
-
-MENSAGEM: "{message}"
-
-REGRAS:
-- Se o usuário confirmar "sim/ok" para uma data mencionada no histórico, USE essa data
-- "hoje" = {current_time.strftime("%Y-%m-%d")}
-- "amanhã" = {(current_time + timedelta(days=1)).strftime("%Y-%m-%d")}
-- Se só tiver hora, assuma hoje
-- Se faltar título, use "Reunião"
-
-Retorne APENAS JSON:
-{{
-    "title": "título da reunião",
-    "scheduled_time": "YYYY-MM-DD HH:MM",
-    "participants": ["participante1", "participante2"] ou [],
-    "description": "descrição ou null",
-    "has_all_info": true/false,
-    "missing": ["lista do que falta"] ou []
-}}
-"""
+        extraction_prompt = MeetingPrompts.get_schedule_extraction_prompt(
+            conversation_history=conversation_history,
+            current_time=current_time,
+            message=message
+        )
         response = self.invoke_llm_sync(extraction_prompt)
         
         try:
@@ -242,42 +194,7 @@ Retorne APENAS JSON:
         """Processa análise de transcrição de reunião."""
         transcription = context.get("transcription") or message
 
-        analysis_prompt = f"""
-Analise a seguinte transcrição de reunião:
-
----
-{transcription}
----
-
-Extraia todas as informações relevantes e retorne APENAS um JSON válido:
-{{
-    "title": "título sugerido para a reunião",
-    "summary": "resumo executivo em 2-3 parágrafos",
-    "duration_estimate": número estimado de minutos (ou null),
-    "key_topics": [
-        {{"topic": "tópico 1", "summary": "breve resumo do que foi discutido"}}
-    ],
-    "action_items": [
-        {{
-            "task": "descrição da tarefa",
-            "responsible": "nome do responsável ou null",
-            "deadline": "prazo mencionado ou null",
-            "priority": "high|medium|low"
-        }}
-    ],
-    "participants": [
-        {{"name": "nome identificado", "role": "papel na reunião ou null"}}
-    ],
-    "decisions": [
-        {{"decision": "decisão tomada", "context": "contexto da decisão"}}
-    ],
-    "keywords": ["palavra1", "palavra2"],
-    "sentiment": "positive|neutral|negative",
-    "confidence": 0.0 a 1.0
-}}
-
-Seja detalhado na análise. Se não conseguir identificar algo, use null ou lista vazia.
-"""
+        analysis_prompt = MeetingPrompts.get_analysis_prompt(transcription)
 
         try:
             response = self.invoke_llm_sync(analysis_prompt)

@@ -1,3 +1,7 @@
+"""
+Grafo principal do agente de IA - IRIS (Intelligent Retrieval & Insight System).
+Orquestra os agentes especializados e gerencia o fluxo de processamento.
+"""
 from typing import TypedDict, Annotated, Sequence, Optional
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
@@ -10,6 +14,8 @@ import logging
 
 from app.ai.agents import ReminderAgent, FinanceAgent, MeetingAgent
 from app.ai.agents.contact_agent import ContactAgent
+from app.ai.agents.prompts.classifier_prompts import ClassifierPrompts
+from app.ai.agents.prompts.response_prompts import ResponsePrompts
 from app.ai.memory import MemoryManager
 from app.services.embedding_service import (
     EmbeddingService, 
@@ -152,44 +158,13 @@ class WhatsAppAIAgent:
         # Verificar se é áudio longo (possível reunião)
         is_audio = context.get("is_audio", False)
         message_length = len(last_message.content)
-        audio_hint = ""
-        if is_audio and message_length > 500:
-            audio_hint = "\nATENÇÃO: Esta mensagem veio de um ÁUDIO LONGO. Se parecer uma transcrição de reunião ou discussão com múltiplos participantes, classifique como 'meeting'."
+        audio_hint = ClassifierPrompts.get_audio_hint(message_length) if is_audio else ""
         
-        classification_prompt = f"""
-Você é um assistente especializado em classificar intenções de mensagens.
-Analise a mensagem ATUAL do usuário considerando o CONTEXTO da conversa anterior.
-
-HISTÓRICO DA CONVERSA (últimas mensagens):
-{conversation_history if conversation_history else "Sem histórico anterior"}
-
-MENSAGEM ATUAL DO USUÁRIO: "{last_message.content[:1000]}"
-{audio_hint}
-
-REGRAS DE CLASSIFICAÇÃO:
-1. Se o usuário menciona VALORES em reais (R$, reais), PREÇOS ou GASTOS → finance
-2. Se menciona HORÁRIO, DATA, AGENDAR, LEMBRAR, compromisso → reminder
-3. Se menciona REUNIÃO, TRANSCRIÇÃO, ATAS ou parece uma discussão longa com participantes → meeting
-4. Se menciona CONTATO, SALVAR NÚMERO, ADICIONAR PESSOA, TELEFONE de alguém, grupo de pessoas → contact
-5. Se é uma CONTINUAÇÃO de uma conversa anterior (ex: "sim", "prossiga", "ok"), 
-   MANTENHA a mesma intenção do histórico
-6. Apenas classifique como "general" se REALMENTE for conversa casual
-
-Intenções:
-- reminder: Agendamentos, lembretes, compromissos, horários
-- finance: Gastos, receitas, valores, dinheiro, preços
-- meeting: Transcrições de reuniões, resumos de reunião, discussões longas
-- contact: Adicionar contatos, salvar números, gerenciar pessoas/grupos
-- general: Apenas conversas gerais sem ação específica
-
-Retorne APENAS JSON válido:
-{{
-    "intent": "reminder|finance|meeting|contact|general",
-    "confidence": 0.0-1.0,
-    "entities": {{}},
-    "reasoning": "breve explicação da classificação"
-}}
-"""
+        classification_prompt = ClassifierPrompts.get_classification_prompt(
+            conversation_history=conversation_history,
+            message=last_message.content,
+            audio_hint=audio_hint
+        )
         
         response = self.llm.invoke(classification_prompt)
         
@@ -376,50 +351,7 @@ Retorne APENAS JSON válido:
     
     def _get_communication_style_prompt(self, memory: dict) -> str:
         """Gera instruções de estilo de comunicação baseado no comportamento do usuário."""
-        behavior = memory.get("behavior_analysis", {}) if memory else {}
-        
-        if not behavior or behavior.get("message_count", 0) < 5:
-            return "ESTILO DE COMUNICAÇÃO: Seja amigável e equilibrado."
-        
-        msg_count = behavior.get("message_count", 1)
-        emoji_ratio = behavior.get("emoji_usage", 0) / msg_count
-        informal_ratio = behavior.get("informal_language", 0) / msg_count
-        humor_ratio = behavior.get("humor_detected", 0) / msg_count
-        
-        style_parts = ["ESTILO DE COMUNICAÇÃO (adaptado ao usuário):"]
-        
-        # Formalidade
-        if informal_ratio > 0.4:
-            style_parts.append("- Use linguagem CASUAL e descontraída (o usuário é informal)")
-            style_parts.append("- Pode usar gírias leves e abreviações")
-        elif informal_ratio > 0.2:
-            style_parts.append("- Use linguagem amigável mas equilibrada")
-        else:
-            style_parts.append("- Mantenha tom profissional mas acolhedor")
-        
-        # Emojis
-        if emoji_ratio > 0.3:
-            style_parts.append("- USE emojis nas respostas (o usuário gosta! 😊)")
-        elif emoji_ratio > 0.1:
-            style_parts.append("- Use emojis moderadamente")
-        
-        # Humor
-        if humor_ratio > 0.2:
-            style_parts.append("- Pode adicionar humor leve e piadas (o usuário é bem-humorado)")
-        
-        # Tamanho de mensagem
-        avg_len = behavior.get("avg_message_length", 50)
-        if avg_len < 30:
-            style_parts.append("- Seja CONCISO (o usuário prefere mensagens curtas)")
-        else:
-            style_parts.append("- Pode dar respostas mais detalhadas")
-        
-        # Saudação
-        greeting = behavior.get("greeting_style", "formal")
-        if greeting == "informal":
-            style_parts.append("- Saudações informais: 'E aí', 'Opa', 'Fala!'")
-        
-        return "\n".join(style_parts)
+        return ResponsePrompts.get_communication_style_prompt(memory)
     
     def _generate_response(self, state: AgentState) -> AgentState:
         """Gera a resposta final para o usuário"""
@@ -434,46 +366,16 @@ Retorne APENAS JSON válido:
         # Obter estilo de comunicação do usuário
         comm_style = self._get_communication_style_prompt(memory)
         
-        response_prompt = f"""
-Você é um assistente pessoal brasileiro. Seja como um amigo próximo e de confiança do usuário.
-
-INFORMAÇÕES DO USUÁRIO:
-- Nome: {user_name or 'Não informado'}
-- Use o primeiro nome "{first_name}" nas saudações
-
-{comm_style}
-
-REGRAS CRÍTICAS:
-1. NUNCA invente dados. Use APENAS informações do contexto fornecido.
-2. Se uma ação foi solicitada mas NÃO está na lista de "AÇÕES CONFIRMADAS", ela NÃO foi feita ainda.
-3. Quando confirmar uma ação, use os dados EXATOS das entidades extraídas.
-4. Lembre-se de informações importantes que o usuário compartilhou.
-5. NUNCA use identificadores genéricos como "WhatsApp 0370" - use sempre o nome real.
-6. Você tem acesso ao histórico financeiro, lembretes e reuniões do usuário - use essas informações quando relevante.
-
-{context_prompt}
-
-ESTADO ATUAL:
-- Ação a executar: {state['next_action']}
-- Dados extraídos: {json.dumps(state['entities'], ensure_ascii=False)}
-- Última mensagem do usuário: {state['messages'][-1].content if state['messages'] else 'N/A'}
-
-INSTRUÇÕES DE RESPOSTA:
-- Para saudações: Responda de forma breve e amigável usando o nome.
-- Se next_action é "create_finance": confirme o registro com valores exatos.
-- Se next_action é "create_reminder": confirme o agendamento com data/hora.
-- Se next_action é "await_remind_time": pergunte quanto tempo antes quer ser lembrado.
-- Seja conciso, natural e demonstre que conhece o usuário.
-- Use os dados financeiros/lembretes para dar contexto quando apropriado.
-
-FORMATAÇÃO OBRIGATÓRIA (WhatsApp):
-- Use *texto* para negrito (NÃO use **texto**)
-- Use _texto_ para itálico/sublinhado
-- Use listas numeradas: 1. item, 2. item
-- NUNCA use markdown com ** ou listas com - ou *
-- NUNCA use blocos de código ou tabelas
-
-Gere sua resposta:"""
+        last_msg_content = state['messages'][-1].content if state['messages'] else 'N/A'
+        
+        response_prompt = ResponsePrompts.get_response_generation_prompt(
+            user_name=user_name,
+            comm_style=comm_style,
+            context_prompt=context_prompt,
+            next_action=state['next_action'],
+            entities=state['entities'],
+            last_message=last_msg_content
+        )
         
         response = self.llm.invoke(response_prompt)
         state["messages"].append(AIMessage(content=response.content))

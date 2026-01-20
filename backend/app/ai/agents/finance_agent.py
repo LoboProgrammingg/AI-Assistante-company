@@ -1,3 +1,7 @@
+"""
+Agente especializado em finanças pessoais.
+Utiliza prompts e constantes centralizados para fácil manutenção.
+"""
 import json
 import logging
 from datetime import date, datetime, timedelta
@@ -5,6 +9,8 @@ from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 
 from app.ai.agents.base_agent import BaseAgent
+from app.ai.agents.prompts.finance_prompts import FinancePrompts
+from app.ai.agents.constants.finance_constants import FinanceConstants
 from app.utils.timezone_helper import get_current_time_for_user
 
 logger = logging.getLogger(__name__)
@@ -54,68 +60,9 @@ class FinanceAgent(BaseAgent):
             temperature=0.3
         )
 
-    # Mapeamento de categorias com palavras-chave para identificação automática
-    EXPENSE_CATEGORIES = {
-        "Moradia": ["aluguel", "prestação", "casa", "apartamento", "condomínio", "iptu", "manutenção casa", "reforma"],
-        "Contas": ["luz", "água", "gás", "energia", "telefone", "internet", "tv cabo", "celular", "conta"],
-        "Alimentação": ["almoço", "jantar", "café", "lanche", "restaurante", "supermercado", "mercado", "padaria", "delivery", "ifood", "comida", "pizza", "hamburguer"],
-        "Transporte": ["uber", "99", "taxi", "combustível", "gasolina", "álcool", "ônibus", "metrô", "passagem", "pedágio", "estacionamento"],
-        "Saúde": ["médico", "remédio", "farmácia", "consulta", "exame", "plano de saúde", "dentista", "hospital", "academia"],
-        "Educação": ["curso", "escola", "faculdade", "universidade", "livro", "apostila", "mensalidade", "material escolar"],
-        "Lazer": ["cinema", "show", "teatro", "viagem", "hotel", "netflix", "spotify", "streaming", "jogo", "hobby", "festa", "bar"],
-        "Vestuário": ["roupa", "calçado", "sapato", "tênis", "camisa", "calça", "vestido", "acessório", "bolsa", "relógio"],
-        "Dívidas": ["cartão", "empréstimo", "financiamento", "parcela", "fatura", "juros", "dívida"],
-        "Investimentos": ["investimento", "poupança", "ação", "fundo", "tesouro", "cdb", "reserva"],
-        "Serviços Financeiros": ["tarifa", "taxa bancária", "anuidade", "ted", "pix", "transferência"],
-        "Outros": []
-    }
-    
-    INCOME_CATEGORIES = {
-        "Salário": ["salário", "pagamento", "holerite", "contracheque"],
-        "Freelance": ["freelance", "freela", "serviço", "trabalho extra", "bico"],
-        "Investimentos": ["dividendo", "rendimento", "juros", "lucro"],
-        "Vendas": ["venda", "vendi", "vendido"],
-        "Outros": []
-    }
-
     @property
     def system_prompt(self) -> str:
-        return """Você é um assistente especializado em finanças pessoais.
-
-Suas responsabilidades:
-1. Registrar gastos e receitas
-2. Categorizar transações automaticamente usando as categorias definidas
-3. Gerar resumos financeiros
-4. Identificar padrões de gastos
-5. Responder perguntas sobre histórico financeiro (inclusive por categoria)
-
-CATEGORIAS DE DESPESA (use EXATAMENTE estes nomes):
-- Moradia: aluguel, prestação da casa, impostos (IPTU), condomínio, manutenção
-- Contas: eletricidade, água, gás, telefone, internet, TV a cabo
-- Alimentação: supermercado, restaurantes, lanchonetes, delivery, padaria
-- Transporte: combustível, Uber/99, ônibus/metrô, manutenção veículo, pedágio, estacionamento
-- Saúde: consultas médicas, remédios, plano de saúde, academia, dentista
-- Educação: mensalidades, cursos, livros, materiais didáticos
-- Lazer: cinema, shows, viagens, streaming (Netflix/Spotify), hobbies
-- Vestuário: roupas, calçados, acessórios
-- Dívidas: cartão de crédito, empréstimos, financiamentos
-- Investimentos: aportes em fundos, poupança, ações
-- Serviços Financeiros: taxas bancárias, tarifas, anuidades
-- Outros: despesas diversas não categorizadas
-
-CATEGORIAS DE RECEITA:
-- Salário
-- Freelance
-- Investimentos
-- Vendas
-- Outros
-
-Regras:
-- SEMPRE use uma das categorias listadas acima (exatamente como escrito)
-- Sempre confirme o valor e categoria registrados
-- Para consultas por categoria, filtre APENAS transações daquela categoria
-- Use R$ para valores em reais
-- Quando perguntarem "quanto gastei com X", filtre pela categoria correspondente"""
+        return FinancePrompts.SYSTEM_PROMPT
 
     def process_sync(
         self,
@@ -127,23 +74,7 @@ Regras:
         user_timezone = context.get("timezone", "America/Sao_Paulo")
         current_time = get_current_time_for_user(user_timezone)
         
-        intent_prompt = f"""
-Analise a mensagem do usuário sobre finanças.
-
-MENSAGEM: "{message}"
-
-Determine a intenção:
-1. "register" - registrar nova transação
-2. "query" - consultar histórico/resumo
-3. "delete" - cancelar/remover/deletar transação
-4. "clarify" - precisa de mais informações
-
-Retorne APENAS JSON:
-{{
-    "intent": "register|query|delete|clarify",
-    "sub_intent": "descrição específica"
-}}
-"""
+        intent_prompt = FinancePrompts.get_intent_prompt(message)
 
         intent_response = self.invoke_llm_sync(intent_prompt)
         
@@ -184,49 +115,13 @@ Retorne APENAS JSON:
     ) -> Dict[str, Any]:
         """Processa registro de transação (versão síncrona). Suporta MÚLTIPLAS transações."""
         
-        extraction_prompt = f"""
-Extraia TODAS as transações financeiras mencionadas na mensagem.
-O usuário pode mencionar múltiplos gastos e/ou receitas de uma só vez.
-
-CONTEXTO:
-{self.format_context(context)}
-Data atual: {current_time.strftime("%d/%m/%Y")} (Ano: {current_time.year}, Mês: {current_time.month})
-
-MENSAGEM: "{message}"
-
-REGRAS PARA DATA:
-- Se mencionar "ontem": use a data de ontem
-- Se mencionar "dia X" ou "todo dia X": use dia X do mês atual (ou mês anterior se X > dia atual)
-- Se mencionar "semana passada": use 7 dias atrás
-- Se mencionar data específica (ex: 05/01): use essa data
-- Se NÃO mencionar data: use a data atual
-- Receitas recorrentes (salário, aluguel) que "caem" em um dia específico: use esse dia
-
-IMPORTANTE: Identifique CADA transação separadamente. Exemplos:
-- "gastei 80 no café e 150 de gasolina" = 2 despesas
-- "gastei 50 no almoço e recebi 300 de venda" = 1 despesa + 1 receita
-- "paguei luz 200, água 80 e internet 100" = 3 despesas
-
-Retorne APENAS JSON com uma LISTA de transações:
-{{
-    "transactions": [
-        {{
-            "type": "expense|income",
-            "amount": número (apenas o valor, sem R$),
-            "description": "descrição da transação",
-            "category": "categoria mais apropriada",
-            "transaction_date": "YYYY-MM-DD",
-            "is_recurring": true/false,
-            "recurrence_day": dia do mês se for recorrente,
-            "tags": ["tag1", "tag2"],
-            "confidence": 0.0 a 1.0
-        }}
-    ]
-}}
-
-Se houver apenas UMA transação, retorne lista com 1 item.
-Se não conseguir identificar nenhuma transação válida, retorne lista vazia.
-"""
+        extraction_prompt = FinancePrompts.get_extraction_prompt(
+            context=self.format_context(context),
+            current_date=current_time.strftime("%d/%m/%Y"),
+            current_year=current_time.year,
+            current_month=current_time.month,
+            message=message
+        )
 
         response = self.invoke_llm_sync(extraction_prompt)
         
@@ -319,28 +214,7 @@ Se não conseguir identificar nenhuma transação válida, retorne lista vazia.
 
     def _detect_category_in_message(self, message: str) -> Optional[str]:
         """Detecta se a mensagem menciona uma categoria específica."""
-        message_lower = message.lower()
-        
-        # Mapeamento de palavras-chave para categorias
-        category_keywords = {
-            "alimentação": ["alimentação", "alimentacao", "comida", "alimento", "refeição", "refeicao"],
-            "moradia": ["moradia", "casa", "aluguel", "apartamento"],
-            "contas": ["contas", "conta de luz", "conta de água", "utilidades"],
-            "transporte": ["transporte", "uber", "combustível", "gasolina", "ônibus"],
-            "saúde": ["saúde", "saude", "médico", "remédio", "farmácia", "academia"],
-            "educação": ["educação", "educacao", "curso", "escola", "faculdade"],
-            "lazer": ["lazer", "entretenimento", "diversão", "cinema", "viagem"],
-            "vestuário": ["vestuário", "vestuario", "roupa", "roupas", "calçado"],
-            "dívidas": ["dívidas", "dividas", "dívida", "divida", "cartão", "empréstimo"],
-            "investimentos": ["investimento", "investimentos", "poupança", "ação"],
-            "serviços financeiros": ["serviços financeiros", "taxa", "tarifa bancária"],
-        }
-        
-        for category, keywords in category_keywords.items():
-            for keyword in keywords:
-                if keyword in message_lower:
-                    return category.title()
-        return None
+        return FinanceConstants.detect_category_in_message(message)
 
     def _handle_query_sync(
         self,
@@ -526,20 +400,10 @@ Se não conseguir identificar nenhuma transação válida, retorne lista vazia.
             for t in recent
         ])
         
-        identify_prompt = f"""
-Identifique qual transação o usuário quer deletar.
-
-MENSAGEM DO USUÁRIO: "{message}"
-
-TRANSAÇÕES RECENTES:
-{transactions_text}
-
-Retorne APENAS JSON:
-{{
-    "transaction_id": número ou null se não identificar,
-    "description_match": "descrição da transação identificada"
-}}
-"""
+        identify_prompt = FinancePrompts.get_delete_identification_prompt(
+            message=message,
+            transactions_text=transactions_text
+        )
         
         response = self.invoke_llm_sync(identify_prompt)
         
