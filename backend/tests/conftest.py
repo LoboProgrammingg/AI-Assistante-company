@@ -18,8 +18,8 @@ os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 os.environ["GOOGLE_API_KEY"] = "test-api-key"
 
 from app.main import app
-from app.database import Base, get_db
-from app.models import User, Reminder, Finance, Meeting, Contact
+from app.database import get_db
+from app.models import Base, User, Reminder, Finance, Meeting, Contact
 from app.config import settings
 
 
