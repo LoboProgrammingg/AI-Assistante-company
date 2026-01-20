@@ -6,7 +6,8 @@ Seguindo melhores práticas: herda de MessagesState, tipagem rigorosa.
 from typing import Any, Dict, List, Literal, Optional
 
 from langgraph.graph import MessagesState
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
+from sqlalchemy.orm import Session
 
 
 class FinanceContext(BaseModel):
@@ -58,9 +59,14 @@ class IRISState(MessagesState):
     Adiciona campos específicos do IRIS com tipagem forte.
     """
 
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
     # Identificação
     user_id: int = 0
     session_id: str = ""
+
+    # Database session
+    db: Optional[Any] = None
 
     # Classificação
     intent: Literal["reminder", "finance", "meeting", "contact", "general", ""] = ""
@@ -132,6 +138,7 @@ def create_initial_state(user_id: int, session_id: str, message: str, context: D
         messages=[HumanMessage(content=message)],
         user_id=user_id,
         session_id=session_id,
+        db=context.get("db"),
         user_context=user_ctx,
         memory_context=memory_ctx,
         context_prompt=context.get("context_prompt", ""),

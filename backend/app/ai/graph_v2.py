@@ -362,7 +362,57 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
                         state["next_action"] = action
                         state["entities"] = result_data
 
-            # Definir ações para múltiplos registros
+            # Obter db e user_id do contexto
+            db = state.get("db")
+            user_id = state.get("user_id")
+
+            # Executar saves no banco de dados
+            if db and user_id:
+                # Salvar finanças
+                if finances_list:
+                    from app.services.finance_service import FinanceService
+                    finance_service = FinanceService(db)
+                    for finance in finances_list:
+                        try:
+                            finance_service.create_from_entities(user_id, finance)
+                            logger.info(f"Finança salva: {finance.get('description')}")
+                        except Exception as e:
+                            logger.error(f"Erro ao salvar finança: {e}")
+
+                # Salvar lembretes
+                if reminders_list:
+                    from app.services.reminder_service import ReminderService
+                    reminder_service = ReminderService(db)
+                    for reminder in reminders_list:
+                        try:
+                            reminder_service.create_from_entities(user_id, reminder)
+                            logger.info(f"Lembrete salvo: {reminder.get('title')}")
+                        except Exception as e:
+                            logger.error(f"Erro ao salvar lembrete: {e}")
+
+                # Salvar reuniões
+                if meetings_list:
+                    from app.services.meeting_service import MeetingService
+                    meeting_service = MeetingService(db)
+                    for meeting in meetings_list:
+                        try:
+                            meeting_service.create_from_entities(user_id, meeting)
+                            logger.info(f"Reunião salva: {meeting.get('title')}")
+                        except Exception as e:
+                            logger.error(f"Erro ao salvar reunião: {e}")
+
+                # Salvar contatos
+                if contacts_list:
+                    from app.services.contact_service import ContactService
+                    contact_service = ContactService(db)
+                    for contact in contacts_list:
+                        try:
+                            contact_service.create_from_entities(user_id, contact)
+                            logger.info(f"Contato salvo: {contact.get('name')}")
+                        except Exception as e:
+                            logger.error(f"Erro ao salvar contato: {e}")
+
+            # Definir ações para resposta
             if len(finances_list) > 1:
                 state["next_action"] = "create_finances"
                 state["entities"] = {"finances": finances_list}
