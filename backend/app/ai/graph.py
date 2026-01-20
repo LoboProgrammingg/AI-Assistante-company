@@ -17,6 +17,7 @@ from app.ai.agents.contact_agent import ContactAgent
 from app.ai.agents.prompts.classifier_prompts import ClassifierPrompts
 from app.ai.agents.prompts.response_prompts import ResponsePrompts
 from app.ai.memory import MemoryManager
+from app.core.llm_optimizer import get_optimizer
 from app.services.embedding_service import (
     EmbeddingService, 
     ClassificationCacheService, 
@@ -95,10 +96,20 @@ class WhatsAppAIAgent:
         return workflow.compile()
     
     def _classify_intent(self, state: AgentState) -> AgentState:
-        """Classifica a intenção da mensagem do usuário com cache."""
+        """Classifica a intenção da mensagem do usuário com cache e otimização."""
         last_message = state["messages"][-1]
         context = state.get("context", {})
         db = context.get("db")
+        optimizer = get_optimizer()
+        
+        # Tentar classificação rápida (sem LLM) para padrões óbvios
+        use_fast, fast_intent = optimizer.should_use_fast_classification(last_message.content)
+        if use_fast and fast_intent:
+            state["intent"] = fast_intent
+            state["entities"] = {}
+            state["confidence"] = 0.85
+            logger.info(f"Fast classification usada: {fast_intent}")
+            return state
         
         # Tentar cache primeiro
         if db:
@@ -166,6 +177,8 @@ class WhatsAppAIAgent:
             audio_hint=audio_hint
         )
         
+        # Registrar chamada LLM
+        optimizer.track_call()
         response = self.llm.invoke(classification_prompt)
         
         try:
