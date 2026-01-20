@@ -18,6 +18,7 @@ class EmailService:
     def __init__(self):
         self.host = settings.SMTP_HOST
         self.port = settings.SMTP_PORT
+        self.use_ssl = getattr(settings, 'SMTP_USE_SSL', False)
         self.user = settings.SMTP_USER
         self.password = settings.SMTP_PASSWORD
         self.from_email = settings.SMTP_FROM_EMAIL or self.user
@@ -74,22 +75,46 @@ class EmailService:
         try:
             msg = self._create_message(to_email, subject, html_content, text_content)
             
-            with smtplib.SMTP(self.host, self.port) as server:
-                server.starttls()
-                server.login(self.user, self.password)
-                server.send_message(msg)
+            logger.info(f"Conectando ao SMTP: {self.host}:{self.port} (SSL={self.use_ssl})")
             
-            logger.info(f"Email enviado para {to_email}: {subject}")
+            # Login com senha (remover espaços extras se houver)
+            password = self.password.strip() if self.password else ""
+            
+            # Usar timeout de 30 segundos para evitar travamento
+            if self.use_ssl:
+                # SSL direto (porta 465)
+                with smtplib.SMTP_SSL(self.host, self.port, timeout=30) as server:
+                    server.login(self.user, password)
+                    server.send_message(msg)
+            else:
+                # STARTTLS (porta 587)
+                with smtplib.SMTP(self.host, self.port, timeout=30) as server:
+                    server.ehlo()
+                    server.starttls()
+                    server.ehlo()
+                    server.login(self.user, password)
+                    server.send_message(msg)
+            
+            logger.info(f"Email enviado com sucesso para {to_email}: {subject}")
             return True
             
         except smtplib.SMTPAuthenticationError as e:
-            logger.error(f"Erro de autenticação SMTP: {e}")
+            logger.error(f"Erro de autenticação SMTP (verifique App Password): {e}")
+            return False
+        except smtplib.SMTPConnectError as e:
+            logger.error(f"Erro de conexão SMTP (porta bloqueada?): {e}")
+            return False
+        except smtplib.SMTPServerDisconnected as e:
+            logger.error(f"Servidor SMTP desconectou: {e}")
             return False
         except smtplib.SMTPException as e:
             logger.error(f"Erro SMTP ao enviar email: {e}")
             return False
+        except TimeoutError as e:
+            logger.error(f"Timeout ao conectar ao SMTP (Railway pode bloquear porta 587): {e}")
+            return False
         except Exception as e:
-            logger.error(f"Erro ao enviar email: {e}")
+            logger.error(f"Erro inesperado ao enviar email: {type(e).__name__}: {e}")
             return False
     
     def send_verification_code(self, to_email: str, code: str, user_name: Optional[str] = None) -> bool:

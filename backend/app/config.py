@@ -101,6 +101,7 @@ class Settings(BaseSettings):
     # SMTP (Gmail)
     SMTP_HOST: str = "smtp.gmail.com"
     SMTP_PORT: int = 587
+    SMTP_USE_SSL: bool = False  # True para porta 465, False para 587 com STARTTLS
     SMTP_USER: str = ""
     SMTP_PASSWORD: str = ""
     SMTP_FROM_EMAIL: str = ""
