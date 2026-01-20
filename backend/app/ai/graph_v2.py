@@ -285,7 +285,19 @@ REGRAS CRÍTICAS:
 NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
         }
 
-        messages = [SystemMessage(content=system_prompts.get(domain, "")), last_message]
+        # Incluir contexto do usuário (contatos, finanças, etc) no prompt
+        context_prompt = state.get("context_prompt", "")
+        domain_prompt = system_prompts.get(domain, "")
+        
+        # Combinar prompt do domínio com contexto do usuário
+        full_system_prompt = f"""{domain_prompt}
+
+{context_prompt}
+
+IMPORTANTE: Use as informações acima para responder. Se o usuário mencionar um nome (ex: Maria), 
+verifique nos CONTATOS se já existe e use o telefone de lá. NÃO peça informações que você já tem."""
+
+        messages = [SystemMessage(content=full_system_prompt), last_message]
 
         # Chamar LLM com tools
         response = self.llm_with_tools.invoke(messages)
