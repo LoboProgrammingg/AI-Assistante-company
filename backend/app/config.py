@@ -90,6 +90,13 @@ class Settings(BaseSettings):
     
     # LangGraph
     LANGGRAPH_MEMORY_STORE: str = "postgres"
+    LANGGRAPH_RECURSION_LIMIT: int = 15
+    
+    # LangSmith (Observabilidade)
+    LANGCHAIN_TRACING_V2: bool = True
+    LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
+    LANGCHAIN_API_KEY: str = ""
+    LANGCHAIN_PROJECT: str = "AI Assistant"
     
     # SMTP (Gmail)
     SMTP_HOST: str = "smtp.gmail.com"
