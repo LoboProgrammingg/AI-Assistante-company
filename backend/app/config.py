@@ -74,6 +74,20 @@ class Settings(BaseSettings):
     # Scheduler
     SCHEDULER_CHECK_INTERVAL_SECONDS: int = 30
     
+    # Rate Limiting
+    RATE_LIMIT_PER_MINUTE: int = 30
+    RATE_LIMIT_PER_HOUR: int = 500
+    RATE_LIMIT_BURST: int = 10
+    RATE_LIMIT_BLOCK_SECONDS: int = 60
+    
+    # Input Sanitization
+    MAX_MESSAGE_LENGTH: int = 5000
+    MAX_FIELD_LENGTH: int = 500
+    ALLOW_URLS_IN_MESSAGE: bool = True
+    ALLOW_EMOJIS: bool = True
+    STRIP_HTML: bool = True
+    LOG_SANITIZATION: bool = True
+    
     # LangGraph
     LANGGRAPH_MEMORY_STORE: str = "postgres"
     

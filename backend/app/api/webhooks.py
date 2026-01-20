@@ -1,5 +1,6 @@
 """
 Webhook endpoints para integração com WhatsApp via Twilio.
+Inclui rate limiting e sanitização de inputs.
 """
 import logging
 from fastapi import APIRouter, Request, HTTPException, Depends, Form
@@ -12,8 +13,15 @@ from app.config import settings
 from app.database import get_db
 from app.models import User, Message
 from app.ai.graph import WhatsAppAIAgent
+from app.core.rate_limiter import RateLimiter, RateLimitExceeded
+from app.core.input_sanitizer import InputSanitizer
+from app.core.exceptions import IRISException, get_friendly_message
 
 logger = logging.getLogger(__name__)
+
+# Inicializar módulos de segurança
+rate_limiter = RateLimiter()
+input_sanitizer = InputSanitizer()
 
 
 async def transcribe_audio_from_url(audio_url: str, content_type: str = "audio/ogg") -> str:
@@ -302,6 +310,17 @@ async def whatsapp_webhook(
         # Buscar usuário VERIFICADO pelo número de telefone
         user = get_verified_user(db, From)
         
+        # === RATE LIMITING ===
+        if user:
+            allowed, rate_message = rate_limiter.check(user.id)
+            if not allowed:
+                logger.warning(f"Rate limit excedido para user_id={user.id}")
+                send_whatsapp_message(From, f"⏳ {rate_message}")
+                return Response(
+                    content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+                    media_type="application/xml"
+                )
+        
         if not user:
             # Número não cadastrado ou não verificado - enviar mensagem informativa
             logger.warning(f"Número não autorizado tentou acessar: {From}")
@@ -325,6 +344,12 @@ async def whatsapp_webhook(
         message_text = Body
         is_audio = False
         
+        # === INPUT SANITIZATION ===
+        if message_text:
+            message_text = input_sanitizer.sanitize_message(message_text)
+            if not input_sanitizer.is_safe(Body):
+                logger.warning(f"Input suspeito detectado de user_id={user.id}")
+        
         # Verificar se é áudio
         num_media = int(NumMedia) if NumMedia else 0
         if num_media > 0 and MediaContentType0 and MediaContentType0.startswith("audio/"):
@@ -339,6 +364,8 @@ async def whatsapp_webhook(
                     content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
                     media_type="application/xml"
                 )
+            # Sanitizar transcrição de áudio também
+            message_text = input_sanitizer.sanitize_message(message_text)
             logger.info(f"Áudio transcrito: {message_text}")
         
         logger.info(f"Mensagem recebida de {ProfileName or From}: {message_text}")
