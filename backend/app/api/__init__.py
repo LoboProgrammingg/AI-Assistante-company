@@ -1,15 +1,15 @@
 from fastapi import APIRouter
 
 from app.api.auth import router as auth_router
-from app.api.users import router as users_router
-from app.api.reminders import router as reminders_router
-from app.api.finances import router as finances_router
-from app.api.meetings import router as meetings_router
 from app.api.chat import router as chat_router
-from app.api.webhooks import router as webhooks_router
 from app.api.contacts import router as contacts_router
 from app.api.documents import router as documents_router
+from app.api.finances import router as finances_router
+from app.api.meetings import router as meetings_router
 from app.api.metrics import router as metrics_router
+from app.api.reminders import router as reminders_router
+from app.api.users import router as users_router
+from app.api.webhooks import router as webhooks_router
 
 api_router = APIRouter()
 

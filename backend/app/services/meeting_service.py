@@ -1,15 +1,16 @@
 import logging
 from datetime import datetime, timezone
-from typing import List, Optional, Tuple, Dict, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def utc_now():
     """Retorna datetime atual em UTC."""
     return datetime.now(timezone.utc)
 
+
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import flag_modified
-from sqlalchemy import or_, func
 
 from app.models import Meeting
 from app.schemas.meeting import MeetingCreate, MeetingUpdate
@@ -26,11 +27,11 @@ class MeetingService:
     def create(self, user_id: int, data: MeetingCreate) -> Meeting:
         """
         Cria uma nova reunião manualmente.
-        
+
         Args:
             user_id: ID do usuário
             data: Dados da reunião
-            
+
         Returns:
             Meeting: Reunião criada
         """
@@ -53,21 +54,17 @@ class MeetingService:
         return meeting
 
     def create_from_entities(
-        self,
-        user_id: int,
-        entities: dict,
-        audio_url: Optional[str] = None,
-        transcription: Optional[str] = None
+        self, user_id: int, entities: dict, audio_url: Optional[str] = None, transcription: Optional[str] = None
     ) -> Meeting:
         """
         Cria reunião a partir de análise da IA.
-        
+
         Args:
             user_id: ID do usuário
             entities: Entidades extraídas pela IA
             audio_url: URL do áudio original
             transcription: Transcrição do áudio
-            
+
         Returns:
             Meeting: Reunião criada
         """
@@ -96,25 +93,17 @@ class MeetingService:
 
     def get_by_id(self, meeting_id: int, user_id: int) -> Optional[Meeting]:
         """Busca reunião por ID."""
-        return self.db.query(Meeting).filter(
-            Meeting.id == meeting_id,
-            Meeting.user_id == user_id
-        ).first()
+        return self.db.query(Meeting).filter(Meeting.id == meeting_id, Meeting.user_id == user_id).first()
 
-    def list_by_user(
-        self,
-        user_id: int,
-        limit: int = 20,
-        offset: int = 0
-    ) -> Tuple[List[Meeting], int]:
+    def list_by_user(self, user_id: int, limit: int = 20, offset: int = 0) -> Tuple[List[Meeting], int]:
         """
         Lista reuniões do usuário com paginação.
-        
+
         Args:
             user_id: ID do usuário
             limit: Quantidade por página
             offset: Offset para paginação
-            
+
         Returns:
             Tuple: (lista de reuniões, total)
         """
@@ -122,18 +111,11 @@ class MeetingService:
 
         total = query.count()
 
-        meetings = query.order_by(
-            Meeting.created_at.desc()
-        ).offset(offset).limit(limit).all()
+        meetings = query.order_by(Meeting.created_at.desc()).offset(offset).limit(limit).all()
 
         return meetings, total
 
-    def update(
-        self,
-        meeting_id: int,
-        user_id: int,
-        data: MeetingUpdate
-    ) -> Optional[Meeting]:
+    def update(self, meeting_id: int, user_id: int, data: MeetingUpdate) -> Optional[Meeting]:
         """Atualiza uma reunião."""
         meeting = self.get_by_id(meeting_id, user_id)
         if not meeting:
@@ -144,7 +126,7 @@ class MeetingService:
         for field, value in update_data.items():
             if value is not None:
                 if field in ["key_topics", "action_items", "participants", "decisions"]:
-                    value = [item.model_dump() if hasattr(item, 'model_dump') else item for item in value]
+                    value = [item.model_dump() if hasattr(item, "model_dump") else item for item in value]
                 setattr(meeting, field, value)
 
         meeting.updated_at = utc_now()
@@ -166,29 +148,29 @@ class MeetingService:
         logger.info(f"Reunião removida: {meeting_id}")
         return True
 
-    def search(
-        self,
-        user_id: int,
-        query: str
-    ) -> List[Dict[str, Any]]:
+    def search(self, user_id: int, query: str) -> List[Dict[str, Any]]:
         """
         Busca em reuniões por palavra-chave.
-        
+
         Args:
             user_id: ID do usuário
             query: Termo de busca
-            
+
         Returns:
             Lista de resultados com highlights
         """
-        meetings = self.db.query(Meeting).filter(
-            Meeting.user_id == user_id,
-            or_(
-                Meeting.title.ilike(f"%{query}%"),
-                Meeting.summary.ilike(f"%{query}%"),
-                Meeting.transcription.ilike(f"%{query}%")
+        meetings = (
+            self.db.query(Meeting)
+            .filter(
+                Meeting.user_id == user_id,
+                or_(
+                    Meeting.title.ilike(f"%{query}%"),
+                    Meeting.summary.ilike(f"%{query}%"),
+                    Meeting.transcription.ilike(f"%{query}%"),
+                ),
             )
-        ).all()
+            .all()
+        )
 
         results = []
         for m in meetings:
@@ -203,32 +185,30 @@ class MeetingService:
                 end = min(len(m.summary), idx + len(query) + 50)
                 highlights.append(f"...{m.summary[start:end]}...")
 
-            results.append({
-                "meeting_id": m.id,
-                "title": m.title,
-                "date": m.date.isoformat() if m.date else None,
-                "highlights": highlights,
-                "relevance_score": 0.9 if m.title and query.lower() in m.title.lower() else 0.7
-            })
+            results.append(
+                {
+                    "meeting_id": m.id,
+                    "title": m.title,
+                    "date": m.date.isoformat() if m.date else None,
+                    "highlights": highlights,
+                    "relevance_score": 0.9 if m.title and query.lower() in m.title.lower() else 0.7,
+                }
+            )
 
         return sorted(results, key=lambda x: x["relevance_score"], reverse=True)
 
     def update_action_item_status(
-        self,
-        meeting_id: int,
-        user_id: int,
-        item_index: int,
-        status: str
+        self, meeting_id: int, user_id: int, item_index: int, status: str
     ) -> Optional[Meeting]:
         """
         Atualiza status de um action item.
-        
+
         Args:
             meeting_id: ID da reunião
             user_id: ID do usuário
             item_index: Índice do item
             status: Novo status
-            
+
         Returns:
             Meeting atualizado ou None
         """
@@ -244,7 +224,7 @@ class MeetingService:
 
         meeting.action_items = action_items
         meeting.updated_at = utc_now()
-        
+
         flag_modified(meeting, "action_items")
 
         self.db.commit()
@@ -255,34 +235,27 @@ class MeetingService:
 
     def count_by_user(self, user_id: int) -> int:
         """Conta total de reuniões do usuário."""
-        return self.db.query(func.count(Meeting.id)).filter(
-            Meeting.user_id == user_id
-        ).scalar() or 0
+        return self.db.query(func.count(Meeting.id)).filter(Meeting.user_id == user_id).scalar() or 0
 
     def get_action_items_pending(self, user_id: int) -> List[Dict[str, Any]]:
         """
         Retorna todos os action items pendentes.
-        
+
         Args:
             user_id: ID do usuário
-            
+
         Returns:
             Lista de action items pendentes
         """
-        meetings = self.db.query(Meeting).filter(
-            Meeting.user_id == user_id
-        ).all()
+        meetings = self.db.query(Meeting).filter(Meeting.user_id == user_id).all()
 
         pending_items = []
         for meeting in meetings:
             if meeting.action_items:
                 for idx, item in enumerate(meeting.action_items):
                     if item.get("status", "pending") == "pending":
-                        pending_items.append({
-                            "meeting_id": meeting.id,
-                            "meeting_title": meeting.title,
-                            "item_index": idx,
-                            **item
-                        })
+                        pending_items.append(
+                            {"meeting_id": meeting.id, "meeting_title": meeting.title, "item_index": idx, **item}
+                        )
 
         return pending_items

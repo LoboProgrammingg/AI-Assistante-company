@@ -1,11 +1,13 @@
-from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class DocumentCategoryEnum(str, Enum):
     """Categorias de documentos."""
+
     WORK = "work"
     PERSONAL = "personal"
     STUDY = "study"
@@ -17,6 +19,7 @@ class DocumentCategoryEnum(str, Enum):
 
 class DocumentBase(BaseModel):
     """Schema base para documento."""
+
     title: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
     category: DocumentCategoryEnum = DocumentCategoryEnum.OTHER
@@ -26,11 +29,13 @@ class DocumentBase(BaseModel):
 
 class DocumentCreate(DocumentBase):
     """Schema para criação de documento (sem arquivo, será adicionado via upload)."""
+
     pass
 
 
 class DocumentUpdate(BaseModel):
     """Schema para atualização de documento."""
+
     title: Optional[str] = Field(None, max_length=255)
     description: Optional[str] = None
     category: Optional[DocumentCategoryEnum] = None
@@ -40,6 +45,7 @@ class DocumentUpdate(BaseModel):
 
 class DocumentResponse(DocumentBase):
     """Schema de resposta do documento."""
+
     id: int
     user_id: int
     filename: str
@@ -58,6 +64,7 @@ class DocumentResponse(DocumentBase):
 
 class DocumentListResponse(BaseModel):
     """Schema para lista paginada de documentos."""
+
     items: List[DocumentResponse]
     total: int
     page: int
@@ -70,6 +77,7 @@ class DocumentListResponse(BaseModel):
 
 class DocumentStatsResponse(BaseModel):
     """Estatísticas de documentos do usuário."""
+
     total_documents: int
     ai_documents: int
     ai_limit: int

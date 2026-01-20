@@ -1,17 +1,20 @@
-from pydantic import BaseModel, Field, field_validator
 from datetime import date, datetime
-from typing import Optional, List
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 class FinanceTypeEnum(str, Enum):
     """Tipos de transação financeira."""
+
     INCOME = "income"
     EXPENSE = "expense"
 
 
 class FinanceCategoryBase(BaseModel):
     """Schema base para categoria financeira."""
+
     name: str = Field(..., max_length=50)
     type: FinanceTypeEnum
     icon: Optional[str] = Field(None, max_length=10)
@@ -20,6 +23,7 @@ class FinanceCategoryBase(BaseModel):
 
 class FinanceCategoryResponse(FinanceCategoryBase):
     """Schema de resposta de categoria."""
+
     id: int
 
     class Config:
@@ -28,6 +32,7 @@ class FinanceCategoryResponse(FinanceCategoryBase):
 
 class FinanceBase(BaseModel):
     """Schema base para transação financeira."""
+
     type: FinanceTypeEnum
     amount: float = Field(..., gt=0)
     description: Optional[str] = Field(None, max_length=500)
@@ -35,7 +40,7 @@ class FinanceBase(BaseModel):
     is_recurring: bool = False
     tags: List[str] = Field(default_factory=list)
 
-    @field_validator('amount')
+    @field_validator("amount")
     @classmethod
     def round_amount(cls, v: float) -> float:
         return round(v, 2)
@@ -43,11 +48,13 @@ class FinanceBase(BaseModel):
 
 class FinanceCreate(FinanceBase):
     """Schema para criação de transação."""
+
     category_id: Optional[int] = None
 
 
 class FinanceUpdate(BaseModel):
     """Schema para atualização de transação."""
+
     type: Optional[FinanceTypeEnum] = None
     amount: Optional[float] = Field(None, gt=0)
     description: Optional[str] = Field(None, max_length=500)
@@ -55,7 +62,7 @@ class FinanceUpdate(BaseModel):
     transaction_date: Optional[date] = None
     tags: Optional[List[str]] = None
 
-    @field_validator('amount')
+    @field_validator("amount")
     @classmethod
     def round_amount(cls, v: Optional[float]) -> Optional[float]:
         return round(v, 2) if v is not None else None
@@ -63,6 +70,7 @@ class FinanceUpdate(BaseModel):
 
 class FinanceResponse(FinanceBase):
     """Schema de resposta de transação."""
+
     id: int
     user_id: int
     category: Optional[FinanceCategoryResponse] = None
@@ -75,6 +83,7 @@ class FinanceResponse(FinanceBase):
 
 class FinanceListResponse(BaseModel):
     """Schema para lista paginada de transações."""
+
     items: List[FinanceResponse]
     total: int
     page: int
@@ -85,6 +94,7 @@ class FinanceListResponse(BaseModel):
 
 class FinanceSummary(BaseModel):
     """Resumo financeiro de um período."""
+
     period: dict
     summary: dict
     by_category: List[dict]
@@ -93,6 +103,7 @@ class FinanceSummary(BaseModel):
 
 class CategorySummary(BaseModel):
     """Resumo por categoria."""
+
     category: str
     total: float
     percentage: float
@@ -101,6 +112,7 @@ class CategorySummary(BaseModel):
 
 class FinanceTrend(BaseModel):
     """Tendência financeira."""
+
     monthly_data: List[dict]
     average_monthly_expense: float
     highest_expense_month: str
@@ -109,6 +121,7 @@ class FinanceTrend(BaseModel):
 
 class FinanceFromAI(BaseModel):
     """Schema para criação de transação via IA."""
+
     type: str
     amount: float
     description: Optional[str] = None
@@ -117,7 +130,7 @@ class FinanceFromAI(BaseModel):
     is_recurring: bool = False
     tags: List[str] = Field(default_factory=list)
 
-    @field_validator('transaction_date')
+    @field_validator("transaction_date")
     @classmethod
     def parse_date(cls, v: str) -> str:
         date.fromisoformat(v)

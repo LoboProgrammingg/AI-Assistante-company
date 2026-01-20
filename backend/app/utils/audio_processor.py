@@ -15,7 +15,7 @@ class AudioProcessor:
     def __init__(self, api_key: str):
         """
         Inicializa o processador de áudio.
-        
+
         Args:
             api_key: API Key do Google Gemini
         """
@@ -26,10 +26,10 @@ class AudioProcessor:
     async def transcribe_audio(self, audio_path: Path) -> Optional[str]:
         """
         Transcreve um arquivo de áudio para texto.
-        
+
         Args:
             audio_path: Caminho para o arquivo de áudio
-            
+
         Returns:
             Transcrição do áudio ou None em caso de erro
         """
@@ -42,12 +42,14 @@ class AudioProcessor:
                 audio_data = f.read()
 
             mime_type = self._get_mime_type(audio_path)
-            
-            response = self.model.generate_content([
-                "Transcreva este áudio em português brasileiro. "
-                "Retorne apenas a transcrição, sem comentários adicionais:",
-                {"mime_type": mime_type, "data": audio_data}
-            ])
+
+            response = self.model.generate_content(
+                [
+                    "Transcreva este áudio em português brasileiro. "
+                    "Retorne apenas a transcrição, sem comentários adicionais:",
+                    {"mime_type": mime_type, "data": audio_data},
+                ]
+            )
 
             transcription = response.text.strip()
             logger.info(f"Áudio transcrito com sucesso: {len(transcription)} caracteres")
@@ -60,10 +62,10 @@ class AudioProcessor:
     def validate_audio(self, audio_path: Path) -> bool:
         """
         Valida formato e tamanho do arquivo de áudio.
-        
+
         Args:
             audio_path: Caminho para o arquivo
-            
+
         Returns:
             True se válido, False caso contrário
         """

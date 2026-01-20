@@ -1,19 +1,20 @@
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
-from pydantic import BaseModel
+from typing import List, Optional
 
-from app.api.deps import get_db, get_current_user
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, get_db
 from app.models import User
-from app.services.contact_service import ContactService
 from app.schemas.contact import (
-    ContactCreate,
-    ContactUpdate,
-    ContactResponse,
-    ContactListResponse,
     ContactBulkCreate,
+    ContactCreate,
+    ContactListResponse,
+    ContactResponse,
     ContactsByGroupResponse,
+    ContactUpdate,
 )
+from app.services.contact_service import ContactService
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
@@ -142,13 +143,10 @@ def send_broadcast_message(
 ):
     """Envia mensagem para grupo(s) de contatos."""
     from app.services.message_broadcast_service import MessageBroadcastService
-    
+
     if not data.group_name and not data.group_names:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Informe group_name ou group_names"
-        )
-    
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe group_name ou group_names")
+
     broadcast_service = MessageBroadcastService(db)
     result = broadcast_service.send_broadcast(
         user_id=current_user.id,
@@ -157,5 +155,5 @@ def send_broadcast_message(
         group_names=data.group_names,
         whatsapp_service=None,  # TODO: Injetar WhatsApp service quando configurado
     )
-    
+
     return BroadcastResponse(**result)

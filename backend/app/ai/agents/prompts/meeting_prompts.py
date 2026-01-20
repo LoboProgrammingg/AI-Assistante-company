@@ -1,9 +1,10 @@
 """
 Prompts para o agente de reuniões.
 """
+
 import json
 from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
 
 class MeetingPrompts:
@@ -26,11 +27,11 @@ Regras:
         conversation_history: str,
         current_time: datetime,
         message: str,
-        pending_meeting: Optional[Dict[str, Any]] = None
+        pending_meeting: Optional[Dict[str, Any]] = None,
     ) -> str:
         """
         Gera prompt para classificar intenção de reunião.
-        
+
         Args:
             conversation_history: Histórico da conversa
             current_time: Data/hora atual
@@ -39,7 +40,7 @@ Regras:
         """
         pending_json = json.dumps(pending_meeting, ensure_ascii=False) if pending_meeting else ""
         pending_text = f"REUNIÃO PENDENTE AGUARDANDO CONFIRMAÇÃO: {pending_json}" if pending_meeting else ""
-        
+
         return f"""
 Analise a mensagem do usuário sobre reunião.
 
@@ -69,21 +70,17 @@ Retorne APENAS JSON:
 """
 
     @staticmethod
-    def get_schedule_extraction_prompt(
-        conversation_history: str,
-        current_time: datetime,
-        message: str
-    ) -> str:
+    def get_schedule_extraction_prompt(conversation_history: str, current_time: datetime, message: str) -> str:
         """
         Gera prompt para extração de dados de agendamento.
-        
+
         Args:
             conversation_history: Histórico da conversa
             current_time: Data/hora atual
             message: Mensagem do usuário
         """
         tomorrow = current_time + timedelta(days=1)
-        
+
         return f"""
 Extraia os detalhes da reunião a ser agendada.
 
@@ -116,7 +113,7 @@ Retorne APENAS JSON:
     def get_analysis_prompt(transcription: str) -> str:
         """
         Gera prompt para análise de transcrição.
-        
+
         Args:
             transcription: Transcrição da reunião
         """
@@ -159,11 +156,7 @@ Seja detalhado na análise. Se não conseguir identificar algo, use null ou list
 
     # Templates de resposta
     TEMPLATES = {
-        "schedule_success": (
-            "✅ *Reunião agendada!*\n\n"
-            "📝 {title}\n"
-            "📅 {formatted_date}"
-        ),
+        "schedule_success": ("✅ *Reunião agendada!*\n\n" "📝 {title}\n" "📅 {formatted_date}"),
         "schedule_with_participants": "\n👥 Participantes: {participants}",
         "ask_time": "Para qual data e horário você gostaria de agendar a reunião '{title}'?",
         "ask_details": (

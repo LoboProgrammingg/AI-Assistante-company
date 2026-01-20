@@ -2,9 +2,10 @@ import logging
 import os
 import uuid
 from datetime import datetime, timezone
-from typing import Optional, List, Dict, Any
-from sqlalchemy.orm import Session
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import and_, func
+from sqlalchemy.orm import Session
 
 from app.models import Document, DocumentCategory
 from app.schemas.document import DocumentCreate, DocumentUpdate
@@ -34,7 +35,7 @@ class DocumentService:
         file_path: str,
         file_size: int,
         mime_type: str,
-        data: DocumentCreate
+        data: DocumentCreate,
     ) -> Document:
         """Cria um novo documento."""
         # Verificar limite de documentos para IA
@@ -66,13 +67,11 @@ class DocumentService:
 
     def get_by_id(self, user_id: int, document_id: int) -> Optional[Document]:
         """Busca documento por ID."""
-        return self.db.query(Document).filter(
-            and_(
-                Document.id == document_id,
-                Document.user_id == user_id,
-                Document.is_active == True
-            )
-        ).first()
+        return (
+            self.db.query(Document)
+            .filter(and_(Document.id == document_id, Document.user_id == user_id, Document.is_active == True))
+            .first()
+        )
 
     def list(
         self,
@@ -81,12 +80,10 @@ class DocumentService:
         send_to_ai: Optional[bool] = None,
         search: Optional[str] = None,
         page: int = 1,
-        limit: int = 20
+        limit: int = 20,
     ) -> Dict[str, Any]:
         """Lista documentos com filtros e paginação."""
-        query = self.db.query(Document).filter(
-            and_(Document.user_id == user_id, Document.is_active == True)
-        )
+        query = self.db.query(Document).filter(and_(Document.user_id == user_id, Document.is_active == True))
 
         if category:
             query = query.filter(Document.category == DocumentCategory(category))
@@ -97,9 +94,9 @@ class DocumentService:
         if search:
             search_filter = f"%{search}%"
             query = query.filter(
-                Document.title.ilike(search_filter) |
-                Document.description.ilike(search_filter) |
-                Document.original_filename.ilike(search_filter)
+                Document.title.ilike(search_filter)
+                | Document.description.ilike(search_filter)
+                | Document.original_filename.ilike(search_filter)
             )
 
         total = query.count()
@@ -118,7 +115,7 @@ class DocumentService:
             "has_next": page < pages,
             "has_prev": page > 1,
             "ai_count": ai_count,
-            "ai_limit": MAX_AI_DOCUMENTS
+            "ai_limit": MAX_AI_DOCUMENTS,
         }
 
     def update(self, user_id: int, document_id: int, data: DocumentUpdate) -> Optional[Document]:
@@ -183,19 +180,16 @@ class DocumentService:
 
     def count_ai_documents(self, user_id: int) -> int:
         """Conta documentos enviados para IA."""
-        return self.db.query(func.count(Document.id)).filter(
-            and_(
-                Document.user_id == user_id,
-                Document.send_to_ai == True,
-                Document.is_active == True
-            )
-        ).scalar() or 0
+        return (
+            self.db.query(func.count(Document.id))
+            .filter(and_(Document.user_id == user_id, Document.send_to_ai == True, Document.is_active == True))
+            .scalar()
+            or 0
+        )
 
     def get_stats(self, user_id: int) -> Dict[str, Any]:
         """Retorna estatísticas de documentos."""
-        documents = self.db.query(Document).filter(
-            and_(Document.user_id == user_id, Document.is_active == True)
-        ).all()
+        documents = self.db.query(Document).filter(and_(Document.user_id == user_id, Document.is_active == True)).all()
 
         by_category = {}
         total_size = 0
@@ -213,18 +207,17 @@ class DocumentService:
             "ai_documents": ai_count,
             "ai_limit": MAX_AI_DOCUMENTS,
             "by_category": by_category,
-            "total_size_bytes": total_size
+            "total_size_bytes": total_size,
         }
 
     def get_ai_documents(self, user_id: int) -> List[Document]:
         """Retorna documentos marcados para IA."""
-        return self.db.query(Document).filter(
-            and_(
-                Document.user_id == user_id,
-                Document.send_to_ai == True,
-                Document.is_active == True
-            )
-        ).order_by(Document.created_at.desc()).all()
+        return (
+            self.db.query(Document)
+            .filter(and_(Document.user_id == user_id, Document.send_to_ai == True, Document.is_active == True))
+            .order_by(Document.created_at.desc())
+            .all()
+        )
 
     def update_content(self, document_id: int, content_text: str, chunks: List[str] = None) -> bool:
         """Atualiza conteúdo extraído do documento."""

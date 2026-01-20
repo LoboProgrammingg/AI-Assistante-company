@@ -1,10 +1,12 @@
-from pydantic import BaseModel, Field
 from datetime import datetime
-from typing import Optional, List
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class ActionItem(BaseModel):
     """Item de ação de uma reunião."""
+
     task: str
     responsible: Optional[str] = None
     deadline: Optional[str] = None
@@ -14,18 +16,21 @@ class ActionItem(BaseModel):
 
 class Participant(BaseModel):
     """Participante de uma reunião."""
+
     name: str
     role: Optional[str] = None
 
 
 class Decision(BaseModel):
     """Decisão tomada em uma reunião."""
+
     decision: str
     context: Optional[str] = None
 
 
 class KeyTopic(BaseModel):
     """Tópico principal discutido na reunião."""
+
     topic: str
     summary: Optional[str] = None
     discussed_by: List[str] = Field(default_factory=list)
@@ -33,6 +38,7 @@ class KeyTopic(BaseModel):
 
 class MeetingBase(BaseModel):
     """Schema base para reunião."""
+
     title: Optional[str] = Field(None, max_length=200)
     date: Optional[datetime] = None
     duration_minutes: Optional[int] = Field(None, ge=0)
@@ -40,6 +46,7 @@ class MeetingBase(BaseModel):
 
 class MeetingCreate(MeetingBase):
     """Schema para criação manual de reunião."""
+
     summary: Optional[str] = None
     key_topics: List[str] = Field(default_factory=list)
     action_items: List[ActionItem] = Field(default_factory=list)
@@ -48,6 +55,7 @@ class MeetingCreate(MeetingBase):
 
 class MeetingUpdate(BaseModel):
     """Schema para atualização de reunião."""
+
     title: Optional[str] = Field(None, max_length=200)
     summary: Optional[str] = None
     key_topics: Optional[List[KeyTopic]] = None
@@ -58,6 +66,7 @@ class MeetingUpdate(BaseModel):
 
 class MeetingResponse(MeetingBase):
     """Schema de resposta completa de reunião."""
+
     id: int
     user_id: int
     audio_url: Optional[str] = None
@@ -78,6 +87,7 @@ class MeetingResponse(MeetingBase):
 
 class MeetingListItem(BaseModel):
     """Schema para item na lista de reuniões."""
+
     id: int
     title: Optional[str] = None
     date: Optional[datetime] = None
@@ -95,6 +105,7 @@ class MeetingListItem(BaseModel):
 
 class MeetingListResponse(BaseModel):
     """Schema para lista paginada de reuniões."""
+
     items: List[MeetingListItem]
     total: int
     page: int
@@ -105,6 +116,7 @@ class MeetingListResponse(BaseModel):
 
 class MeetingSearchResult(BaseModel):
     """Resultado de busca em reuniões."""
+
     meeting_id: int
     title: Optional[str] = None
     highlights: List[str] = Field(default_factory=list)
@@ -113,6 +125,7 @@ class MeetingSearchResult(BaseModel):
 
 class MeetingFromAI(BaseModel):
     """Schema para criação de reunião via análise da IA."""
+
     title: Optional[str] = None
     summary: str
     duration_estimate: Optional[int] = None

@@ -8,14 +8,10 @@ class ClassifierPrompts:
     """Prompts utilizados pelo classificador de intenções."""
 
     @staticmethod
-    def get_classification_prompt(
-        conversation_history: str,
-        message: str,
-        audio_hint: str = ""
-    ) -> str:
+    def get_classification_prompt(conversation_history: str, message: str, audio_hint: str = "") -> str:
         """
         Gera o prompt de classificação de intenção.
-        
+
         Args:
             conversation_history: Histórico da conversa formatado
             message: Mensagem atual do usuário (truncada em 1000 chars)

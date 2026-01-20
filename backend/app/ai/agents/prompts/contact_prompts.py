@@ -10,7 +10,7 @@ class ContactPrompts:
     def get_intent_classification_prompt(history: str, message: str) -> str:
         """
         Gera prompt para classificar intenção de contato.
-        
+
         Args:
             history: Histórico da conversa
             message: Mensagem do usuário
@@ -50,7 +50,7 @@ EXEMPLOS:
     def get_contact_extraction_prompt(history: str, message: str) -> str:
         """
         Gera prompt para extração de informações de contato.
-        
+
         Args:
             history: Histórico da conversa
             message: Mensagem do usuário
@@ -92,17 +92,8 @@ REGRAS:
 
     # Templates de resposta
     TEMPLATES = {
-        "contact_saved": (
-            "✅ *Contato salvo!*\n\n"
-            "👤 {name}\n"
-            "📱 {phone}\n"
-            "👥 {group}"
-        ),
-        "multiple_contacts_saved": (
-            "✅ *{count} contatos salvos!*\n\n"
-            "{contacts_list}\n\n"
-            "👥 Grupo: {group}"
-        ),
+        "contact_saved": ("✅ *Contato salvo!*\n\n" "👤 {name}\n" "📱 {phone}\n" "👥 {group}"),
+        "multiple_contacts_saved": ("✅ *{count} contatos salvos!*\n\n" "{contacts_list}\n\n" "👥 Grupo: {group}"),
         "contact_not_found": (
             "❌ Não encontrei o contato *{name}*.\n\n"
             "Você pode adicionar com:\n"
@@ -130,9 +121,7 @@ REGRAS:
             "_Para enviar mensagem:_ manda pros funcionários: sua mensagem"
         ),
         "no_contacts": (
-            "📋 Você ainda não tem contatos salvos.\n\n"
-            "Para adicionar:\n"
-            "_Salva João 11999998888 como funcionário_"
+            "📋 Você ainda não tem contatos salvos.\n\n" "Para adicionar:\n" "_Salva João 11999998888 como funcionário_"
         ),
         "contacts_list_header": "📋 *Seus contatos:* ({total} total)\n\n",
         "contact_item": "👤 *{name}* ({group}) - {phone}\n",

@@ -65,10 +65,12 @@ Retorne APENAS JSON:
 """
 
     @staticmethod
-    def get_extraction_prompt(context: str, current_date: str, current_year: int, current_month: int, message: str) -> str:
+    def get_extraction_prompt(
+        context: str, current_date: str, current_year: int, current_month: int, message: str
+    ) -> str:
         """
         Gera prompt para extração de transações.
-        
+
         Args:
             context: Contexto formatado do usuário
             current_date: Data atual formatada
@@ -150,10 +152,7 @@ Retorne APENAS JSON:
         "multiple_transactions_header": "✅ *{count} transações registradas!*\n",
         "expense_line": "{i}. 📉 Gasto: R$ {amount:.2f} - {description} ({category})",
         "income_line": "{i}. 📈 Receita: R$ {amount:.2f} - {description} ({category})",
-        "totals": (
-            "\n💸 Total gastos: R$ {total_expenses:.2f}\n"
-            "💰 Total receitas: R$ {total_income:.2f}"
-        ),
+        "totals": ("\n💸 Total gastos: R$ {total_expenses:.2f}\n" "💰 Total receitas: R$ {total_income:.2f}"),
         "query_no_results": "📊 Você não tem transações registradas para {period}.",
         "query_no_category": "📊 Você não tem gastos com **{category}** {period}.",
         "delete_confirm": "🗑️ Transação encontrada: *{desc}* - R$ {amount:.2f}\n\nConfirma a exclusão? (sim/não)",

@@ -1,6 +1,6 @@
-from app.ai.graph import WhatsAppAIAgent, AgentState
+from app.ai.agents import BaseAgent, FinanceAgent, MeetingAgent, ReminderAgent
+from app.ai.graph import AgentState, WhatsAppAIAgent
 from app.ai.memory import MemoryManager
-from app.ai.agents import ReminderAgent, FinanceAgent, MeetingAgent, BaseAgent
 
 __all__ = [
     "WhatsAppAIAgent",

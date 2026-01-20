@@ -89,10 +89,19 @@ export function Documents() {
       return documentsApi.upload(selectedFile, uploadData)
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["documents"] })
-      setUploadDialogOpen(false)
+      // Limpar estado primeiro para evitar re-envios
       setSelectedFile(null)
+      setUploadDialogOpen(false)
       setUploadData({ title: "", description: "", category: "other", tags: "", send_to_ai: false })
+      // Resetar input file
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ""
+      }
+      // Invalidar queries após limpar estado
+      queryClient.invalidateQueries({ queryKey: ["documents"] })
+    },
+    onError: (error) => {
+      console.error("Erro no upload:", error)
     },
   })
 
@@ -112,11 +121,13 @@ export function Documents() {
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>): void => {
     const file = e.target.files?.[0]
-    if (file) {
+    if (file && !uploadDialogOpen && !uploadMutation.isPending) {
       setSelectedFile(file)
       setUploadData(prev => ({ ...prev, title: file.name.split(".")[0] }))
       setUploadDialogOpen(true)
     }
+    // Resetar input para permitir selecionar o mesmo arquivo novamente
+    e.target.value = ""
   }
 
   const documents = documentsData?.items || []

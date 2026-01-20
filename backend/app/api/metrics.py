@@ -1,10 +1,11 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import Optional
-from pydantic import BaseModel
 
-from app.api.deps import get_db, get_current_user
+from fastapi import APIRouter, Depends, HTTPException, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_user, get_db
 from app.models import User
 from app.services.embedding_service import AgentMetricsService, FeedbackService
 
@@ -27,9 +28,7 @@ class FeedbackResponse(BaseModel):
 
 @router.post("/feedback", response_model=FeedbackResponse)
 def submit_feedback(
-    request: FeedbackRequest,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    request: FeedbackRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     """Submete feedback do usuário sobre uma resposta da IA."""
     service = FeedbackService(db)
@@ -39,24 +38,17 @@ def submit_feedback(
         rating=request.rating,
         agent_name=request.agent_name,
         message_id=request.message_id,
-        comment=request.comment
+        comment=request.comment,
     )
-    
+
     if success:
         return FeedbackResponse(success=True, message="Feedback registrado com sucesso")
-    
-    raise HTTPException(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        detail="Erro ao registrar feedback"
-    )
+
+    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erro ao registrar feedback")
 
 
 @router.get("/agents")
-def get_agent_metrics(
-    days: int = 30,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+def get_agent_metrics(days: int = 30, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Retorna métricas de accuracy por agente."""
     service = AgentMetricsService(db)
     metrics = service.get_accuracy_by_agent(days)
@@ -64,11 +56,7 @@ def get_agent_metrics(
 
 
 @router.get("/user")
-def get_user_metrics(
-    days: int = 30,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+def get_user_metrics(days: int = 30, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Retorna estatísticas de uso do usuário atual."""
     service = AgentMetricsService(db)
     stats = service.get_user_stats(current_user.id, days)
@@ -76,11 +64,7 @@ def get_user_metrics(
 
 
 @router.get("/feedback/summary")
-def get_feedback_summary(
-    days: int = 30,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
-):
+def get_feedback_summary(days: int = 30, db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
     """Retorna resumo de feedbacks."""
     service = FeedbackService(db)
     summary = service.get_feedback_summary(days)

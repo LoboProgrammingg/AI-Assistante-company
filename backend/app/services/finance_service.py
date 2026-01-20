@@ -1,15 +1,16 @@
 import logging
-from datetime import date, datetime, timedelta, timezone
-from typing import List, Optional, Tuple, Dict, Any
 from calendar import monthrange
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Dict, List, Optional, Tuple
 
 
 def utc_now():
     """Retorna datetime atual em UTC."""
     return datetime.now(timezone.utc)
 
+
+from sqlalchemy import and_, extract, func
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, func, extract
 
 from app.models import Finance, FinanceCategory, FinanceType
 from app.schemas.finance import FinanceCreate, FinanceUpdate
@@ -26,11 +27,11 @@ class FinanceService:
     def create(self, user_id: int, data: FinanceCreate) -> Finance:
         """
         Registra uma nova transação financeira.
-        
+
         Args:
             user_id: ID do usuário
             data: Dados da transação
-            
+
         Returns:
             Finance: Transação criada
         """
@@ -52,25 +53,18 @@ class FinanceService:
         logger.info(f"Transação criada: {finance.id} - R${data.amount}")
         return finance
 
-    def create_from_entities(
-        self,
-        user_id: int,
-        entities: dict
-    ) -> Finance:
+    def create_from_entities(self, user_id: int, entities: dict) -> Finance:
         """
         Cria transação a partir de entidades extraídas pela IA.
-        
+
         Args:
             user_id: ID do usuário
             entities: Entidades extraídas
-            
+
         Returns:
             Finance: Transação criada
         """
-        category = self._get_or_create_category(
-            entities.get("category", "Outros"),
-            entities.get("type", "expense")
-        )
+        category = self._get_or_create_category(entities.get("category", "Outros"), entities.get("type", "expense"))
 
         transaction_date_str = entities.get("transaction_date", date.today().isoformat())
         try:
@@ -90,15 +84,9 @@ class FinanceService:
 
         return self.create(user_id, data)
 
-    def _get_or_create_category(
-        self,
-        name: str,
-        finance_type: str
-    ) -> Optional[FinanceCategory]:
+    def _get_or_create_category(self, name: str, finance_type: str) -> Optional[FinanceCategory]:
         """Busca ou cria categoria."""
-        category = self.db.query(FinanceCategory).filter(
-            FinanceCategory.name == name
-        ).first()
+        category = self.db.query(FinanceCategory).filter(FinanceCategory.name == name).first()
 
         if not category:
             category = FinanceCategory(
@@ -114,12 +102,7 @@ class FinanceService:
 
     def get_by_id(self, finance_id: int, user_id: int) -> Optional[Finance]:
         """Busca transação por ID."""
-        return self.db.query(Finance).filter(
-            and_(
-                Finance.id == finance_id,
-                Finance.user_id == user_id
-            )
-        ).first()
+        return self.db.query(Finance).filter(and_(Finance.id == finance_id, Finance.user_id == user_id)).first()
 
     def list_transactions(
         self,
@@ -129,11 +112,11 @@ class FinanceService:
         start_date: Optional[date] = None,
         end_date: Optional[date] = None,
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
     ) -> Tuple[List[Finance], int]:
         """
         Lista transações com filtros e paginação.
-        
+
         Args:
             user_id: ID do usuário
             finance_type: income ou expense
@@ -142,7 +125,7 @@ class FinanceService:
             end_date: Data final
             limit: Quantidade por página
             offset: Offset para paginação
-            
+
         Returns:
             Tuple: (lista de transações, total)
         """
@@ -159,18 +142,11 @@ class FinanceService:
 
         total = query.count()
 
-        transactions = query.order_by(
-            Finance.transaction_date.desc()
-        ).offset(offset).limit(limit).all()
+        transactions = query.order_by(Finance.transaction_date.desc()).offset(offset).limit(limit).all()
 
         return transactions, total
 
-    def update(
-        self,
-        finance_id: int,
-        user_id: int,
-        data: FinanceUpdate
-    ) -> Optional[Finance]:
+    def update(self, finance_id: int, user_id: int, data: FinanceUpdate) -> Optional[Finance]:
         """Atualiza uma transação."""
         finance = self.get_by_id(finance_id, user_id)
         if not finance:
@@ -202,53 +178,62 @@ class FinanceService:
         logger.info(f"Transação removida: {finance_id}")
         return True
 
-    def get_summary(
-        self,
-        user_id: int,
-        start_date: date,
-        end_date: date
-    ) -> Dict[str, Any]:
+    def get_summary(self, user_id: int, start_date: date, end_date: date) -> Dict[str, Any]:
         """
         Retorna resumo financeiro do período.
-        
+
         Args:
             user_id: ID do usuário
             start_date: Data inicial
             end_date: Data final
-            
+
         Returns:
             Dict com resumo
         """
-        income = self.db.query(func.sum(Finance.amount)).filter(
-            and_(
-                Finance.user_id == user_id,
-                Finance.type == FinanceType.INCOME,
-                Finance.transaction_date >= start_date,
-                Finance.transaction_date <= end_date
+        income = (
+            self.db.query(func.sum(Finance.amount))
+            .filter(
+                and_(
+                    Finance.user_id == user_id,
+                    Finance.type == FinanceType.INCOME,
+                    Finance.transaction_date >= start_date,
+                    Finance.transaction_date <= end_date,
+                )
             )
-        ).scalar() or 0
+            .scalar()
+            or 0
+        )
 
-        expenses = self.db.query(func.sum(Finance.amount)).filter(
-            and_(
-                Finance.user_id == user_id,
-                Finance.type == FinanceType.EXPENSE,
-                Finance.transaction_date >= start_date,
-                Finance.transaction_date <= end_date
+        expenses = (
+            self.db.query(func.sum(Finance.amount))
+            .filter(
+                and_(
+                    Finance.user_id == user_id,
+                    Finance.type == FinanceType.EXPENSE,
+                    Finance.transaction_date >= start_date,
+                    Finance.transaction_date <= end_date,
+                )
             )
-        ).scalar() or 0
+            .scalar()
+            or 0
+        )
 
-        by_category = self.db.query(
-            FinanceCategory.name,
-            func.sum(Finance.amount).label('total'),
-            func.count(Finance.id).label('count')
-        ).join(Finance).filter(
-            and_(
-                Finance.user_id == user_id,
-                Finance.type == FinanceType.EXPENSE,
-                Finance.transaction_date >= start_date,
-                Finance.transaction_date <= end_date
+        by_category = (
+            self.db.query(
+                FinanceCategory.name, func.sum(Finance.amount).label("total"), func.count(Finance.id).label("count")
             )
-        ).group_by(FinanceCategory.name).all()
+            .join(Finance)
+            .filter(
+                and_(
+                    Finance.user_id == user_id,
+                    Finance.type == FinanceType.EXPENSE,
+                    Finance.transaction_date >= start_date,
+                    Finance.transaction_date <= end_date,
+                )
+            )
+            .group_by(FinanceCategory.name)
+            .all()
+        )
 
         return {
             "period": {
@@ -266,10 +251,10 @@ class FinanceService:
                     "category": cat.name,
                     "total": float(cat.total),
                     "percentage": round(float(cat.total) / expenses * 100, 2) if expenses > 0 else 0,
-                    "transactions_count": cat.count
+                    "transactions_count": cat.count,
                 }
                 for cat in by_category
-            ]
+            ],
         }
 
     def get_monthly_summary(self, user_id: int, year: int, month: int) -> Dict[str, Any]:
@@ -280,18 +265,14 @@ class FinanceService:
 
         return self.get_summary(user_id, start, end)
 
-    def get_monthly_trend(
-        self,
-        user_id: int,
-        months: int = 6
-    ) -> List[Dict[str, Any]]:
+    def get_monthly_trend(self, user_id: int, months: int = 6) -> List[Dict[str, Any]]:
         """
         Retorna tendência mensal.
-        
+
         Args:
             user_id: ID do usuário
             months: Quantidade de meses
-            
+
         Returns:
             Lista com dados mensais
         """
@@ -311,12 +292,14 @@ class FinanceService:
             end = date(year, month, last_day)
 
             summary = self.get_summary(user_id, start, end)
-            result.append({
-                "month": start.strftime("%Y-%m"),
-                "income": summary["summary"]["total_income"],
-                "expenses": summary["summary"]["total_expenses"],
-                "balance": summary["summary"]["balance"],
-            })
+            result.append(
+                {
+                    "month": start.strftime("%Y-%m"),
+                    "income": summary["summary"]["total_income"],
+                    "expenses": summary["summary"]["total_expenses"],
+                    "balance": summary["summary"]["balance"],
+                }
+            )
 
         return list(reversed(result))
 
@@ -331,28 +314,26 @@ class FinanceService:
 
     def count_by_user(self, user_id: int) -> int:
         """Conta total de transações do usuário."""
-        return self.db.query(func.count(Finance.id)).filter(
-            Finance.user_id == user_id
-        ).scalar() or 0
+        return self.db.query(func.count(Finance.id)).filter(Finance.user_id == user_id).scalar() or 0
 
     def get_totals_by_user(self, user_id: int) -> Dict[str, float]:
         """Retorna totais de receitas e despesas do usuário."""
-        income = self.db.query(func.sum(Finance.amount)).filter(
-            and_(
-                Finance.user_id == user_id,
-                Finance.type == FinanceType.INCOME
-            )
-        ).scalar() or 0.0
+        income = (
+            self.db.query(func.sum(Finance.amount))
+            .filter(and_(Finance.user_id == user_id, Finance.type == FinanceType.INCOME))
+            .scalar()
+            or 0.0
+        )
 
-        expenses = self.db.query(func.sum(Finance.amount)).filter(
-            and_(
-                Finance.user_id == user_id,
-                Finance.type == FinanceType.EXPENSE
-            )
-        ).scalar() or 0.0
+        expenses = (
+            self.db.query(func.sum(Finance.amount))
+            .filter(and_(Finance.user_id == user_id, Finance.type == FinanceType.EXPENSE))
+            .scalar()
+            or 0.0
+        )
 
         return {
             "total_income": float(income),
             "total_expenses": float(expenses),
-            "balance": float(income) - float(expenses)
+            "balance": float(income) - float(expenses),
         }

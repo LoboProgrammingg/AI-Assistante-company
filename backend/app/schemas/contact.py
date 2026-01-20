@@ -1,26 +1,29 @@
-from datetime import datetime
-from typing import Optional, List
-from pydantic import BaseModel, Field, field_validator
 import re
 import unicodedata
+from datetime import datetime
+from typing import List, Optional
+
+from pydantic import BaseModel, Field, field_validator
 
 
 def normalize_group_name(name: str) -> str:
     """Normaliza nome do grupo para slug (minúsculo, sem acentos, underscores)."""
     # Remove acentos
-    normalized = unicodedata.normalize('NFKD', name)
-    normalized = normalized.encode('ASCII', 'ignore').decode('ASCII')
+    normalized = unicodedata.normalize("NFKD", name)
+    normalized = normalized.encode("ASCII", "ignore").decode("ASCII")
     # Minúsculo e substitui espaços por underscore
     normalized = normalized.lower().strip()
-    normalized = re.sub(r'\s+', '_', normalized)
-    normalized = re.sub(r'[^a-z0-9_]', '', normalized)
+    normalized = re.sub(r"\s+", "_", normalized)
+    normalized = re.sub(r"[^a-z0-9_]", "", normalized)
     return normalized or "outros"
 
 
 # ==================== CONTACT GROUP SCHEMAS ====================
 
+
 class ContactGroupBase(BaseModel):
     """Schema base para grupo de contatos."""
+
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     icon: Optional[str] = Field(None, max_length=10)
@@ -28,11 +31,13 @@ class ContactGroupBase(BaseModel):
 
 class ContactGroupCreate(ContactGroupBase):
     """Schema para criação de grupo."""
+
     pass
 
 
 class ContactGroupUpdate(BaseModel):
     """Schema para atualização de grupo."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=500)
     icon: Optional[str] = Field(None, max_length=10)
@@ -41,6 +46,7 @@ class ContactGroupUpdate(BaseModel):
 
 class ContactGroupResponse(BaseModel):
     """Schema de resposta para grupo."""
+
     id: int
     user_id: int
     name: str
@@ -57,8 +63,10 @@ class ContactGroupResponse(BaseModel):
 
 # ==================== CONTACT SCHEMAS ====================
 
+
 class ContactBase(BaseModel):
     """Schema base para Contact."""
+
     name: str = Field(..., min_length=1, max_length=100)
     phone_number: str = Field(..., min_length=8, max_length=20)
     group_name: str = Field(default="outros")
@@ -80,11 +88,13 @@ class ContactBase(BaseModel):
 
 class ContactCreate(ContactBase):
     """Schema para criação de contato."""
+
     pass
 
 
 class ContactUpdate(BaseModel):
     """Schema para atualização de contato."""
+
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     phone_number: Optional[str] = Field(None, min_length=8, max_length=20)
     group_name: Optional[str] = None
@@ -111,6 +121,7 @@ class ContactUpdate(BaseModel):
 
 class ContactResponse(BaseModel):
     """Schema de resposta para Contact."""
+
     id: int
     user_id: int
     name: str
@@ -127,6 +138,7 @@ class ContactResponse(BaseModel):
 
 class ContactListResponse(BaseModel):
     """Schema para listagem paginada de contatos."""
+
     items: List[ContactResponse]
     total: int
     page: int
@@ -138,11 +150,13 @@ class ContactListResponse(BaseModel):
 
 class ContactBulkCreate(BaseModel):
     """Schema para criação em lote de contatos."""
+
     contacts: List[ContactCreate] = Field(..., min_length=1, max_length=100)
 
 
 class ContactsByGroupResponse(BaseModel):
     """Schema para contatos agrupados."""
+
     group_name: str
     count: int
     contacts: List[ContactResponse]
@@ -150,8 +164,10 @@ class ContactsByGroupResponse(BaseModel):
 
 # ==================== BROADCAST SCHEMAS ====================
 
+
 class BroadcastMessageRequest(BaseModel):
     """Schema para envio de mensagem em massa."""
+
     message: str = Field(..., min_length=1, max_length=4096)
     group_names: Optional[List[str]] = None
     contact_ids: Optional[List[int]] = None
@@ -166,6 +182,7 @@ class BroadcastMessageRequest(BaseModel):
 
 class BroadcastRecipient(BaseModel):
     """Schema para destinatário de broadcast."""
+
     name: str
     phone_number: str
     status: str = "pending"
@@ -174,6 +191,7 @@ class BroadcastRecipient(BaseModel):
 
 class BroadcastResult(BaseModel):
     """Schema para resultado de broadcast."""
+
     total: int
     sent: int
     failed: int

@@ -33,7 +33,7 @@ Tipos de recorrência disponíveis:
     def get_extraction_prompt(context: str, current_time: str, message: str) -> str:
         """
         Gera prompt para extração de lembretes da mensagem.
-        
+
         Args:
             context: Contexto formatado do usuário
             current_time: Data/hora atual formatada
@@ -78,7 +78,7 @@ Se não conseguir extrair informações suficientes, defina needs_clarification 
     def get_delete_identification_prompt(message: str, reminders_text: str) -> str:
         """
         Gera prompt para identificar qual lembrete deletar.
-        
+
         Args:
             message: Mensagem do usuário
             reminders_text: Lista de lembretes formatada

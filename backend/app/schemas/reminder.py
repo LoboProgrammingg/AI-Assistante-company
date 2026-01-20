@@ -1,11 +1,13 @@
-from pydantic import BaseModel, Field, field_validator, field_serializer
 from datetime import datetime, timezone
-from typing import Optional, Dict, Any, List
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, field_serializer, field_validator
 
 
 class RecurrenceTypeEnum(str, Enum):
     """Tipos de recorrência disponíveis."""
+
     ONCE = "once"
     DAILY = "daily"
     WEEKDAYS = "weekdays"
@@ -18,6 +20,7 @@ class RecurrenceTypeEnum(str, Enum):
 
 class ReminderBase(BaseModel):
     """Schema base para lembrete."""
+
     title: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
     scheduled_time: datetime
@@ -28,11 +31,13 @@ class ReminderBase(BaseModel):
 
 class ReminderCreate(ReminderBase):
     """Schema para criação de lembrete."""
+
     pass
 
 
 class ReminderUpdate(BaseModel):
     """Schema para atualização de lembrete."""
+
     title: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
     scheduled_time: Optional[datetime] = None
@@ -44,6 +49,7 @@ class ReminderUpdate(BaseModel):
 
 class ReminderResponse(ReminderBase):
     """Schema de resposta do lembrete."""
+
     id: int
     user_id: int
     actual_reminder_time: datetime
@@ -57,7 +63,7 @@ class ReminderResponse(ReminderBase):
     class Config:
         from_attributes = True
 
-    @field_serializer('scheduled_time', 'actual_reminder_time', 'created_at', 'updated_at', 'notified_at')
+    @field_serializer("scheduled_time", "actual_reminder_time", "created_at", "updated_at", "notified_at")
     def serialize_datetime(self, v: Optional[datetime]) -> Optional[str]:
         if v is None:
             return None
@@ -68,6 +74,7 @@ class ReminderResponse(ReminderBase):
 
 class ReminderListResponse(BaseModel):
     """Schema para lista paginada de lembretes."""
+
     items: List[ReminderResponse]
     total: int
     page: int
@@ -78,14 +85,15 @@ class ReminderListResponse(BaseModel):
 
 class ReminderFromAI(BaseModel):
     """Schema para criação de lembrete via IA."""
+
     title: str
     description: Optional[str] = None
     scheduled_time: str
     remind_before_minutes: int = 0
     recurrence_type: str = "once"
 
-    @field_validator('scheduled_time')
+    @field_validator("scheduled_time")
     @classmethod
     def parse_datetime(cls, v: str) -> str:
-        datetime.fromisoformat(v.replace('Z', '+00:00'))
+        datetime.fromisoformat(v.replace("Z", "+00:00"))
         return v

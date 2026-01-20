@@ -2,6 +2,7 @@
 Constantes para o agente de finanças.
 Categorias, keywords e mapeamentos centralizados.
 """
+
 from typing import Dict, List, Optional
 
 
@@ -10,49 +11,87 @@ class FinanceConstants:
 
     # Mapeamento de categorias de despesa com palavras-chave para identificação automática
     EXPENSE_CATEGORIES: Dict[str, List[str]] = {
-        "Moradia": [
-            "aluguel", "prestação", "casa", "apartamento", "condomínio", 
-            "iptu", "manutenção casa", "reforma"
-        ],
-        "Contas": [
-            "luz", "água", "gás", "energia", "telefone", "internet", 
-            "tv cabo", "celular", "conta"
-        ],
+        "Moradia": ["aluguel", "prestação", "casa", "apartamento", "condomínio", "iptu", "manutenção casa", "reforma"],
+        "Contas": ["luz", "água", "gás", "energia", "telefone", "internet", "tv cabo", "celular", "conta"],
         "Alimentação": [
-            "almoço", "jantar", "café", "lanche", "restaurante", "supermercado", 
-            "mercado", "padaria", "delivery", "ifood", "comida", "pizza", "hamburguer"
+            "almoço",
+            "jantar",
+            "café",
+            "lanche",
+            "restaurante",
+            "supermercado",
+            "mercado",
+            "padaria",
+            "delivery",
+            "ifood",
+            "comida",
+            "pizza",
+            "hamburguer",
         ],
         "Transporte": [
-            "uber", "99", "taxi", "combustível", "gasolina", "álcool", 
-            "ônibus", "metrô", "passagem", "pedágio", "estacionamento"
+            "uber",
+            "99",
+            "taxi",
+            "combustível",
+            "gasolina",
+            "álcool",
+            "ônibus",
+            "metrô",
+            "passagem",
+            "pedágio",
+            "estacionamento",
         ],
         "Saúde": [
-            "médico", "remédio", "farmácia", "consulta", "exame", 
-            "plano de saúde", "dentista", "hospital", "academia"
+            "médico",
+            "remédio",
+            "farmácia",
+            "consulta",
+            "exame",
+            "plano de saúde",
+            "dentista",
+            "hospital",
+            "academia",
         ],
         "Educação": [
-            "curso", "escola", "faculdade", "universidade", "livro", 
-            "apostila", "mensalidade", "material escolar"
+            "curso",
+            "escola",
+            "faculdade",
+            "universidade",
+            "livro",
+            "apostila",
+            "mensalidade",
+            "material escolar",
         ],
         "Lazer": [
-            "cinema", "show", "teatro", "viagem", "hotel", "netflix", 
-            "spotify", "streaming", "jogo", "hobby", "festa", "bar"
+            "cinema",
+            "show",
+            "teatro",
+            "viagem",
+            "hotel",
+            "netflix",
+            "spotify",
+            "streaming",
+            "jogo",
+            "hobby",
+            "festa",
+            "bar",
         ],
         "Vestuário": [
-            "roupa", "calçado", "sapato", "tênis", "camisa", "calça", 
-            "vestido", "acessório", "bolsa", "relógio"
+            "roupa",
+            "calçado",
+            "sapato",
+            "tênis",
+            "camisa",
+            "calça",
+            "vestido",
+            "acessório",
+            "bolsa",
+            "relógio",
         ],
-        "Dívidas": [
-            "cartão", "empréstimo", "financiamento", "parcela", 
-            "fatura", "juros", "dívida"
-        ],
-        "Investimentos": [
-            "investimento", "poupança", "ação", "fundo", "tesouro", "cdb", "reserva"
-        ],
-        "Serviços Financeiros": [
-            "tarifa", "taxa bancária", "anuidade", "ted", "pix", "transferência"
-        ],
-        "Outros": []
+        "Dívidas": ["cartão", "empréstimo", "financiamento", "parcela", "fatura", "juros", "dívida"],
+        "Investimentos": ["investimento", "poupança", "ação", "fundo", "tesouro", "cdb", "reserva"],
+        "Serviços Financeiros": ["tarifa", "taxa bancária", "anuidade", "ted", "pix", "transferência"],
+        "Outros": [],
     }
 
     # Categorias de receita
@@ -61,7 +100,7 @@ class FinanceConstants:
         "Freelance": ["freelance", "freela", "serviço", "trabalho extra", "bico"],
         "Investimentos": ["dividendo", "rendimento", "juros", "lucro"],
         "Vendas": ["venda", "vendi", "vendido"],
-        "Outros": []
+        "Outros": [],
     }
 
     # Mapeamento de palavras-chave para detecção de categoria em mensagens
@@ -83,15 +122,15 @@ class FinanceConstants:
     def detect_category_in_message(cls, message: str) -> Optional[str]:
         """
         Detecta se a mensagem menciona uma categoria específica.
-        
+
         Args:
             message: Mensagem do usuário
-            
+
         Returns:
             Nome da categoria ou None
         """
         message_lower = message.lower()
-        
+
         for category, keywords in cls.CATEGORY_KEYWORDS.items():
             for keyword in keywords:
                 if keyword in message_lower:

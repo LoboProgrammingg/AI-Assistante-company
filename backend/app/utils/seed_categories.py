@@ -2,10 +2,11 @@
 Script para popular as categorias de finanças no banco de dados.
 Execute: python -m app.utils.seed_categories
 """
+
 from sqlalchemy.orm import Session
+
 from app.database import SessionLocal
 from app.models import FinanceCategory, FinanceType
-
 
 EXPENSE_CATEGORIES = [
     {"name": "Moradia", "icon": "🏠", "color": "#6366f1"},
@@ -33,63 +34,61 @@ INCOME_CATEGORIES = [
 
 def seed_categories(db: Session):
     """Popula as categorias no banco de dados."""
-    
+
     # Categorias de despesa
     for cat_data in EXPENSE_CATEGORIES:
-        existing = db.query(FinanceCategory).filter(
-            FinanceCategory.name == cat_data["name"],
-            FinanceCategory.type == FinanceType.EXPENSE
-        ).first()
-        
+        existing = (
+            db.query(FinanceCategory)
+            .filter(FinanceCategory.name == cat_data["name"], FinanceCategory.type == FinanceType.EXPENSE)
+            .first()
+        )
+
         if not existing:
             category = FinanceCategory(
-                name=cat_data["name"],
-                type=FinanceType.EXPENSE,
-                icon=cat_data["icon"],
-                color=cat_data["color"]
+                name=cat_data["name"], type=FinanceType.EXPENSE, icon=cat_data["icon"], color=cat_data["color"]
             )
             db.add(category)
             print(f"✅ Categoria criada: {cat_data['name']} (Despesa)")
         else:
             print(f"⏭️ Categoria já existe: {cat_data['name']} (Despesa)")
-    
+
     # Categorias de receita
     for cat_data in INCOME_CATEGORIES:
-        existing = db.query(FinanceCategory).filter(
-            FinanceCategory.name == cat_data["name"],
-            FinanceCategory.type == FinanceType.INCOME
-        ).first()
-        
+        existing = (
+            db.query(FinanceCategory)
+            .filter(FinanceCategory.name == cat_data["name"], FinanceCategory.type == FinanceType.INCOME)
+            .first()
+        )
+
         if not existing:
             category = FinanceCategory(
-                name=cat_data["name"],
-                type=FinanceType.INCOME,
-                icon=cat_data["icon"],
-                color=cat_data["color"]
+                name=cat_data["name"], type=FinanceType.INCOME, icon=cat_data["icon"], color=cat_data["color"]
             )
             db.add(category)
             print(f"✅ Categoria criada: {cat_data['name']} (Receita)")
         else:
             print(f"⏭️ Categoria já existe: {cat_data['name']} (Receita)")
-    
+
     db.commit()
     print("\n🎉 Categorias populadas com sucesso!")
 
 
 def get_category_by_name(db: Session, name: str, finance_type: FinanceType) -> FinanceCategory:
     """Busca categoria pelo nome (case-insensitive)."""
-    category = db.query(FinanceCategory).filter(
-        FinanceCategory.name.ilike(f"%{name}%"),
-        FinanceCategory.type == finance_type
-    ).first()
-    
+    category = (
+        db.query(FinanceCategory)
+        .filter(FinanceCategory.name.ilike(f"%{name}%"), FinanceCategory.type == finance_type)
+        .first()
+    )
+
     if not category:
         # Fallback para "Outros"
-        category = db.query(FinanceCategory).filter(
-            FinanceCategory.name.ilike("%outros%"),
-            FinanceCategory.type == finance_type
-        ).first()
-    
+        category = (
+            db.query(FinanceCategory)
+            .filter(FinanceCategory.name.ilike("%outros%"), FinanceCategory.type == finance_type)
+            .first()
+        )
+
     return category
 
 

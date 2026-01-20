@@ -1,5 +1,6 @@
 import logging
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy.orm import Session
 
 from app.models import Contact
@@ -26,14 +27,14 @@ class MessageBroadcastService:
         """Retorna lista de destinatários de múltiplos grupos."""
         recipients = []
         seen_phones = set()
-        
+
         for group_name in group_names:
             contacts = self.contact_service.get_by_group(user_id, group_name)
             for c in contacts:
                 if c.phone_number not in seen_phones:
                     recipients.append({"name": c.name, "phone_number": c.phone_number})
                     seen_phones.add(c.phone_number)
-        
+
         return recipients
 
     def prepare_broadcast(
@@ -75,7 +76,7 @@ class MessageBroadcastService:
             "group_name": group_name,
             "total": len(recipients),
             "recipients": recipients[:10],  # Primeiros 10 para preview
-            "has_more": len(recipients) > 10
+            "has_more": len(recipients) > 10,
         }
 
     def send_broadcast(
@@ -89,25 +90,22 @@ class MessageBroadcastService:
     ) -> Dict[str, Any]:
         """
         Envia mensagem para grupo(s) de contatos.
-        
+
         Returns:
             Dict com estatísticas do envio (sent, failed, recipients)
         """
         ws = whatsapp_service or self.whatsapp_service
         recipients = self.prepare_broadcast(
-            user_id, 
-            group_name=group_name, 
-            group_names=group_names,
-            contact_ids=contact_ids
+            user_id, group_name=group_name, group_names=group_names, contact_ids=contact_ids
         )
-        
+
         if not recipients:
             return {
-                "sent": 0, 
-                "failed": 0, 
+                "sent": 0,
+                "failed": 0,
                 "total": 0,
-                "recipients": [], 
-                "error": "Nenhum contato encontrado no(s) grupo(s)"
+                "recipients": [],
+                "error": "Nenhum contato encontrado no(s) grupo(s)",
             }
 
         results = {"sent": 0, "failed": 0, "total": len(recipients), "recipients": []}
@@ -115,33 +113,23 @@ class MessageBroadcastService:
         for recipient in recipients:
             try:
                 if ws:
-                    ws.send_message(
-                        to_number=recipient["phone_number"],
-                        message=message
-                    )
+                    ws.send_message(to_number=recipient["phone_number"], message=message)
                     results["sent"] += 1
-                    results["recipients"].append({
-                        "name": recipient["name"],
-                        "phone": recipient["phone_number"],
-                        "status": "sent"
-                    })
+                    results["recipients"].append(
+                        {"name": recipient["name"], "phone": recipient["phone_number"], "status": "sent"}
+                    )
                     logger.info(f"Mensagem enviada para {recipient['name']}")
                 else:
                     # Sem WhatsApp service, simular envio (para testes)
                     results["sent"] += 1
-                    results["recipients"].append({
-                        "name": recipient["name"],
-                        "phone": recipient["phone_number"],
-                        "status": "simulated"
-                    })
+                    results["recipients"].append(
+                        {"name": recipient["name"], "phone": recipient["phone_number"], "status": "simulated"}
+                    )
             except Exception as e:
                 results["failed"] += 1
-                results["recipients"].append({
-                    "name": recipient["name"],
-                    "phone": recipient["phone_number"],
-                    "status": "failed",
-                    "error": str(e)
-                })
+                results["recipients"].append(
+                    {"name": recipient["name"], "phone": recipient["phone_number"], "status": "failed", "error": str(e)}
+                )
                 logger.error(f"Erro ao enviar para {recipient['name']}: {e}")
 
         return results
@@ -149,28 +137,28 @@ class MessageBroadcastService:
     def format_broadcast_summary(self, result: Dict[str, Any], group_names: List[str]) -> str:
         """Formata resumo do broadcast para resposta ao usuário."""
         groups_str = ", ".join(group_names)
-        
+
         if result.get("error"):
             return f"❌ {result['error']}"
-        
+
         if result["sent"] == 0 and result["failed"] == 0:
             return f"⚠️ Nenhum contato encontrado no(s) grupo(s): {groups_str}"
-        
+
         msg = f"📤 *Mensagem enviada!*\n\n"
         msg += f"👥 Grupo(s): {groups_str}\n"
         msg += f"✅ Enviadas: {result['sent']}\n"
-        
+
         if result["failed"] > 0:
             msg += f"❌ Falhas: {result['failed']}\n"
-        
+
         # Listar destinatários (máximo 5)
         if result["recipients"]:
             msg += f"\n📋 Destinatários:\n"
             for r in result["recipients"][:5]:
                 status_icon = "✅" if r["status"] in ("sent", "simulated") else "❌"
                 msg += f"{status_icon} {r['name']}\n"
-            
+
             if len(result["recipients"]) > 5:
                 msg += f"_...e mais {len(result['recipients']) - 5} contatos_"
-        
+
         return msg

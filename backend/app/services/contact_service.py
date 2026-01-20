@@ -1,23 +1,29 @@
 import logging
-import unicodedata
 import re
-from typing import Optional, List, Dict, Any
-from sqlalchemy.orm import Session
+import unicodedata
+from typing import Any, Dict, List, Optional
+
 from sqlalchemy import and_, func, or_
+from sqlalchemy.orm import Session
 
 from app.models import Contact, CustomContactGroup
-from app.schemas.contact import ContactCreate, ContactUpdate, ContactGroupCreate, ContactGroupUpdate
+from app.schemas.contact import (
+    ContactCreate,
+    ContactGroupCreate,
+    ContactGroupUpdate,
+    ContactUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
 
 def normalize_group_name(name: str) -> str:
     """Normaliza nome do grupo para slug."""
-    normalized = unicodedata.normalize('NFKD', name)
-    normalized = normalized.encode('ASCII', 'ignore').decode('ASCII')
+    normalized = unicodedata.normalize("NFKD", name)
+    normalized = normalized.encode("ASCII", "ignore").decode("ASCII")
     normalized = normalized.lower().strip()
-    normalized = re.sub(r'\s+', '_', normalized)
-    normalized = re.sub(r'[^a-z0-9_]', '', normalized)
+    normalized = re.sub(r"\s+", "_", normalized)
+    normalized = re.sub(r"[^a-z0-9_]", "", normalized)
     return normalized or "outros"
 
 
@@ -30,12 +36,12 @@ class ContactGroupService:
     def create(self, user_id: int, data: ContactGroupCreate) -> CustomContactGroup:
         """Cria um novo grupo de contatos."""
         slug = normalize_group_name(data.name)
-        
+
         # Verificar se já existe
         existing = self.get_by_slug(user_id, slug)
         if existing:
             return existing
-        
+
         group = CustomContactGroup(
             user_id=user_id,
             name=data.name,
@@ -55,44 +61,49 @@ class ContactGroupService:
         existing = self.get_by_slug(user_id, slug)
         if existing:
             return existing
-        
+
         return self.create(user_id, ContactGroupCreate(name=name))
 
     def get_by_id(self, user_id: int, group_id: int) -> Optional[CustomContactGroup]:
         """Busca grupo por ID."""
-        return self.db.query(CustomContactGroup).filter(
-            and_(CustomContactGroup.id == group_id, CustomContactGroup.user_id == user_id)
-        ).first()
+        return (
+            self.db.query(CustomContactGroup)
+            .filter(and_(CustomContactGroup.id == group_id, CustomContactGroup.user_id == user_id))
+            .first()
+        )
 
     def get_by_slug(self, user_id: int, slug: str) -> Optional[CustomContactGroup]:
         """Busca grupo por slug."""
         normalized_slug = normalize_group_name(slug)
-        return self.db.query(CustomContactGroup).filter(
-            and_(
-                CustomContactGroup.user_id == user_id,
-                CustomContactGroup.slug == normalized_slug,
-                CustomContactGroup.is_active == True
+        return (
+            self.db.query(CustomContactGroup)
+            .filter(
+                and_(
+                    CustomContactGroup.user_id == user_id,
+                    CustomContactGroup.slug == normalized_slug,
+                    CustomContactGroup.is_active == True,
+                )
             )
-        ).first()
+            .first()
+        )
 
     def list(self, user_id: int) -> List[Dict[str, Any]]:
         """Lista todos os grupos do usuário com contagem de contatos."""
-        groups = self.db.query(CustomContactGroup).filter(
-            and_(CustomContactGroup.user_id == user_id, CustomContactGroup.is_active == True)
-        ).order_by(CustomContactGroup.name.asc()).all()
-        
+        groups = (
+            self.db.query(CustomContactGroup)
+            .filter(and_(CustomContactGroup.user_id == user_id, CustomContactGroup.is_active == True))
+            .order_by(CustomContactGroup.name.asc())
+            .all()
+        )
+
         result = []
         for g in groups:
-            contact_count = self.db.query(Contact).filter(
-                and_(Contact.user_id == user_id, Contact.group_name == g.slug, Contact.is_active == True)
-            ).count()
-            result.append({
-                "id": g.id,
-                "name": g.name,
-                "slug": g.slug,
-                "icon": g.icon,
-                "contact_count": contact_count
-            })
+            contact_count = (
+                self.db.query(Contact)
+                .filter(and_(Contact.user_id == user_id, Contact.group_name == g.slug, Contact.is_active == True))
+                .count()
+            )
+            result.append({"id": g.id, "name": g.name, "slug": g.slug, "icon": g.icon, "contact_count": contact_count})
         return result
 
     def update(self, user_id: int, group_id: int, data: ContactGroupUpdate) -> Optional[CustomContactGroup]:
@@ -100,14 +111,14 @@ class ContactGroupService:
         group = self.get_by_id(user_id, group_id)
         if not group:
             return None
-        
+
         update_data = data.model_dump(exclude_unset=True)
         if "name" in update_data:
             update_data["slug"] = normalize_group_name(update_data["name"])
-        
+
         for key, value in update_data.items():
             setattr(group, key, value)
-        
+
         self.db.commit()
         self.db.refresh(group)
         return group
@@ -117,7 +128,7 @@ class ContactGroupService:
         group = self.get_by_id(user_id, group_id)
         if not group:
             return False
-        
+
         group.is_active = False
         self.db.commit()
         return True
@@ -133,10 +144,10 @@ class ContactService:
     def create(self, user_id: int, data: ContactCreate) -> Contact:
         """Cria um novo contato."""
         group_name = normalize_group_name(data.group_name) if data.group_name else "outros"
-        
+
         # Criar grupo se não existir
         self.group_service.get_or_create(user_id, group_name)
-        
+
         contact = Contact(
             user_id=user_id,
             name=data.name,
@@ -154,16 +165,16 @@ class ContactService:
         """Cria contato a partir de dicionário (para uso da IA)."""
         phone_number = data["phone_number"]
         group_name = normalize_group_name(data.get("group_name") or data.get("group") or "outros")
-        
+
         # Verificar se já existe contato com mesmo telefone
         existing = self.get_by_phone(user_id, phone_number)
         if existing:
             logger.info(f"Contato já existe: {existing.name} ({phone_number})")
             return existing
-        
+
         # Criar grupo se não existir
         self.group_service.get_or_create(user_id, group_name)
-        
+
         contact = Contact(
             user_id=user_id,
             name=data["name"],
@@ -180,14 +191,18 @@ class ContactService:
     def get_by_phone(self, user_id: int, phone_number: str) -> Optional[Contact]:
         """Busca contato por número de telefone."""
         # Normalizar telefone (remover caracteres não numéricos)
-        normalized_phone = re.sub(r'[^\d]', '', phone_number)
-        return self.db.query(Contact).filter(
-            and_(
-                Contact.user_id == user_id,
-                func.regexp_replace(Contact.phone_number, '[^0-9]', '', 'g') == normalized_phone,
-                Contact.is_active == True
+        normalized_phone = re.sub(r"[^\d]", "", phone_number)
+        return (
+            self.db.query(Contact)
+            .filter(
+                and_(
+                    Contact.user_id == user_id,
+                    func.regexp_replace(Contact.phone_number, "[^0-9]", "", "g") == normalized_phone,
+                    Contact.is_active == True,
+                )
             )
-        ).first()
+            .first()
+        )
 
     def create_bulk(self, user_id: int, contacts_data: List[ContactCreate]) -> List[Contact]:
         """Cria múltiplos contatos de uma vez."""
@@ -195,7 +210,7 @@ class ContactService:
         for data in contacts_data:
             group_name = normalize_group_name(data.group_name) if data.group_name else "outros"
             self.group_service.get_or_create(user_id, group_name)
-            
+
             contact = Contact(
                 user_id=user_id,
                 name=data.name,
@@ -204,7 +219,7 @@ class ContactService:
                 notes=data.notes,
             )
             contacts.append(contact)
-        
+
         self.db.add_all(contacts)
         self.db.commit()
         for contact in contacts:
@@ -214,9 +229,7 @@ class ContactService:
 
     def get_by_id(self, user_id: int, contact_id: int) -> Optional[Contact]:
         """Busca contato por ID."""
-        return self.db.query(Contact).filter(
-            and_(Contact.id == contact_id, Contact.user_id == user_id)
-        ).first()
+        return self.db.query(Contact).filter(and_(Contact.id == contact_id, Contact.user_id == user_id)).first()
 
     def list(
         self,
@@ -227,9 +240,7 @@ class ContactService:
         limit: int = 50,
     ) -> Dict[str, Any]:
         """Lista contatos com filtros e paginação."""
-        query = self.db.query(Contact).filter(
-            and_(Contact.user_id == user_id, Contact.is_active == True)
-        )
+        query = self.db.query(Contact).filter(and_(Contact.user_id == user_id, Contact.is_active == True))
 
         if group_name:
             normalized = normalize_group_name(group_name)
@@ -237,9 +248,7 @@ class ContactService:
 
         if search:
             search_filter = f"%{search}%"
-            query = query.filter(
-                or_(Contact.name.ilike(search_filter), Contact.phone_number.ilike(search_filter))
-            )
+            query = query.filter(or_(Contact.name.ilike(search_filter), Contact.phone_number.ilike(search_filter)))
 
         total = query.count()
         pages = (total + limit - 1) // limit if limit > 0 else 1
@@ -260,21 +269,27 @@ class ContactService:
     def get_by_group(self, user_id: int, group_name: str) -> List[Contact]:
         """Retorna todos os contatos de um grupo específico."""
         normalized = normalize_group_name(group_name)
-        return self.db.query(Contact).filter(
-            and_(
-                Contact.user_id == user_id,
-                Contact.group_name == normalized,
-                Contact.is_active == True,
+        return (
+            self.db.query(Contact)
+            .filter(
+                and_(
+                    Contact.user_id == user_id,
+                    Contact.group_name == normalized,
+                    Contact.is_active == True,
+                )
             )
-        ).order_by(Contact.name.asc()).all()
+            .order_by(Contact.name.asc())
+            .all()
+        )
 
     def get_groups_summary(self, user_id: int) -> List[Dict[str, Any]]:
         """Retorna contagem de contatos por grupo."""
-        results = self.db.query(
-            Contact.group_name, func.count(Contact.id).label("count")
-        ).filter(
-            and_(Contact.user_id == user_id, Contact.is_active == True)
-        ).group_by(Contact.group_name).all()
+        results = (
+            self.db.query(Contact.group_name, func.count(Contact.id).label("count"))
+            .filter(and_(Contact.user_id == user_id, Contact.is_active == True))
+            .group_by(Contact.group_name)
+            .all()
+        )
 
         return [{"group_name": r.group_name, "count": r.count} for r in results]
 
@@ -288,7 +303,7 @@ class ContactService:
         if "group_name" in update_data and update_data["group_name"]:
             update_data["group_name"] = normalize_group_name(update_data["group_name"])
             self.group_service.get_or_create(user_id, update_data["group_name"])
-        
+
         for key, value in update_data.items():
             setattr(contact, key, value)
 
@@ -321,13 +336,17 @@ class ContactService:
 
     def search_by_name(self, user_id: int, name: str) -> List[Contact]:
         """Busca contatos por nome (para uso da IA)."""
-        return self.db.query(Contact).filter(
-            and_(
-                Contact.user_id == user_id,
-                Contact.name.ilike(f"%{name}%"),
-                Contact.is_active == True,
+        return (
+            self.db.query(Contact)
+            .filter(
+                and_(
+                    Contact.user_id == user_id,
+                    Contact.name.ilike(f"%{name}%"),
+                    Contact.is_active == True,
+                )
             )
-        ).all()
+            .all()
+        )
 
     def get_phone_numbers_by_group(self, user_id: int, group_name: str) -> List[str]:
         """Retorna lista de telefones de um grupo (para envio de mensagens)."""
@@ -336,7 +355,10 @@ class ContactService:
 
     def get_all_groups(self, user_id: int) -> List[str]:
         """Retorna lista de todos os grupos do usuário."""
-        results = self.db.query(Contact.group_name).filter(
-            and_(Contact.user_id == user_id, Contact.is_active == True)
-        ).distinct().all()
+        results = (
+            self.db.query(Contact.group_name)
+            .filter(and_(Contact.user_id == user_id, Contact.is_active == True))
+            .distinct()
+            .all()
+        )
         return [r.group_name for r in results]

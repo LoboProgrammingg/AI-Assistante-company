@@ -1,10 +1,10 @@
-from app.services.reminder_service import ReminderService
+from app.services.auth_service import AuthService
+from app.services.cache_service import CacheService, cache_service
+from app.services.email_service import EmailService, email_service
 from app.services.finance_service import FinanceService
 from app.services.meeting_service import MeetingService
 from app.services.memory_service import MemoryService
-from app.services.cache_service import CacheService, cache_service
-from app.services.email_service import EmailService, email_service
-from app.services.auth_service import AuthService
+from app.services.reminder_service import ReminderService
 
 __all__ = [
     "ReminderService",
@@ -20,6 +20,7 @@ __all__ = [
 
 try:
     from app.services.whatsapp_service import WhatsAppService, WhatsAppWebhookHandler
+
     __all__.extend(["WhatsAppService", "WhatsAppWebhookHandler"])
 except ImportError:
     pass

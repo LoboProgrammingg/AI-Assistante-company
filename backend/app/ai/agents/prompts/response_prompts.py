@@ -2,8 +2,9 @@
 Prompts para geração de respostas finais ao usuário.
 Inclui a identidade da IRIS (Intelligent Retrieval & Insight System).
 """
+
 import json
-from typing import Dict, Any
+from typing import Any, Dict
 
 # Identidade da IRIS
 IRIS_IDENTITY = """
@@ -21,22 +22,22 @@ class ResponsePrompts:
     def get_communication_style_prompt(memory: dict) -> str:
         """
         Gera instruções de estilo de comunicação baseado no comportamento do usuário.
-        
+
         Args:
             memory: Dados de memória do usuário com behavior_analysis
         """
         behavior = memory.get("behavior_analysis", {}) if memory else {}
-        
+
         if not behavior or behavior.get("message_count", 0) < 5:
             return "ESTILO DE COMUNICAÇÃO: Seja amigável e equilibrado."
-        
+
         msg_count = behavior.get("message_count", 1)
         emoji_ratio = behavior.get("emoji_usage", 0) / msg_count
         informal_ratio = behavior.get("informal_language", 0) / msg_count
         humor_ratio = behavior.get("humor_detected", 0) / msg_count
-        
+
         style_parts = ["ESTILO DE COMUNICAÇÃO (adaptado ao usuário):"]
-        
+
         # Formalidade
         if informal_ratio > 0.4:
             style_parts.append("- Use linguagem CASUAL e descontraída (o usuário é informal)")
@@ -45,29 +46,29 @@ class ResponsePrompts:
             style_parts.append("- Use linguagem amigável mas equilibrada")
         else:
             style_parts.append("- Mantenha tom profissional mas acolhedor")
-        
+
         # Emojis
         if emoji_ratio > 0.3:
             style_parts.append("- USE emojis nas respostas (o usuário gosta! 😊)")
         elif emoji_ratio > 0.1:
             style_parts.append("- Use emojis moderadamente")
-        
+
         # Humor
         if humor_ratio > 0.2:
             style_parts.append("- Pode adicionar humor leve e piadas (o usuário é bem-humorado)")
-        
+
         # Tamanho de mensagem
         avg_len = behavior.get("avg_message_length", 50)
         if avg_len < 30:
             style_parts.append("- Seja CONCISO (o usuário prefere mensagens curtas)")
         else:
             style_parts.append("- Pode dar respostas mais detalhadas")
-        
+
         # Saudação
         greeting = behavior.get("greeting_style", "formal")
         if greeting == "informal":
             style_parts.append("- Saudações informais: 'E aí', 'Opa', 'Fala!'")
-        
+
         return "\n".join(style_parts)
 
     @staticmethod
@@ -77,11 +78,11 @@ class ResponsePrompts:
         context_prompt: str,
         next_action: str,
         entities: Dict[str, Any],
-        last_message: str
+        last_message: str,
     ) -> str:
         """
         Gera o prompt para geração de resposta final.
-        
+
         Args:
             user_name: Nome do usuário
             comm_style: Estilo de comunicação (gerado por get_communication_style_prompt)
@@ -91,7 +92,7 @@ class ResponsePrompts:
             last_message: Última mensagem do usuário
         """
         first_name = user_name.split()[0] if user_name else ""
-        
+
         return f"""
 {IRIS_IDENTITY}
 
