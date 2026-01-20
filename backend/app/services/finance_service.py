@@ -1,6 +1,6 @@
 import logging
 from calendar import monthrange
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 
@@ -16,6 +16,78 @@ from app.models import Finance, FinanceCategory, FinanceType
 from app.schemas.finance import FinanceCreate, FinanceUpdate
 
 logger = logging.getLogger(__name__)
+
+
+MONTH_NAMES = {
+    "janeiro": 1, "jan": 1,
+    "fevereiro": 2, "fev": 2,
+    "março": 3, "marco": 3, "mar": 3,
+    "abril": 4, "abr": 4,
+    "maio": 5, "mai": 5,
+    "junho": 6, "jun": 6,
+    "julho": 7, "jul": 7,
+    "agosto": 8, "ago": 8,
+    "setembro": 9, "set": 9,
+    "outubro": 10, "out": 10,
+    "novembro": 11, "nov": 11,
+    "dezembro": 12, "dez": 12,
+}
+
+
+def parse_period_to_dates(periodo: str, ano: Optional[int] = None) -> Tuple[date, date]:
+    """
+    Converte período em datas de início e fim.
+    
+    Suporta:
+    - 'hoje', 'semana', 'mes', 'ano', 'tudo'
+    - Nomes de meses: 'janeiro', 'fevereiro', etc.
+    
+    Args:
+        periodo: Nome do período
+        ano: Ano específico (opcional, padrão = ano atual)
+    
+    Returns:
+        Tuple[date, date]: (data_inicio, data_fim)
+    """
+    today = date.today()
+    current_year = ano or today.year
+    
+    periodo_lower = periodo.lower().strip()
+    
+    # Verificar se é um nome de mês
+    if periodo_lower in MONTH_NAMES:
+        month = MONTH_NAMES[periodo_lower]
+        start = date(current_year, month, 1)
+        _, last_day = monthrange(current_year, month)
+        end = date(current_year, month, last_day)
+        return start, end
+    
+    # Períodos padrão
+    if periodo_lower == "hoje":
+        return today, today
+    elif periodo_lower == "semana":
+        start = today - timedelta(days=today.weekday())
+        end = start + timedelta(days=6)
+        return start, end
+    elif periodo_lower == "mes":
+        start = date(today.year, today.month, 1)
+        _, last_day = monthrange(today.year, today.month)
+        end = date(today.year, today.month, last_day)
+        return start, end
+    elif periodo_lower == "ano":
+        start = date(current_year, 1, 1)
+        end = date(current_year, 12, 31)
+        return start, end
+    elif periodo_lower == "tudo":
+        start = date(2020, 1, 1)
+        end = date(2099, 12, 31)
+        return start, end
+    else:
+        # Fallback: mês atual
+        start = date(today.year, today.month, 1)
+        _, last_day = monthrange(today.year, today.month)
+        end = date(today.year, today.month, last_day)
+        return start, end
 
 
 class FinanceService:
@@ -264,6 +336,36 @@ class FinanceService:
         end = date(year, month, last_day)
 
         return self.get_summary(user_id, start, end)
+
+    def get_summary_by_period(self, user_id: int, periodo: str, ano: Optional[int] = None) -> Dict[str, Any]:
+        """
+        Retorna resumo financeiro baseado em período flexível.
+        
+        Suporta:
+        - 'hoje', 'semana', 'mes', 'ano', 'tudo'
+        - Nomes de meses: 'janeiro', 'fevereiro', etc.
+        
+        Args:
+            user_id: ID do usuário
+            periodo: Nome do período ou mês
+            ano: Ano específico (opcional)
+        
+        Returns:
+            Dict com resumo financeiro
+        """
+        start_date, end_date = parse_period_to_dates(periodo, ano)
+        summary = self.get_summary(user_id, start_date, end_date)
+        
+        # Adicionar nome do período na resposta
+        periodo_lower = periodo.lower().strip()
+        if periodo_lower in MONTH_NAMES:
+            month_name = periodo.capitalize()
+            year = ano or date.today().year
+            summary["period"]["name"] = f"{month_name} de {year}"
+        else:
+            summary["period"]["name"] = periodo.capitalize()
+        
+        return summary
 
     def get_monthly_trend(self, user_id: int, months: int = 6) -> List[Dict[str, Any]]:
         """

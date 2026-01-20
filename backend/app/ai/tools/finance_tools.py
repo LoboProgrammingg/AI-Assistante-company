@@ -35,8 +35,15 @@ class RegistrarTransacaoSchema(BaseModel):
 class ConsultarFinancasSchema(BaseModel):
     """Schema para consultar finanças."""
 
-    periodo: Literal["hoje", "semana", "mes", "ano", "tudo"] = Field(
-        description="Período da consulta: hoje, semana, mes, ano ou tudo", default="mes"
+    periodo: str = Field(
+        description="Período da consulta. Opções: 'hoje', 'semana', 'mes' (mês atual), 'ano', 'tudo'. "
+        "OU nome do mês específico: 'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', "
+        "'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'.",
+        default="mes",
+    )
+    ano: Optional[int] = Field(
+        description="Ano específico para consulta (ex: 2025, 2026). Se não informado, usa o ano atual.",
+        default=None,
     )
     categoria: Optional[str] = Field(description="Filtrar por categoria específica (opcional)", default=None)
     tipo: Optional[Literal["expense", "income"]] = Field(
@@ -74,14 +81,17 @@ def registrar_transacao(
 
 
 @tool(args_schema=ConsultarFinancasSchema)
-def consultar_financas(periodo: str = "mes", categoria: Optional[str] = None, tipo: Optional[str] = None) -> dict:
+def consultar_financas(
+    periodo: str = "mes", ano: Optional[int] = None, categoria: Optional[str] = None, tipo: Optional[str] = None
+) -> dict:
     """
     Consulta o histórico financeiro do usuário.
     Use quando o usuário quiser ver seus gastos, receitas ou saldo.
+    Suporta meses específicos como 'janeiro', 'fevereiro', etc.
     """
     return {
         "action": "query_finance",
-        "filters": {"periodo": periodo, "categoria": categoria, "tipo": tipo},
+        "filters": {"periodo": periodo, "ano": ano, "categoria": categoria, "tipo": tipo},
         "status": "pending_execution",
     }
 
@@ -135,7 +145,9 @@ class FinanceTools:
         elif action == "query_finance":
             filters = result.get("filters", {})
             try:
-                finances = service.get_summary(user_id, filters.get("periodo", "mes"))
+                periodo = filters.get("periodo", "mes")
+                ano = filters.get("ano")
+                finances = service.get_summary_by_period(user_id, periodo, ano)
                 return {"success": True, "data": finances}
             except Exception as e:
                 logger.error(f"Erro ao consultar finanças: {e}")
