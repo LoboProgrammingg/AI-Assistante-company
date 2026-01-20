@@ -13,6 +13,7 @@ from app.config import settings
 from app.database import get_db
 from app.models import User, Message
 from app.ai.graph import WhatsAppAIAgent
+from app.ai.graph_v2 import get_iris_graph, IRISGraphV2
 from app.core.rate_limiter import RateLimiter, RateLimitExceeded
 from app.core.input_sanitizer import InputSanitizer
 from app.core.exceptions import IRISException, get_friendly_message
@@ -102,9 +103,13 @@ twilio_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
 # AI Agent (singleton para melhor performance)
 _ai_agent: WhatsAppAIAgent = None
+_ai_agent_v2: IRISGraphV2 = None
+
+# Feature flag: usar graph_v2 em desenvolvimento
+USE_GRAPH_V2 = settings.DEBUG  # Ativa v2 apenas em DEBUG=True
 
 def get_ai_agent() -> WhatsAppAIAgent:
-    """Retorna instância singleton do agente de IA."""
+    """Retorna instância singleton do agente de IA (v1 legado)."""
     global _ai_agent
     if _ai_agent is None:
         _ai_agent = WhatsAppAIAgent(
@@ -112,6 +117,13 @@ def get_ai_agent() -> WhatsAppAIAgent:
             model=settings.GEMINI_MODEL
         )
     return _ai_agent
+
+def get_ai_agent_v2() -> IRISGraphV2:
+    """Retorna instância singleton do agente v2 (melhores práticas)."""
+    global _ai_agent_v2
+    if _ai_agent_v2 is None:
+        _ai_agent_v2 = get_iris_graph()
+    return _ai_agent_v2
 
 
 def normalize_phone_number(phone: str) -> str:
@@ -388,7 +400,13 @@ async def whatsapp_webhook(
             whatsapp_service.send_typing_indicator(MessageSid)
         
         # Processar com a IA (usando singleton para melhor performance)
-        agent = get_ai_agent()
+        # USE_GRAPH_V2: ativo em DEBUG para testar melhores práticas LangGraph
+        if USE_GRAPH_V2:
+            logger.info("Usando Graph v2 (melhores práticas LangGraph)")
+            agent = get_ai_agent_v2()
+        else:
+            agent = get_ai_agent()
+        
         result = await agent.process_message(
             user_id=user.id,
             session_id=user.session_id,
