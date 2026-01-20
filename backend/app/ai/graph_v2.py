@@ -289,13 +289,32 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
         context_prompt = state.get("context_prompt", "")
         domain_prompt = system_prompts.get(domain, "")
         
-        # Combinar prompt do domínio com contexto do usuário
+        # Busca semântica nos documentos do usuário (RAG)
+        rag_context = ""
+        db = state.get("db")
+        user_id = state.get("user_id")
+        if db and user_id:
+            try:
+                from app.services.embedding_service import EmbeddingService
+                embedding_service = EmbeddingService(db)
+                rag_context = embedding_service.get_relevant_context(user_id, last_message.content, max_tokens=1500)
+                if rag_context:
+                    logger.info(f"RAG: contexto relevante encontrado para user {user_id}")
+            except Exception as e:
+                logger.warning(f"Erro ao buscar RAG: {e}")
+        
+        # Combinar prompt do domínio com contexto do usuário e RAG
         full_system_prompt = f"""{domain_prompt}
 
 {context_prompt}
 
-IMPORTANTE: Use as informações acima para responder. Se o usuário mencionar um nome (ex: Maria), 
-verifique nos CONTATOS se já existe e use o telefone de lá. NÃO peça informações que você já tem."""
+{rag_context}
+
+IMPORTANTE: 
+- Use as informações acima para responder.
+- Se o usuário mencionar um nome (ex: Maria), verifique nos CONTATOS.
+- Se a pergunta puder ser respondida com os DOCUMENTOS acima, use essas informações.
+- NÃO peça informações que você já tem."""
 
         messages = [SystemMessage(content=full_system_prompt), last_message]
 
@@ -341,7 +360,24 @@ verifique nos CONTATOS se já existe e use o telefone de lá. NÃO peça informa
         return state
 
     def _general_chat_node(self, state: IRISState) -> IRISState:
-        """Conversa geral sem tools específicas."""
+        """Conversa geral sem tools específicas - inclui busca RAG."""
+        last_message = state["messages"][-1]
+        
+        # Busca semântica nos documentos do usuário (RAG) para conversas gerais
+        rag_context = ""
+        db = state.get("db")
+        user_id = state.get("user_id")
+        if db and user_id:
+            try:
+                from app.services.embedding_service import EmbeddingService
+                embedding_service = EmbeddingService(db)
+                rag_context = embedding_service.get_relevant_context(user_id, last_message.content, max_tokens=2000)
+                if rag_context:
+                    logger.info(f"RAG (general): contexto encontrado para user {user_id}")
+                    state["rag_context"] = rag_context
+            except Exception as e:
+                logger.warning(f"Erro ao buscar RAG (general): {e}")
+        
         state["next_action"] = "general_response"
         return state
 
@@ -489,7 +525,7 @@ verifique nos CONTATOS se já existe e use o telefone de lá. NÃO peça informa
             if failed:
                 logger.warning(f"Alguns itens falharam: {failed}")
 
-            # Gerar resposta humanizada
+            # Gerar resposta humanizada (incluindo contexto RAG se disponível)
             response_prompt = ResponsePrompts.get_response_generation_prompt(
                 user_name=user_name,
                 comm_style="",
@@ -497,12 +533,13 @@ verifique nos CONTATOS se já existe e use o telefone de lá. NÃO peça informa
                 next_action=state.get("next_action", ""),
                 entities=state.get("entities", {}),
                 last_message=state["messages"][-1].content if state["messages"] else "",
+                rag_context=state.get("rag_context", ""),
             )
 
             response = self.llm.invoke(response_prompt)
             state["messages"] = list(state["messages"]) + [AIMessage(content=response.content)]
         else:
-            # Resposta para chat geral
+            # Resposta para chat geral (incluindo RAG)
             response_prompt = ResponsePrompts.get_response_generation_prompt(
                 user_name=user_name,
                 comm_style="",
@@ -510,6 +547,7 @@ verifique nos CONTATOS se já existe e use o telefone de lá. NÃO peça informa
                 next_action="general_response",
                 entities={},
                 last_message=state["messages"][-1].content if state["messages"] else "",
+                rag_context=state.get("rag_context", ""),
             )
             response = self.llm.invoke(response_prompt)
             state["messages"] = list(state["messages"]) + [AIMessage(content=response.content)]

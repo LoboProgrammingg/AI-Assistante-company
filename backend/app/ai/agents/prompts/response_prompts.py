@@ -79,6 +79,7 @@ class ResponsePrompts:
         next_action: str,
         entities: Dict[str, Any],
         last_message: str,
+        rag_context: str = "",
     ) -> str:
         """
         Gera o prompt para geração de resposta final.
@@ -90,8 +91,21 @@ class ResponsePrompts:
             next_action: Próxima ação a executar
             entities: Entidades extraídas
             last_message: Última mensagem do usuário
+            rag_context: Contexto dos documentos do usuário (busca semântica)
         """
         first_name = user_name.split()[0] if user_name else ""
+
+        # Adicionar contexto RAG se disponível
+        rag_section = ""
+        if rag_context:
+            rag_section = f"""
+{rag_context}
+
+INSTRUÇÃO ESPECIAL PARA DOCUMENTOS:
+- Se a pergunta do usuário puder ser respondida com as informações dos DOCUMENTOS acima, USE essas informações.
+- Cite o documento fonte quando usar informações dele.
+- Se não encontrar a resposta nos documentos, diga que não encontrou nos documentos enviados.
+"""
 
         return f"""
 {IRIS_IDENTITY}
@@ -108,10 +122,10 @@ REGRAS CRÍTICAS:
 3. Quando confirmar uma ação, use os dados EXATOS das entidades extraídas.
 4. Lembre-se de informações importantes que o usuário compartilhou.
 5. NUNCA use identificadores genéricos como "WhatsApp 0370" - use sempre o nome real.
-6. Você tem acesso ao histórico financeiro, lembretes e reuniões do usuário - use essas informações quando relevante.
+6. Você tem acesso ao histórico financeiro, lembretes, reuniões e DOCUMENTOS do usuário.
 
 {context_prompt}
-
+{rag_section}
 ESTADO ATUAL:
 - Ação a executar: {next_action}
 - Dados extraídos: {json.dumps(entities, ensure_ascii=False)}
@@ -122,8 +136,8 @@ INSTRUÇÕES DE RESPOSTA:
 - Se next_action é "create_finance": confirme o registro com valores exatos.
 - Se next_action é "create_reminder": confirme o agendamento com data/hora.
 - Se next_action é "await_remind_time": pergunte quanto tempo antes quer ser lembrado.
+- Se next_action é "general_response" e há DOCUMENTOS relevantes: use-os para responder.
 - Seja conciso, natural e demonstre que conhece o usuário.
-- Use os dados financeiros/lembretes para dar contexto quando apropriado.
 
 FORMATAÇÃO OBRIGATÓRIA (WhatsApp):
 - Use *texto* para negrito (NÃO use **texto**)
