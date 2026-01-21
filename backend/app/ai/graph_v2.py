@@ -464,8 +464,21 @@ REGRAS:
             contacts_list = []
             scheduled_messages_list = []
 
+            # Lista para armazenar respostas diretas de tools de integração
+            integration_responses = []
+            
             for r in successful:
                 result_data = r.get("result", {})
+                
+                # Se o resultado é string (tools de integração retornam strings diretas)
+                if isinstance(result_data, str):
+                    integration_responses.append(result_data)
+                    continue
+                
+                # Se não é dict, pular
+                if not isinstance(result_data, dict):
+                    continue
+                
                 if result_data.get("status") == "pending_execution":
                     action = result_data.get("action", "")
                     
@@ -483,6 +496,9 @@ REGRAS:
                         # Ação única (consulta, delete, etc)
                         state["next_action"] = action
                         state["entities"] = result_data
+                elif result_data.get("status") == "pending_calendar_action":
+                    # Tools de Google Calendar retornam dict com status especial
+                    state["calendar_action"] = result_data
 
             # Obter db e user_id do contexto
             db = state.get("db")
@@ -583,6 +599,26 @@ REGRAS:
 
             if failed:
                 logger.warning(f"Alguns itens falharam: {failed}")
+
+            # Se temos respostas de tools de integração (clima, busca, etc), usar diretamente
+            if integration_responses:
+                # Combinar todas as respostas de integração
+                integration_context = "\n\n".join(integration_responses)
+                
+                # Gerar resposta humanizada baseada nos dados das integrações
+                integration_prompt = f"""Você é IRIS, assistente pessoal.
+
+DADOS OBTIDOS DAS FERRAMENTAS:
+{integration_context}
+
+PERGUNTA DO USUÁRIO:
+{state["messages"][-1].content if state["messages"] else ""}
+
+Responda de forma natural e amigável, usando os dados acima. Seja conciso."""
+
+                response = self.llm.invoke(integration_prompt)
+                state["messages"] = list(state["messages"]) + [AIMessage(content=response.content)]
+                return state
 
             # Gerar resposta humanizada (incluindo contexto RAG se disponível)
             response_prompt = ResponsePrompts.get_response_generation_prompt(
