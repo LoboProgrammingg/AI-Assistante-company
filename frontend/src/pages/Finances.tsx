@@ -268,9 +268,9 @@ export function Finances() {
           <CardContent>
             {summary?.by_category && summary.by_category.length > 0 ? (
               <div className="space-y-4">
-                {summary.by_category.slice(0, 8).map((cat: { category: string; total: number; percentage?: number }, index: number) => {
+                {summary.by_category.slice(0, 8).map((cat, index) => {
                   const totalExpenses = summary?.summary?.total_expenses || 1
-                  const amount = cat.total || 0
+                  const amount = (cat as any).total || cat.amount || 0
                   const percentage = cat.percentage ?? ((amount / totalExpenses) * 100)
                   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"]
                   return (

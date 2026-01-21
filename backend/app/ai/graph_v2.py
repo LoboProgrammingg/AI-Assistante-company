@@ -453,14 +453,23 @@ REGRAS:
         user_ctx = state.get("user_context")
         user_name = user_ctx.user_name if user_ctx else ""
 
-        # Se já tem resposta do agente, não precisa formatar
-        if state["messages"] and isinstance(state["messages"][-1], AIMessage):
-            return state
-
         # Gerar resposta baseada nos resultados
         tool_results = state.get("tool_results", [])
+        
+        # DEBUG: Verificar se há tool_results pendentes
+        logger.info(f"[FORMATTER] 🔍 Tool results pendentes: {len(tool_results)}")
+        
+        # Se já tem resposta do agente E não há tool_results para processar, retornar
+        if state["messages"] and isinstance(state["messages"][-1], AIMessage) and not tool_results:
+            logger.info("[FORMATTER] ⏭️ Resposta já existe e sem tool_results, pulando")
+            return state
 
         if tool_results:
+            # DEBUG: Log dos tool_results recebidos
+            logger.info(f"[FORMATTER] 📦 Tool results recebidos: {len(tool_results)}")
+            for tr in tool_results:
+                logger.info(f"[FORMATTER] Tool: {tr.get('tool')} | Success: {tr.get('success')} | Result: {str(tr.get('result', {}))[:200]}")
+            
             # Construir resposta baseada nos resultados das tools
             successful = [r for r in tool_results if r.get("success")]
             failed = [r for r in tool_results if not r.get("success")]
@@ -512,18 +521,23 @@ REGRAS:
             db = state.get("db")
             user_id = state.get("user_id")
 
+            # DEBUG: Log das listas agregadas
+            logger.info(f"[FORMATTER] 📊 Agregados - Finances: {len(finances_list)}, Reminders: {len(reminders_list)}, Meetings: {len(meetings_list)}, Contacts: {len(contacts_list)}")
+            
             # Executar saves no banco de dados
             if db and user_id:
+                logger.info(f"[SAVE] 🔗 DB e user_id disponíveis: user_id={user_id}")
                 # Salvar finanças
                 if finances_list:
                     from app.services.finance_service import FinanceService
                     finance_service = FinanceService(db)
                     for finance in finances_list:
                         try:
+                            logger.info(f"[SAVE] 💰 Salvando: {finance}")
                             finance_service.create_from_entities(user_id, finance)
-                            logger.info(f"[SAVE] 💰 Finança: {finance.get('description')}")
+                            logger.info(f"[SAVE] ✅ Finança salva: {finance.get('description')}")
                         except Exception as e:
-                            logger.error(f"Erro ao salvar finança: {e}")
+                            logger.error(f"[SAVE] ❌ Erro ao salvar finança: {e}")
 
                 # Salvar lembretes
                 if reminders_list:
