@@ -6,11 +6,20 @@ Seguindo melhores práticas: validação automática de tipos.
 import logging
 from datetime import datetime
 from typing import List, Literal, Optional
+from zoneinfo import ZoneInfo
 
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+# Timezone padrão: Cuiabá-MT (UTC-4)
+TIMEZONE_DEFAULT = ZoneInfo("America/Cuiaba")
+
+
+def get_current_datetime() -> datetime:
+    """Retorna data/hora atual no timezone de Cuiabá-MT."""
+    return datetime.now(TIMEZONE_DEFAULT)
 
 
 class RegistrarTransacaoSchema(BaseModel):
@@ -86,7 +95,7 @@ def registrar_transacao(
             "description": descricao,
             "category": categoria,
             "type": tipo,
-            "date": data or datetime.now().strftime("%Y-%m-%d"),
+            "date": data or get_current_datetime().strftime("%Y-%m-%d"),
         },
         "status": "pending_execution",
     }

@@ -11,9 +11,33 @@ Melhorias implementadas:
 
 import json
 import logging
+from datetime import datetime
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from langchain_core.messages import AIMessage, SystemMessage
+
+# Timezone padrão: Cuiabá-MT (UTC-4)
+TIMEZONE_DEFAULT = ZoneInfo("America/Cuiaba")
+
+
+def get_current_datetime() -> datetime:
+    """Retorna data/hora atual no timezone de Cuiabá-MT."""
+    return datetime.now(TIMEZONE_DEFAULT)
+
+
+def get_datetime_context() -> str:
+    """Retorna string formatada com data/hora atual para contexto da IA."""
+    now = get_current_datetime()
+    dias_semana = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
+    meses = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"]
+    
+    dia_semana = dias_semana[now.weekday()]
+    mes = meses[now.month - 1]
+    
+    return f"Hoje é {dia_semana}, {now.day} de {mes} de {now.year}. Horário atual: {now.strftime('%H:%M')} (Cuiabá-MT)."
+
+
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
 from sqlalchemy.orm import Session
@@ -329,15 +353,20 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
             except Exception as e:
                 logger.debug(f"[RAG] Sem contexto: {e}")
         
+        # Contexto de data/hora atual
+        datetime_context = get_datetime_context()
+        
         # Combinar prompt do domínio com contexto do usuário e RAG
         full_system_prompt = f"""{domain_prompt}
+
+📅 DATA/HORA ATUAL: {datetime_context}
 
 {context_prompt}
 
 {rag_context}
 
 IMPORTANTE: 
-- Use as informações acima para responder.
+- Use a DATA/HORA ATUAL acima para registrar transações e lembretes.
 - Se o usuário mencionar um nome (ex: Maria), verifique nos CONTATOS.
 - Se a pergunta puder ser respondida com os DOCUMENTOS acima, use essas informações.
 - NÃO peça informações que você já tem."""
@@ -409,8 +438,13 @@ IMPORTANTE:
             except Exception as e:
                 logger.debug(f"[RAG] Sem contexto geral")
         
+        # Contexto de data/hora atual
+        datetime_context = get_datetime_context()
+        
         # System prompt com acesso às tools de pesquisa e consulta
         system_prompt = f"""Você é IRIS, assistente pessoal inteligente.
+
+📅 DATA/HORA ATUAL: {datetime_context}
 
 SUAS CAPACIDADES ESPECIAIS:
 1. PESQUISA WEB: Use _search_web ou _search_news para buscar informações atualizadas na internet.

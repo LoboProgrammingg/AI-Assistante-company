@@ -74,6 +74,8 @@ export function Finances() {
           page: page,
         })
         .then((r) => r.data),
+    staleTime: 30 * 1000, // 30 segundos
+    refetchOnWindowFocus: false,
   })
   
   const totalPages = Math.ceil((transactions?.total || 0) / ITEMS_PER_PAGE)
@@ -84,16 +86,22 @@ export function Finances() {
       financesApi
         .getSummary(format(start, "yyyy-MM-dd"), format(end, "yyyy-MM-dd"))
         .then((r) => r.data),
+    staleTime: 30 * 1000,
+    refetchOnWindowFocus: false,
   })
 
   const { data: trend } = useQuery({
     queryKey: ["finance-trend-12"],
     queryFn: () => financesApi.getTrend(12).then((r) => r.data),
+    staleTime: 60 * 1000, // 1 minuto
+    refetchOnWindowFocus: false,
   })
 
   const { data: categories } = useQuery({
     queryKey: ["categories"],
     queryFn: () => financesApi.getCategories().then((r) => r.data),
+    staleTime: 5 * 60 * 1000, // 5 minutos
+    refetchOnWindowFocus: false,
   })
 
   const periodLabels: Record<Period, string> = {
