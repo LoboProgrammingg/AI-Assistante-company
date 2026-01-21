@@ -220,3 +220,56 @@ async def bypass_verify_email(request: Request, db: Session = Depends(get_db)):
 
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro: {str(e)}")
+
+
+@router.get("/email-config")
+async def check_email_config():
+    """
+    Endpoint de diagnóstico para verificar configuração de email.
+    Útil para debug no Railway.
+    """
+    from app.config import settings
+    from app.services.email_service import email_service
+
+    return {
+        "smtp_host": settings.SMTP_HOST,
+        "smtp_port": settings.SMTP_PORT,
+        "smtp_use_ssl": settings.SMTP_USE_SSL,
+        "smtp_user_configured": bool(settings.SMTP_USER),
+        "smtp_password_configured": bool(settings.SMTP_PASSWORD),
+        "smtp_from_email": settings.SMTP_FROM_EMAIL or "(usando SMTP_USER)",
+        "smtp_from_name": settings.SMTP_FROM_NAME,
+        "email_service_ready": email_service.is_configured,
+    }
+
+
+@router.post("/test-email")
+async def test_email_send(request: Request):
+    """
+    Endpoint para testar envio de email.
+    Envia um email de teste para o endereço especificado.
+    """
+    from app.services.email_service import email_service
+
+    try:
+        body = await request.json()
+        to_email = body.get("email")
+
+        if not to_email:
+            raise HTTPException(status_code=400, detail="Email é obrigatório")
+
+        success = email_service.send_email(
+            to_email=to_email,
+            subject="Teste de Email - IRIS Assistant",
+            html_content="<h1>Teste OK!</h1><p>Se você recebeu este email, a configuração está funcionando.</p>",
+            text_content="Teste OK! Se você recebeu este email, a configuração está funcionando.",
+        )
+
+        if success:
+            return {"status": "success", "message": f"Email de teste enviado para {to_email}"}
+        else:
+            return {"status": "error", "message": "Falha ao enviar email. Verifique os logs."}
+
+    except Exception as e:
+        logger.error(f"Erro no teste de email: {e}")
+        raise HTTPException(status_code=500, detail=str(e))

@@ -19,4 +19,27 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('react-dom') || id.includes('react-router')) {
+              return 'vendor-react'
+            }
+            if (id.includes('@radix-ui')) {
+              return 'vendor-ui'
+            }
+            if (id.includes('@tanstack')) {
+              return 'vendor-query'
+            }
+            if (id.includes('lucide') || id.includes('date-fns')) {
+              return 'vendor-utils'
+            }
+          }
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
 })

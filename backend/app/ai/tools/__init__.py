@@ -22,6 +22,14 @@ from app.ai.tools.reminder_tools import (
     listar_lembretes,
 )
 
+# Integrações externas
+from app.ai.tools.integrations import (
+    TavilySearchTools,
+    YFinanceTools,
+    BrasilAPITools,
+    GoogleCalendarTools,
+)
+
 __all__ = [
     # Finance
     "registrar_transacao",
@@ -41,4 +49,9 @@ __all__ = [
     "criar_contato",
     "listar_contatos",
     "ContactTools",
+    # Integrations
+    "TavilySearchTools",
+    "YFinanceTools",
+    "BrasilAPITools",
+    "GoogleCalendarTools",
 ]

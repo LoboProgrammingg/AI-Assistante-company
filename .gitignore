@@ -65,3 +65,5 @@ backend/logs/
 *.key
 credentials.json
 service-account.json
+
+backend/keys

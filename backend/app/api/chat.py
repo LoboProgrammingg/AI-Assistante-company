@@ -263,83 +263,6 @@ async def send_message(
             ai_response=result["response"],
         )
 
-        # Executar ações baseadas no next_action
-        next_action = result.get("next_action", "")
-        entities = result.get("entities", {})
-
-        if next_action == "create_reminder" and entities.get("reminder"):
-            try:
-                create_reminder_from_entities(db, current_user.id, entities, current_user.timezone or "America/Cuiaba")
-            except Exception as e:
-                logger.error(f"Erro ao criar lembrete: {e}")
-
-        elif next_action == "create_multiple_reminders" and entities.get("reminders"):
-            try:
-                for reminder_data in entities["reminders"]:
-                    create_reminder_from_entities(
-                        db, current_user.id, {"reminder": reminder_data}, current_user.timezone or "America/Cuiaba"
-                    )
-            except Exception as e:
-                logger.error(f"Erro ao criar múltiplos lembretes: {e}")
-
-        elif next_action == "create_finance" and entities.get("finance"):
-            try:
-                create_finance_from_entities(
-                    db, current_user.id, entities, current_user.timezone or "America/Sao_Paulo"
-                )
-            except Exception as e:
-                logger.error(f"Erro ao criar transação: {e}")
-
-        elif next_action == "create_finances" and entities.get("finances"):
-            # Múltiplas transações financeiras
-            try:
-                for finance_data in entities["finances"]:
-                    create_finance_from_entities(
-                        db, current_user.id, {"finance": finance_data}, current_user.timezone or "America/Sao_Paulo"
-                    )
-                logger.info(f"{len(entities['finances'])} transações criadas para user_id={current_user.id}")
-            except Exception as e:
-                logger.error(f"Erro ao criar múltiplas transações: {e}")
-
-        elif next_action == "delete_finance" and entities.get("delete_finance"):
-            try:
-                delete_finance_by_id(db, current_user.id, entities["delete_finance"]["id"])
-            except Exception as e:
-                logger.error(f"Erro ao deletar transação: {e}")
-
-        elif next_action == "delete_reminder" and entities.get("delete_reminder"):
-            try:
-                delete_reminder_by_id(db, current_user.id, entities["delete_reminder"]["id"])
-            except Exception as e:
-                logger.error(f"Erro ao deletar lembrete: {e}")
-
-        elif next_action == "create_contact" and entities.get("contacts"):
-            try:
-                from app.schemas.contact import ContactCreate
-                from app.services.contact_service import ContactService
-
-                contact_service = ContactService(db)
-                for contact_data in entities["contacts"]:
-                    contact_service.create(current_user.id, ContactCreate(**contact_data))
-            except Exception as e:
-                logger.error(f"Erro ao criar contato: {e}")
-
-        elif next_action == "send_broadcast" and entities.get("broadcast"):
-            try:
-                from app.services.message_broadcast_service import (
-                    MessageBroadcastService,
-                )
-
-                broadcast_service = MessageBroadcastService(db)
-                broadcast_data = entities["broadcast"]
-                broadcast_service.send_broadcast(
-                    user_id=current_user.id,
-                    message=broadcast_data.get("message", ""),
-                    groups=broadcast_data.get("groups", []),
-                )
-            except Exception as e:
-                logger.error(f"Erro ao enviar broadcast: {e}")
-
         return ChatResponse(
             response=result["response"],
             intent=result["intent"],
@@ -548,40 +471,6 @@ async def send_audio(
                     entities=result["entities"],
                     ai_response=result["response"],
                 )
-
-                # Executar ações
-                next_action = result.get("next_action", "")
-                entities = result.get("entities", {})
-
-                if next_action == "create_reminder" and entities.get("reminder"):
-                    try:
-                        create_reminder_from_entities(db, current_user.id, entities)
-                    except Exception as e:
-                        logger.error(f"Erro ao criar lembrete: {e}")
-
-                elif next_action == "create_reminders" and entities.get("reminders"):
-                    try:
-                        for reminder_data in entities["reminders"]:
-                            create_reminder_from_entities(db, current_user.id, {"reminder": reminder_data})
-                    except Exception as e:
-                        logger.error(f"Erro ao criar lembretes: {e}")
-
-                elif next_action == "create_finance" and entities.get("finance"):
-                    try:
-                        create_finance_from_entities(
-                            db, current_user.id, entities, current_user.timezone or "America/Sao_Paulo"
-                        )
-                    except Exception as e:
-                        logger.error(f"Erro ao criar transação: {e}")
-
-                elif next_action == "create_finances" and entities.get("finances"):
-                    try:
-                        for finance_data in entities["finances"]:
-                            create_finance_from_entities(
-                                db, current_user.id, {"finance": finance_data}, current_user.timezone or "America/Sao_Paulo"
-                            )
-                    except Exception as e:
-                        logger.error(f"Erro ao criar transações: {e}")
 
                 return AudioResponse(
                     response=result["response"],

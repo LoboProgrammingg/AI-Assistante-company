@@ -115,9 +115,11 @@ class AuthService:
         self.db.refresh(user)
 
         # Enviar email de verificação
-        email_service.send_verification_code(email_lower, code, name)
-
-        logger.info(f"Novo usuário registrado: {email_lower}")
+        email_sent = email_service.send_verification_code(email_lower, code, name)
+        if email_sent:
+            logger.info(f"[AUTH] ✓ Usuário registrado e email enviado: {email_lower}")
+        else:
+            logger.warning(f"[AUTH] ⚠ Usuário registrado mas email FALHOU: {email_lower} (código: {code})")
 
         return user, code
 

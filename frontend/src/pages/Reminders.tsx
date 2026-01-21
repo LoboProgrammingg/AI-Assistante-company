@@ -1,31 +1,17 @@
-import { useState } from "react"
+import { useState, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import {
-  Bell,
-  Plus,
-  Check,
-  Clock,
-  Calendar,
-  Repeat,
-  Trash2,
-} from "lucide-react"
+import { Bell, Plus, Check, Clock, Calendar, Repeat, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Pagination } from "@/components/ui/pagination"
 import { remindersApi, type Reminder } from "@/lib/api"
 import { formatRelativeDate, cn } from "@/lib/utils"
-import {
-  startOfDay,
-  endOfDay,
-  startOfWeek,
-  endOfWeek,
-  startOfMonth,
-  endOfMonth,
-  isWithinInterval,
-} from "date-fns"
+import { startOfDay, endOfDay, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isWithinInterval } from "date-fns"
 import { ptBR } from "date-fns/locale"
 import toast from "react-hot-toast"
 
 type Period = "day" | "week" | "month" | "all"
+const ITEMS_PER_PAGE = 10
 
 const recurrenceLabels: Record<string, string> = {
   once: "Única vez",
@@ -39,12 +25,22 @@ const recurrenceLabels: Record<string, string> = {
 export function Reminders() {
   const [period, setPeriod] = useState<Period>("all")
   const [status, setStatus] = useState<"active" | "completed" | "all">("active")
+  const [currentPage, setCurrentPage] = useState(1)
   const queryClient = useQueryClient()
 
   const { data: reminders, isLoading } = useQuery({
-    queryKey: ["reminders", status],
-    queryFn: () => remindersApi.list({ status, limit: 100 }).then((r) => r.data),
+    queryKey: ["reminders", status, currentPage],
+    queryFn: () => remindersApi.list({ 
+      status, 
+      limit: ITEMS_PER_PAGE,
+      page: currentPage
+    }).then((r) => r.data),
   })
+
+  const handleStatusChange = useCallback((newStatus: "active" | "completed" | "all") => {
+    setCurrentPage(1)
+    setStatus(newStatus)
+  }, [])
 
   const completeMutation = useMutation({
     mutationFn: (id: number) => remindersApi.complete(id),
@@ -136,21 +132,21 @@ export function Reminders() {
           <Button
             variant={status === "active" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setStatus("active")}
+            onClick={() => handleStatusChange("active")}
           >
             Ativos
           </Button>
           <Button
             variant={status === "completed" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setStatus("completed")}
+            onClick={() => handleStatusChange("completed")}
           >
             Concluídos
           </Button>
           <Button
             variant={status === "all" ? "default" : "ghost"}
             size="sm"
-            onClick={() => setStatus("all")}
+            onClick={() => handleStatusChange("all")}
           >
             Todos
           </Button>
@@ -279,6 +275,17 @@ export function Reminders() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Pagination */}
+      {reminders && reminders.total > ITEMS_PER_PAGE && (
+        <div className="flex justify-center pt-4">
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(reminders.total / ITEMS_PER_PAGE)}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      )}
     </div>
   )
 }

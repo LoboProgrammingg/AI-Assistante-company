@@ -114,6 +114,12 @@ class Settings(BaseSettings):
     # Verificação de email
     VERIFICATION_CODE_EXPIRE_MINUTES: int = 15
 
+    # Tavily Web Search
+    TAVILY_API_KEY: str = ""
+
+    # Google Calendar (JSON das credenciais como string base64 para Railway)
+    GOOGLE_CREDENTIALS_JSON: str = ""
+
     class Config:
         env_file = ".env"
         case_sensitive = True

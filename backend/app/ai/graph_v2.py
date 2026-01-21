@@ -27,6 +27,10 @@ from app.ai.tools.contact_tools import ContactTools
 from app.ai.tools.finance_tools import FinanceTools
 from app.ai.tools.meeting_tools import MeetingTools
 from app.ai.tools.reminder_tools import ReminderTools
+from app.ai.tools.integrations.tavily_search import tavily_tools
+from app.ai.tools.integrations.yfinance_tools import yfinance_tools
+from app.ai.tools.integrations.brasil_api import brasil_api_tools
+from app.ai.tools.integrations.google_calendar import google_calendar_tools
 from app.config import settings
 from app.core.llm_optimizer import get_optimizer
 
@@ -56,12 +60,16 @@ class IRISGraphV2:
             max_output_tokens=15000,
         )
 
-        # Coletar todas as tools
+        # Coletar todas as tools (core + integrações)
         self.all_tools = (
             FinanceTools.get_all_tools()
             + ReminderTools.get_all_tools()
             + MeetingTools.get_all_tools()
             + ContactTools.get_all_tools()
+            + tavily_tools.get_tools()
+            + yfinance_tools.get_tools()
+            + brasil_api_tools.get_tools()
+            + google_calendar_tools.get_tools()
         )
 
         # LLM com tools bound
@@ -227,40 +235,51 @@ class IRISGraphV2:
         system_prompts = {
             "finance": """Você é um assistente especializado em finanças pessoais.
 
-REGRA OBRIGATÓRIA: SEMPRE use uma tool para responder. NUNCA responda sem chamar uma tool.
+REGRAS CRÍTICAS OBRIGATÓRIAS:
 
-REGRAS PARA REGISTRAR TRANSAÇÕES:
+1. VALORES EXATOS: Use EXATAMENTE o valor que o usuário informou.
+   - Se disse "200 reais", use valor=200. NÃO duplique, NÃO modifique.
+   - Se disse "350", use valor=350. NUNCA registre o mesmo valor duas vezes.
+   - NUNCA invente valores. Use o que foi dito LITERALMENTE.
 
-1. MÚLTIPLAS TRANSAÇÕES: Chame registrar_transacao UMA VEZ PARA CADA transação.
-   Exemplo: "Recebi 600 e gastei 200" = DUAS chamadas de tool.
+2. UMA CHAMADA POR TRANSAÇÃO: Cada valor mencionado = UMA chamada de registrar_transacao.
+   - "200 de ingressos" = UMA chamada com valor=200, descricao="Ingressos"
+   - "350 de artes" = UMA chamada com valor=350, descricao="Artes"
+   - NÃO chame a mesma transação duas vezes.
 
-2. DESCRIÇÃO SIMPLES (MÁXIMO 2 PALAVRAS): Extraia apenas a palavra-chave principal.
+3. DESCRIÇÃO SIMPLES (MÁXIMO 2 PALAVRAS): Extraia a palavra-chave principal.
    - "Uber para voltar para casa" → descricao="Uber"
-   - "Mensalidade da creche do filho" → descricao="Creche"
-   - "Fralda para o filho" → descricao="Fralda"
-   - "Almoço no restaurante" → descricao="Almoço"
-   - "Sistema em nuvem" → descricao="Sistema"
+   - "Mensalidade da creche" → descricao="Creche"
 
-REGRAS PARA CONSULTAR (SEMPRE USE consultar_financas):
+4. CONTEXTO DE EVENTO: Se o usuário mencionou um evento (ex: "pagode dia 25"):
+   - Inclua o contexto na descrição: "Ingressos Pagode", "Artes Pagode"
+   - NÃO peça informações que o usuário já forneceu na conversa anterior.
 
-3. CONSULTAS POR MÊS ESPECÍFICO: Use periodo com o NOME DO MÊS.
+5. CONSULTAS: Use consultar_financas com periodo e busca.
    - "gastos de janeiro" → consultar_financas(periodo="janeiro")
-   - "quanto gastei em fevereiro" → consultar_financas(periodo="fevereiro")
-   - "receitas de dezembro de 2025" → consultar_financas(periodo="dezembro", ano=2025)
-   
-   MESES VÁLIDOS: janeiro, fevereiro, março, abril, maio, junho, julho, agosto, setembro, outubro, novembro, dezembro
+   - "gastos com Uber" → consultar_financas(busca="uber")
 
-4. CONSULTAS POR ITEM: Use o parâmetro busca.
-   - "gastos com Uber" → consultar_financas(periodo="mes", busca="uber")
-   - "quanto gastei em almoço" → consultar_financas(busca="almoço")
-
-IMPORTANTE: Você PODE filtrar por mês específico! Use o parâmetro periodo com o nome do mês.""",
+IMPORTANTE: NUNCA registre a mesma transação mais de uma vez. Verifique antes de chamar a tool.""",
             "reminder": """Você é um assistente especializado em lembretes.
 
-REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLOS lembretes, você DEVE chamar a tool criar_lembrete UMA VEZ PARA CADA lembrete.
-Exemplo: "Me lembra de ligar pro João às 10h e enviar email às 14h" = DUAS chamadas de tool.
+REGRAS CRÍTICAS OBRIGATÓRIAS:
 
-NUNCA ignore nenhum lembrete mencionado. Registre TODOS.""",
+1. HORÁRIO EXATO: Use EXATAMENTE o horário que o usuário informou. 
+   - Se o usuário disse "8:20", use 08:20. NÃO mude para 8:40 ou qualquer outro horário.
+   - Se o usuário disse "às 10h", use 10:00. NÃO arredonde.
+   - NUNCA invente ou modifique horários. Use o que foi dito LITERALMENTE.
+
+2. MÚLTIPLOS LEMBRETES: Chame criar_lembrete UMA VEZ PARA CADA lembrete.
+   Exemplo: "Me lembra às 10h e às 14h" = DUAS chamadas de tool com horários 10:00 e 14:00.
+
+3. FORMATO DE DATA/HORA: Use formato YYYY-MM-DD HH:MM
+   - "amanhã às 8:20" → data de amanhã + 08:20
+   - "hoje às 15h" → data de hoje + 15:00
+
+4. NUNCA ALUCIINE: Se o usuário não informou um horário específico, PERGUNTE.
+   NÃO invente horários. NÃO modifique valores informados.
+
+5. CONFIRME OS DADOS: Antes de criar, repita o horário EXATO para o usuário.""",
             "meeting": """Você é um assistente especializado em reuniões.
 
 REGRA CRÍTICA: Quando o usuário mencionar MÚLTIPLAS reuniões, você DEVE chamar a tool criar_reuniao UMA VEZ PARA CADA reunião.
@@ -360,10 +379,13 @@ IMPORTANTE:
         return state
 
     def _general_chat_node(self, state: IRISState) -> IRISState:
-        """Conversa geral sem tools específicas - inclui busca RAG."""
+        """
+        Conversa geral com acesso a tools de pesquisa, investimentos, consultas e RAG.
+        Inclui: Web Search (Tavily), Investimentos (yFinance), Brasil API, Google Calendar.
+        """
         last_message = state["messages"][-1]
         
-        # Busca semântica nos documentos do usuário (RAG) para conversas gerais
+        # Busca semântica nos documentos do usuário (RAG)
         rag_context = ""
         db = state.get("db")
         user_id = state.get("user_id")
@@ -377,6 +399,43 @@ IMPORTANTE:
                     state["rag_context"] = rag_context
             except Exception as e:
                 logger.warning(f"Erro ao buscar RAG (general): {e}")
+        
+        # System prompt com acesso às tools de pesquisa e consulta
+        system_prompt = f"""Você é IRIS, assistente pessoal inteligente.
+
+SUAS CAPACIDADES ESPECIAIS:
+1. PESQUISA WEB: Use _search_web ou _search_news para buscar informações atualizadas na internet.
+2. INVESTIMENTOS: Use _get_stock_price, _get_stock_info, _get_crypto_price, _get_currency_rate para dados financeiros.
+   - Ações brasileiras: adicione .SA (ex: PETR4.SA, VALE3.SA)
+   - Criptos: BTC, ETH, SOL
+   - Câmbio: USD, EUR para BRL
+3. BRASIL API:
+   - _consultar_cep: Endereço completo por CEP
+   - _consultar_clima: Previsão do tempo
+   - _listar_feriados: Feriados nacionais
+   - _consultar_taxas: Selic, CDI, IPCA
+   - _listar_bancos / _consultar_banco: Códigos bancários
+   - _consultar_fipe: Preços de veículos
+4. GOOGLE CALENDAR: _listar_eventos, _criar_evento, _verificar_disponibilidade
+
+{rag_context}
+
+REGRAS:
+- Se o usuário perguntar sobre algo que precisa de dados atualizados, USE as tools.
+- Para investimentos, SEMPRE consulte dados reais, NUNCA invente valores.
+- Responda de forma natural e útil."""
+
+        messages = [SystemMessage(content=system_prompt), last_message]
+        
+        # Usar LLM com tools para poder acessar pesquisa, investimentos, etc.
+        response = self.llm_with_tools.invoke(messages)
+        
+        # Verificar se há tool calls
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            state["tool_calls"] = response.tool_calls
+            logger.info(f"General tools chamadas: {[tc['name'] for tc in response.tool_calls]}")
+        else:
+            state["messages"] = list(state["messages"]) + [response]
         
         state["next_action"] = "general_response"
         return state

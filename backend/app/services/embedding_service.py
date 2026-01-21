@@ -112,7 +112,7 @@ class EmbeddingService:
             indexed += 1
 
         self.db.commit()
-        logger.info(f"Documento {document_id} indexado com {indexed} chunks")
+        logger.debug(f"Documento {document_id} indexado com {indexed} chunks")
         return indexed
 
     def search_similar(self, user_id: int, query: str, limit: int = 5, threshold: float = 0.7) -> List[Dict[str, Any]]:
@@ -183,7 +183,7 @@ class EmbeddingService:
             if total_chars + len(chunk_text) > max_chars:
                 break
 
-            context_parts.append(f"\n📄 **{chunk['title']}** (relevância: {chunk['similarity']:.0%}):\n{chunk_text}")
+            context_parts.append(f"\n[{chunk['title']}]:\n{chunk_text}")
             total_chars += len(chunk_text)
 
         return "\n".join(context_parts)
@@ -220,7 +220,7 @@ class ClassificationCacheService:
             row = result.fetchone()
             if row:
                 self.db.commit()
-                logger.debug(f"Cache hit para classificação: {msg_hash[:8]}...")
+                logger.debug(f"Cache hit: {msg_hash[:8]}")
                 return {"intent": row.intent, "confidence": row.confidence, "entities": row.entities or {}}
 
             return None
@@ -256,7 +256,7 @@ class ClassificationCacheService:
                 },
             )
             self.db.commit()
-            logger.debug(f"Classificação cacheada: {msg_hash[:8]}...")
+            logger.debug(f"Cache salvo: {msg_hash[:8]}")
         except Exception as e:
             logger.error(f"Erro ao cachear classificação: {e}")
             self.db.rollback()

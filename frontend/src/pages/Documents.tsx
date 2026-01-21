@@ -1,37 +1,21 @@
-import { useState, useRef } from "react"
+import { useState, useRef, useCallback } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { 
   FileText, Upload, Search, Filter, Trash2, Brain, 
-  FileIcon, FolderOpen, MoreVertical, X, Check, Download
+  FileIcon, FolderOpen, MoreVertical, Download, Grid3X3, List
 } from "lucide-react"
-import { documentsApi, type Document, type DocumentListResponse } from "@/lib/api"
+import { documentsApi } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
+import { Pagination } from "@/components/ui/pagination"
 import { cn } from "@/lib/utils"
 
 const CATEGORIES = [
@@ -54,6 +38,8 @@ function getCategoryInfo(category: string) {
   return CATEGORIES.find(c => c.value === category) || CATEGORIES[6]
 }
 
+const ITEMS_PER_PAGE = 12
+
 export function Documents() {
   const queryClient = useQueryClient()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -61,6 +47,8 @@ export function Documents() {
   const [search, setSearch] = useState("")
   const [categoryFilter, setCategoryFilter] = useState<string>("all")
   const [aiFilter, setAiFilter] = useState<string>("all")
+  const [currentPage, setCurrentPage] = useState(1)
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid")
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadData, setUploadData] = useState({
@@ -72,9 +60,12 @@ export function Documents() {
   })
 
   const { data: documentsData, isLoading } = useQuery({
-    queryKey: ["documents", search, categoryFilter, aiFilter],
+    queryKey: ["documents", search, categoryFilter, aiFilter, currentPage],
     queryFn: async () => {
-      const params: Record<string, unknown> = { limit: 50 }
+      const params: Record<string, unknown> = { 
+        limit: ITEMS_PER_PAGE,
+        skip: (currentPage - 1) * ITEMS_PER_PAGE
+      }
       if (search) params.search = search
       if (categoryFilter !== "all") params.category = categoryFilter
       if (aiFilter !== "all") params.send_to_ai = aiFilter === "ai"
@@ -82,6 +73,13 @@ export function Documents() {
       return response.data
     },
   })
+
+  const handleFilterChange = useCallback((type: "search" | "category" | "ai", value: string) => {
+    setCurrentPage(1)
+    if (type === "search") setSearch(value)
+    else if (type === "category") setCategoryFilter(value)
+    else if (type === "ai") setAiFilter(value)
+  }, [])
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -133,20 +131,23 @@ export function Documents() {
   const documents = documentsData?.items || []
   const aiCount = documentsData?.ai_count || 0
   const aiLimit = documentsData?.ai_limit || 25
+  const totalItems = documentsData?.total || 0
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE)
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Documentos</h1>
-          <p className="text-muted-foreground">
-            {documentsData?.total || 0} documentos cadastrados
+          <h1 className="text-3xl font-bold tracking-tight">Documentos</h1>
+          <p className="text-muted-foreground mt-1">
+            {totalItems} documento{totalItems !== 1 ? "s" : ""} • Página {currentPage} de {totalPages || 1}
           </p>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-2 bg-muted rounded-lg">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-4 py-2 bg-primary/10 rounded-full">
             <Brain className="h-4 w-4 text-primary" />
-            <span className="text-sm font-medium">{aiCount}/{aiLimit} para IA</span>
+            <span className="text-sm font-medium text-primary">{aiCount}/{aiLimit}</span>
           </div>
           <input
             type="file"
@@ -155,47 +156,70 @@ export function Documents() {
             accept=".pdf,.txt,.doc,.docx,.md,.csv,.json,.xml"
             onChange={handleFileSelect}
           />
-          <Button onClick={() => fileInputRef.current?.click()}>
+          <Button onClick={() => fileInputRef.current?.click()} size="lg">
             <Upload className="h-4 w-4 mr-2" />
-            Enviar Documento
+            Enviar
           </Button>
         </div>
       </div>
 
-      <div className="flex gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar documentos..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
-          />
-        </div>
-        <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Filter className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Categoria" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas categorias</SelectItem>
-            {CATEGORIES.map(cat => (
-              <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={aiFilter} onValueChange={setAiFilter}>
-          <SelectTrigger className="w-[180px]">
-            <Brain className="h-4 w-4 mr-2" />
-            <SelectValue placeholder="Status IA" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="ai">Enviados para IA</SelectItem>
-            <SelectItem value="not_ai">Não enviados</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      {/* Filters */}
+      <Card className="border-0 shadow-sm bg-muted/30">
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar documentos..."
+                value={search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                className="pl-10 bg-background border-0 shadow-sm"
+              />
+            </div>
+            <Select value={categoryFilter} onValueChange={(v) => handleFilterChange("category", v)}>
+              <SelectTrigger className="w-[160px] bg-background border-0 shadow-sm">
+                <Filter className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                {CATEGORIES.map(cat => (
+                  <SelectItem key={cat.value} value={cat.value}>{cat.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={aiFilter} onValueChange={(v) => handleFilterChange("ai", v)}>
+              <SelectTrigger className="w-[160px] bg-background border-0 shadow-sm">
+                <Brain className="h-4 w-4 mr-2 text-muted-foreground" />
+                <SelectValue placeholder="Status IA" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                <SelectItem value="ai">Com IA</SelectItem>
+                <SelectItem value="not_ai">Sem IA</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex items-center border rounded-lg bg-background shadow-sm">
+              <Button
+                variant={viewMode === "grid" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-9 w-9 rounded-r-none"
+                onClick={() => setViewMode("grid")}
+              >
+                <Grid3X3 className="h-4 w-4" />
+              </Button>
+              <Button
+                variant={viewMode === "list" ? "secondary" : "ghost"}
+                size="icon"
+                className="h-9 w-9 rounded-l-none"
+                onClick={() => setViewMode("list")}
+              >
+                <List className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
@@ -216,79 +240,127 @@ export function Documents() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {documents.map((doc) => {
-            const catInfo = getCategoryInfo(doc.category)
-            return (
-              <Card key={doc.id} className="relative group">
-                <CardHeader className="pb-2">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("p-2 rounded-lg", catInfo.color)}>
+        <>
+          {viewMode === "grid" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {documents.map((doc) => {
+                const catInfo = getCategoryInfo(doc.category)
+                return (
+                  <Card key={doc.id} className="group hover:shadow-lg transition-all duration-200 border-0 shadow-sm">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className={cn("p-2.5 rounded-xl", catInfo.color, "shadow-sm")}>
+                            <FileText className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <CardTitle className="text-sm font-semibold truncate">
+                              {doc.title || doc.original_filename}
+                            </CardTitle>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                              {formatFileSize(doc.file_size)}
+                            </p>
+                          </div>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => documentsApi.download(doc.id)}>
+                              <Download className="h-4 w-4 mr-2" />
+                              Baixar
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => toggleAiMutation.mutate(doc.id)}
+                              disabled={!doc.send_to_ai && aiCount >= aiLimit}
+                            >
+                              <Brain className="h-4 w-4 mr-2" />
+                              {doc.send_to_ai ? "Remover da IA" : "Enviar para IA"}
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => deleteMutation.mutate(doc.id)} className="text-destructive">
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Excluir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      {doc.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-2 mb-3">{doc.description}</p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className="text-xs font-normal">{catInfo.label}</Badge>
+                        {doc.send_to_ai && (
+                          <Badge className="bg-primary/10 text-primary text-xs border-0">
+                            <Brain className="h-3 w-3 mr-1" />
+                            IA
+                          </Badge>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )
+              })}
+            </div>
+          ) : (
+            <Card className="border-0 shadow-sm overflow-hidden">
+              <div className="divide-y">
+                {documents.map((doc) => {
+                  const catInfo = getCategoryInfo(doc.category)
+                  return (
+                    <div key={doc.id} className="flex items-center gap-4 p-4 hover:bg-muted/50 transition-colors group">
+                      <div className={cn("p-2.5 rounded-xl shrink-0", catInfo.color)}>
                         <FileText className="h-5 w-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base truncate">
-                          {doc.title || doc.original_filename}
-                        </CardTitle>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(doc.file_size)}
-                        </p>
+                        <p className="font-medium truncate">{doc.title || doc.original_filename}</p>
+                        <p className="text-sm text-muted-foreground truncate">{doc.description || "Sem descrição"}</p>
                       </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-sm text-muted-foreground">{formatFileSize(doc.file_size)}</span>
+                        <Badge variant="outline" className="text-xs">{catInfo.label}</Badge>
+                        {doc.send_to_ai && <Badge className="bg-primary/10 text-primary text-xs border-0">IA</Badge>}
+                      </div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => documentsApi.download(doc.id)}>
+                            <Download className="h-4 w-4 mr-2" />Baixar
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => toggleAiMutation.mutate(doc.id)} disabled={!doc.send_to_ai && aiCount >= aiLimit}>
+                            <Brain className="h-4 w-4 mr-2" />{doc.send_to_ai ? "Remover da IA" : "Enviar para IA"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => deleteMutation.mutate(doc.id)} className="text-destructive">
+                            <Trash2 className="h-4 w-4 mr-2" />Excluir
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreVertical className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem 
-                          onClick={() => documentsApi.download(doc.id)}
-                        >
-                          <Download className="h-4 w-4 mr-2" />
-                          Baixar
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => toggleAiMutation.mutate(doc.id)}
-                          disabled={!doc.send_to_ai && aiCount >= aiLimit}
-                        >
-                          <Brain className="h-4 w-4 mr-2" />
-                          {doc.send_to_ai ? "Remover da IA" : "Enviar para IA"}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => deleteMutation.mutate(doc.id)}
-                          className="text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Excluir
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {doc.description && (
-                    <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                      {doc.description}
-                    </p>
-                  )}
-                  <div className="flex items-center justify-between">
-                    <Badge variant="secondary" className="text-xs">
-                      {catInfo.label}
-                    </Badge>
-                    {doc.send_to_ai && (
-                      <Badge className="bg-primary text-primary-foreground text-xs">
-                        <Brain className="h-3 w-3 mr-1" />
-                        IA
-                      </Badge>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
+                  )
+                })}
+              </div>
+            </Card>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center pt-4">
+              <Pagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
+        </>
       )}
 
       <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
