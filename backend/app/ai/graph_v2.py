@@ -243,31 +243,30 @@ class IRISGraphV2:
         system_prompts = {
             "finance": """Você é um assistente especializado em finanças pessoais.
 
-REGRAS CRÍTICAS OBRIGATÓRIAS:
+⚠️ REGRA OBRIGATÓRIA: Você DEVE chamar a tool registrar_transacao para CADA gasto/receita mencionado.
+NUNCA responda apenas com texto. SEMPRE chame a tool primeiro, depois responda.
+
+REGRAS CRÍTICAS:
 
 1. VALORES EXATOS: Use EXATAMENTE o valor que o usuário informou.
-   - Se disse "200 reais", use valor=200. NÃO duplique, NÃO modifique.
-   - Se disse "350", use valor=350. NUNCA registre o mesmo valor duas vezes.
-   - NUNCA invente valores. Use o que foi dito LITERALMENTE.
+   - "45 reais de uber" → registrar_transacao(valor=45, descricao="Uber")
+   - "80 de café" → registrar_transacao(valor=80, descricao="Café da manhã")
+   - "130 de almoço" → registrar_transacao(valor=130, descricao="Almoço")
 
-2. UMA CHAMADA POR TRANSAÇÃO: Cada valor mencionado = UMA chamada de registrar_transacao.
-   - "200 de ingressos" = UMA chamada com valor=200, descricao="Ingressos"
-   - "350 de artes" = UMA chamada com valor=350, descricao="Artes"
-   - NÃO chame a mesma transação duas vezes.
+2. MÚLTIPLAS TRANSAÇÕES: Chame registrar_transacao UMA VEZ PARA CADA valor.
+   Exemplo: "uber 45, café 80, almoço 130" = TRÊS chamadas de tool separadas.
 
-3. DESCRIÇÃO SIMPLES (MÁXIMO 2 PALAVRAS): Extraia a palavra-chave principal.
-   - "Uber para voltar para casa" → descricao="Uber"
-   - "Mensalidade da creche" → descricao="Creche"
+3. DESCRIÇÃO CURTA: Máximo 2-3 palavras.
+   - "Uber para voltar para casa" → "Uber"
+   - "Mensalidade da creche" → "Creche"
 
-4. CONTEXTO DE EVENTO: Se o usuário mencionou um evento (ex: "pagode dia 25"):
-   - Inclua o contexto na descrição: "Ingressos Pagode", "Artes Pagode"
-   - NÃO peça informações que o usuário já forneceu na conversa anterior.
-
-5. CONSULTAS: Use consultar_financas com periodo e busca.
+4. CONSULTAS: Use consultar_financas.
    - "gastos de janeiro" → consultar_financas(periodo="janeiro")
-   - "gastos com Uber" → consultar_financas(busca="uber")
 
-IMPORTANTE: NUNCA registre a mesma transação mais de uma vez. Verifique antes de chamar a tool.""",
+5. DELETAR: Use deletar_transacao.
+   - "delete o uber" → deletar_transacao(descricao="uber")
+
+LEMBRE-SE: Você DEVE chamar as tools. Não apenas responda com texto!""",
             "reminder": """Você é um assistente especializado em lembretes.
 
 REGRAS CRÍTICAS OBRIGATÓRIAS:
@@ -351,9 +350,11 @@ IMPORTANTE:
         # Verificar se há tool calls
         if hasattr(response, "tool_calls") and response.tool_calls:
             state["tool_calls"] = response.tool_calls
-            logger.info(f"[AGENT] 🛠️ Tools: {[tc['name'] for tc in response.tool_calls]}")
+            logger.info(f"[AGENT] 🛠️ Tools chamadas: {[tc['name'] for tc in response.tool_calls]}")
         else:
-            # Resposta direta sem tool
+            # ⚠️ PROBLEMA: LLM respondeu sem chamar tools!
+            logger.warning(f"[AGENT] ⚠️ LLM respondeu SEM chamar tools para intent={domain}!")
+            logger.warning(f"[AGENT] Resposta: {response.content[:200] if response.content else 'vazio'}")
             state["messages"] = list(state["messages"]) + [response]
 
         return state
