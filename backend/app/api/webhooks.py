@@ -525,12 +525,26 @@ async def whatsapp_webhook(
         )
 
     except Exception as e:
-        logger.error(f"Erro no webhook WhatsApp: {e}")
+        logger.error(f"[WEBHOOK] ❌ Erro crítico: {e}")
         import traceback
-
         logger.error(traceback.format_exc())
 
-        # Retornar resposta de erro amigável
+        # Enviar resposta de fallback para o usuário (nunca deixar sem resposta)
+        try:
+            fallback_message = (
+                "Desculpe, tive um probleminha técnico agora. 😅\n"
+                "Pode repetir o que você disse? Já estou me recuperando!"
+            )
+            
+            # Tentar enviar mensagem de fallback via Twilio
+            if 'From' in dir() and From:
+                from app.services.whatsapp_service import WhatsAppService
+                whatsapp_service = WhatsAppService()
+                whatsapp_service.send_message(From, fallback_message)
+                logger.info(f"[WEBHOOK] Mensagem de fallback enviada para {From}")
+        except Exception as fallback_error:
+            logger.error(f"[WEBHOOK] Falha ao enviar fallback: {fallback_error}")
+
         return Response(
             content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
         )

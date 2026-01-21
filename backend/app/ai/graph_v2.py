@@ -52,12 +52,20 @@ class IRISGraphV2:
         self.api_key = api_key or settings.GOOGLE_API_KEY
         self.model = model or settings.GEMINI_MODEL
 
-        # LLM principal
+        # LLM principal (para respostas)
         self.llm = ChatGoogleGenerativeAI(
             model=self.model,
             google_api_key=self.api_key,
             temperature=0.3,
-            max_output_tokens=15000,
+            max_output_tokens=8000,  # Reduzido para respostas mais rápidas
+        )
+        
+        # LLM rápido para classificação (flash é 10x mais rápido)
+        self.llm_fast = ChatGoogleGenerativeAI(
+            model="gemini-2.5-flash",
+            google_api_key=self.api_key,
+            temperature=0.1,
+            max_output_tokens=500,  # Classificação precisa de pouco output
         )
 
         # Coletar todas as tools (core + integrações)
@@ -156,10 +164,10 @@ class IRISGraphV2:
         if use_fast and fast_intent:
             state["intent"] = fast_intent
             state["confidence"] = 0.85
-            logger.info(f"Fast classification: {fast_intent}")
+            logger.info(f"[ROUTER] ⚡ Fast: {fast_intent}")
             return state
 
-        # Classificação com LLM
+        # Classificação com LLM rápido (flash)
         user_ctx = state.get("user_context") or {}
         is_audio = user_ctx.is_audio if isinstance(user_ctx, UserContext) else False
 
@@ -170,7 +178,7 @@ class IRISGraphV2:
         )
 
         optimizer.track_call()
-        response = self.llm.invoke(classification_prompt)
+        response = self.llm_fast.invoke(classification_prompt)  # Usar LLM rápido
 
         try:
             json_start = response.content.find("{")
@@ -188,7 +196,7 @@ class IRISGraphV2:
             state["intent"] = "general"
             state["confidence"] = 0.3
 
-        logger.info(f"Intent classificado: {state['intent']} (conf: {state['confidence']:.2f})")
+        logger.info(f"[ROUTER] 🎯 Intent: {state['intent']} ({state['confidence']:.0%})")
         return state
 
     def _route_by_intent(self, state: IRISState) -> str:
@@ -318,9 +326,9 @@ NUNCA ignore nenhum contato mencionado. Registre TODOS.""",
                 embedding_service = EmbeddingService(db)
                 rag_context = embedding_service.get_relevant_context(user_id, last_message.content, max_tokens=1500)
                 if rag_context:
-                    logger.info(f"RAG: contexto relevante encontrado para user {user_id}")
+                    logger.debug(f"[RAG] Contexto encontrado ({len(rag_context)} chars)")
             except Exception as e:
-                logger.warning(f"Erro ao buscar RAG: {e}")
+                logger.debug(f"[RAG] Sem contexto: {e}")
         
         # Combinar prompt do domínio com contexto do usuário e RAG
         full_system_prompt = f"""{domain_prompt}
@@ -343,7 +351,7 @@ IMPORTANTE:
         # Verificar se há tool calls
         if hasattr(response, "tool_calls") and response.tool_calls:
             state["tool_calls"] = response.tool_calls
-            logger.info(f"Tools chamadas: {[tc['name'] for tc in response.tool_calls]}")
+            logger.info(f"[AGENT] 🛠️ Tools: {[tc['name'] for tc in response.tool_calls]}")
         else:
             # Resposta direta sem tool
             state["messages"] = list(state["messages"]) + [response]
@@ -395,10 +403,10 @@ IMPORTANTE:
                 embedding_service = EmbeddingService(db)
                 rag_context = embedding_service.get_relevant_context(user_id, last_message.content, max_tokens=2000)
                 if rag_context:
-                    logger.info(f"RAG (general): contexto encontrado para user {user_id}")
+                    logger.debug(f"[RAG] Contexto geral ({len(rag_context)} chars)")
                     state["rag_context"] = rag_context
             except Exception as e:
-                logger.warning(f"Erro ao buscar RAG (general): {e}")
+                logger.debug(f"[RAG] Sem contexto geral")
         
         # System prompt com acesso às tools de pesquisa e consulta
         system_prompt = f"""Você é IRIS, assistente pessoal inteligente.
@@ -433,7 +441,7 @@ REGRAS:
         # Verificar se há tool calls
         if hasattr(response, "tool_calls") and response.tool_calls:
             state["tool_calls"] = response.tool_calls
-            logger.info(f"General tools chamadas: {[tc['name'] for tc in response.tool_calls]}")
+            logger.info(f"[GENERAL] 🛠️ Tools: {[tc['name'] for tc in response.tool_calls]}")
         else:
             state["messages"] = list(state["messages"]) + [response]
         
@@ -513,7 +521,7 @@ REGRAS:
                     for finance in finances_list:
                         try:
                             finance_service.create_from_entities(user_id, finance)
-                            logger.info(f"Finança salva: {finance.get('description')}")
+                            logger.info(f"[SAVE] 💰 Finança: {finance.get('description')}")
                         except Exception as e:
                             logger.error(f"Erro ao salvar finança: {e}")
 
@@ -524,7 +532,7 @@ REGRAS:
                     for reminder in reminders_list:
                         try:
                             reminder_service.create_from_entities(user_id, reminder)
-                            logger.info(f"Lembrete salvo: {reminder.get('title')}")
+                            logger.info(f"[SAVE] ⏰ Lembrete: {reminder.get('title')}")
                         except Exception as e:
                             logger.error(f"Erro ao salvar lembrete: {e}")
 
@@ -535,7 +543,7 @@ REGRAS:
                     for meeting in meetings_list:
                         try:
                             meeting_service.create_from_entities(user_id, meeting)
-                            logger.info(f"Reunião salva: {meeting.get('title')}")
+                            logger.info(f"[SAVE] 📅 Reunião: {meeting.get('title')}")
                         except Exception as e:
                             logger.error(f"Erro ao salvar reunião: {e}")
 
@@ -546,7 +554,7 @@ REGRAS:
                     for contact in contacts_list:
                         try:
                             contact_service.create_from_dict(user_id, contact)
-                            logger.info(f"Contato salvo: {contact.get('name')}")
+                            logger.info(f"[SAVE] 👤 Contato: {contact.get('name')}")
                         except Exception as e:
                             logger.error(f"Erro ao salvar contato: {e}")
 
@@ -557,7 +565,7 @@ REGRAS:
                     for msg in scheduled_messages_list:
                         try:
                             scheduled_service.create_from_entities(user_id, msg)
-                            logger.info(f"Mensagem agendada: {msg.get('recipient_name') or msg.get('group_name')}")
+                            logger.info(f"[SAVE] 📨 Agendamento: {msg.get('recipient_name') or msg.get('group_name')}")
                         except Exception as e:
                             logger.error(f"Erro ao agendar mensagem: {e}")
 
@@ -696,6 +704,13 @@ Responda de forma natural e amigável, usando os dados acima. Seja conciso."""
         Returns:
             Dict com response, intent, entities, next_action
         """
+        import time
+        start_time = time.time()
+        
+        # Preview da mensagem (primeiros 50 chars)
+        msg_preview = message[:50] + "..." if len(message) > 50 else message
+        logger.info(f"[IRIS] ▶️ Processando: \"{msg_preview}\" (user={user_id})")
+        
         enriched_context = context or {}
         memory_manager = None
 
@@ -728,6 +743,11 @@ Responda de forma natural e amigável, usando os dados acima. Seja conciso."""
                 entities=result.get("entities", {}),
                 response=response_text,
             )
+
+        # Log de conclusão com timing
+        elapsed = time.time() - start_time
+        intent = result.get("intent", "general")
+        logger.info(f"[IRIS] ✅ Concluído em {elapsed:.1f}s | Intent: {intent} | Resposta: {len(response_text)} chars")
 
         return {
             "response": response_text,
