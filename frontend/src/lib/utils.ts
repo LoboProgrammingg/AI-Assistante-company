@@ -26,11 +26,24 @@ export function formatRelativeDate(date: string | Date | null | undefined): stri
     return "Data não definida"
   }
   
-  // Converte string para Date, garantindo que interprete como UTC se terminar com Z
   let d: Date
   if (typeof date === "string") {
-    // Se a string não termina com Z, adicionar para garantir interpretação UTC
-    const dateStr = date.endsWith("Z") ? date : date + "Z"
+    // Normaliza formatos de data:
+    // "2026-01-21 14:00" → "2026-01-21T14:00:00"
+    // "2026-01-21T14:00:00" → mantém
+    // "2026-01-21T14:00:00Z" → mantém
+    let dateStr = date.trim()
+    
+    // Substitui espaço por T para formato ISO
+    if (dateStr.includes(" ") && !dateStr.includes("T")) {
+      dateStr = dateStr.replace(" ", "T")
+    }
+    
+    // Adiciona segundos se não tiver
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(dateStr)) {
+      dateStr = dateStr + ":00"
+    }
+    
     d = new Date(dateStr)
   } else {
     d = date
