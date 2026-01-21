@@ -138,6 +138,8 @@ class LLMOptimizer:
         message_lower = message.lower().strip()
 
         # Padrões óbvios de intenção
+        # IMPORTANTE: "agendar reunião" é REMINDER, não MEETING
+        # MEETING é apenas para transcrições de reuniões já realizadas
         fast_patterns = {
             "reminder": [
                 "me lembre",
@@ -148,6 +150,16 @@ class LLMOptimizer:
                 "avisa",
                 "alarme",
                 "agenda pra",
+                "agendar reunião",
+                "marcar reunião",
+                "agende uma reunião",
+                "agende reunião",
+                "compromisso",
+                "às 17",
+                "às 18",
+                "às 19",
+                "amanhã às",
+                "hoje às",
             ],
             "finance": [
                 "gastei",
@@ -163,13 +175,12 @@ class LLMOptimizer:
                 "extrato",
             ],
             "meeting": [
-                "reunião",
-                "meeting",
-                "call",
-                "videoconferência",
                 "transcreva",
+                "transcrição",
                 "resumo da reunião",
-                "ata da",
+                "ata da reunião",
+                "resuma a reunião",
+                "o que foi discutido",
             ],
             "contact": [
                 "salvar contato",

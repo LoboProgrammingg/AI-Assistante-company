@@ -29,19 +29,25 @@ MENSAGEM ATUAL DO USUÁRIO: "{message[:1000]}"
 
 REGRAS DE CLASSIFICAÇÃO:
 1. Se o usuário menciona VALORES em reais (R$, reais), PREÇOS ou GASTOS → finance
-2. Se menciona HORÁRIO, DATA, AGENDAR, LEMBRAR, compromisso → reminder
-3. Se menciona REUNIÃO, TRANSCRIÇÃO, ATAS ou parece uma discussão longa com participantes → meeting
-4. Se menciona CONTATO, SALVAR NÚMERO, ADICIONAR PESSOA, TELEFONE de alguém, grupo de pessoas → contact
+2. Se menciona HORÁRIO, DATA, AGENDAR, LEMBRAR, MARCAR, compromisso, "agendar reunião" → reminder
+3. Se o usuário ENVIOU UMA TRANSCRIÇÃO de reunião para resumir/analisar → meeting
+4. Se menciona CONTATO, SALVAR NÚMERO, ADICIONAR PESSOA, TELEFONE de alguém → contact
 5. Se é uma CONTINUAÇÃO de uma conversa anterior (ex: "sim", "prossiga", "ok"), 
    MANTENHA a mesma intenção do histórico
 6. Apenas classifique como "general" se REALMENTE for conversa casual
 
+⚠️ ATENÇÃO CRÍTICA:
+- "Agendar reunião às 17h" → É REMINDER (agendamento futuro)
+- "Marcar compromisso" → É REMINDER
+- "Me lembre da reunião" → É REMINDER
+- MEETING é APENAS para transcrições de reuniões que já aconteceram!
+
 Intenções:
-- reminder: Agendamentos, lembretes, compromissos, horários
+- reminder: QUALQUER agendamento futuro (reuniões, compromissos, lembretes, horários)
 - finance: Gastos, receitas, valores, dinheiro, preços
-- meeting: Transcrições de reuniões, resumos de reunião, discussões longas
+- meeting: APENAS transcrições/resumos de reuniões JÁ realizadas (textos longos com diálogos)
 - contact: Adicionar contatos, salvar números, gerenciar pessoas/grupos
-- general: Apenas conversas gerais sem ação específica
+- general: Conversas gerais, perguntas, pesquisas
 
 Retorne APENAS JSON válido:
 {{
