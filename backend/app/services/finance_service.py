@@ -138,11 +138,18 @@ class FinanceService:
         """
         category = self._get_or_create_category(entities.get("category", "Outros"), entities.get("type", "expense"))
 
-        transaction_date_str = entities.get("transaction_date", date.today().isoformat())
-        try:
-            transaction_date = date.fromisoformat(transaction_date_str)
-        except:
-            transaction_date = date.today()
+        # Suporta tanto "date" (da tool) quanto "transaction_date" (legado)
+        transaction_date_str = entities.get("date") or entities.get("transaction_date")
+        if not transaction_date_str:
+            # Usar timezone de Cuiabá para data padrão
+            from zoneinfo import ZoneInfo
+            transaction_date = datetime.now(ZoneInfo("America/Cuiaba")).date()
+        else:
+            try:
+                transaction_date = date.fromisoformat(transaction_date_str)
+            except:
+                from zoneinfo import ZoneInfo
+                transaction_date = datetime.now(ZoneInfo("America/Cuiaba")).date()
 
         data = FinanceCreate(
             type=entities.get("type", "expense"),
