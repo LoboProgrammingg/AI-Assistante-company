@@ -114,12 +114,17 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
 
-        # Enviar email de verificação
+        # Tentar enviar email de verificação
         email_sent = email_service.send_verification_code(email_lower, code, name)
         if email_sent:
             logger.info(f"[AUTH] ✓ Usuário registrado e email enviado: {email_lower}")
         else:
-            logger.warning(f"[AUTH] ⚠ Usuário registrado mas email FALHOU: {email_lower} (código: {code})")
+            # Se email falhar, validar conta automaticamente
+            logger.warning(f"[AUTH] ⚠ Email falhou - validando conta automaticamente: {email_lower}")
+            user.is_verified = True
+            self.db.commit()
+            self.db.refresh(user)
+            logger.info(f"[AUTH] ✓ Conta validada automaticamente: {email_lower}")
 
         return user, code
 
