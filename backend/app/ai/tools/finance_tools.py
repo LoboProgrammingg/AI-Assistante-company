@@ -58,9 +58,17 @@ class ConsultarFinancasSchema(BaseModel):
 class DeletarTransacaoSchema(BaseModel):
     """Schema para deletar transação."""
 
-    transacao_id: Optional[int] = Field(description="ID da transação a deletar (se conhecido)", default=None)
-    descricao: Optional[str] = Field(description="Descrição parcial para encontrar a transação", default=None)
-    ultima: bool = Field(description="Se True, deleta a última transação registrada", default=False)
+    descricao: str = Field(description="Descrição ou termo para encontrar a(s) transação(ões) a deletar (ex: 'uber', 'fralda')")
+    data: Optional[str] = Field(description="Data: 'hoje' para apenas transações de hoje, ou None para todas", default="hoje")
+
+
+class AtualizarTransacaoSchema(BaseModel):
+    """Schema para atualizar/editar transação."""
+
+    descricao_busca: str = Field(description="Descrição atual da transação para encontrá-la (ex: 'software', 'venda')")
+    novo_valor: Optional[float] = Field(description="Novo valor da transação", default=None)
+    nova_descricao: Optional[str] = Field(description="Nova descrição da transação", default=None)
+    novo_tipo: Optional[Literal["expense", "income"]] = Field(description="Novo tipo: expense ou income", default=None)
 
 
 @tool(args_schema=RegistrarTransacaoSchema)
@@ -101,16 +109,43 @@ def consultar_financas(
 
 
 @tool(args_schema=DeletarTransacaoSchema)
-def deletar_transacao(
-    transacao_id: Optional[int] = None, descricao: Optional[str] = None, ultima: bool = False
-) -> dict:
+def deletar_transacao(descricao: str, data: Optional[str] = "hoje") -> dict:
     """
-    Deleta uma transação financeira.
-    Use quando o usuário quiser remover um registro de gasto ou receita.
+    Deleta transações financeiras por descrição.
+    Use quando o usuário pedir para remover/deletar um gasto ou receita.
+    Exemplos: "delete o uber", "remove a fralda", "apaga os gastos com almoço"
     """
     return {
         "action": "delete_finance",
-        "filters": {"id": transacao_id, "descricao": descricao, "ultima": ultima},
+        "filters": {"descricao": descricao, "data": data},
+        "status": "pending_execution",
+    }
+
+
+@tool(args_schema=AtualizarTransacaoSchema)
+def atualizar_transacao(
+    descricao_busca: str,
+    novo_valor: Optional[float] = None,
+    nova_descricao: Optional[str] = None,
+    novo_tipo: Optional[str] = None,
+) -> dict:
+    """
+    Atualiza/edita uma transação financeira existente.
+    Use quando o usuário quiser corrigir um valor, descrição ou tipo de uma transação já registrada.
+    Exemplos: "na verdade eram 400 reais", "corrija o valor do software para 400"
+    """
+    updates = {}
+    if novo_valor is not None:
+        updates["amount"] = novo_valor
+    if nova_descricao is not None:
+        updates["description"] = nova_descricao
+    if novo_tipo is not None:
+        updates["type"] = novo_tipo
+    
+    return {
+        "action": "update_finance",
+        "filters": {"descricao": descricao_busca},
+        "updates": updates,
         "status": "pending_execution",
     }
 
@@ -120,7 +155,7 @@ class FinanceTools:
 
     @staticmethod
     def get_all_tools() -> List:
-        return [registrar_transacao, consultar_financas, deletar_transacao]
+        return [registrar_transacao, consultar_financas, deletar_transacao, atualizar_transacao]
 
     @staticmethod
     def execute_tool_result(result: dict, db, user_id: int) -> dict:
@@ -161,10 +196,31 @@ class FinanceTools:
         elif action == "delete_finance":
             filters = result.get("filters", {})
             try:
-                service.delete_by_filters(user_id, filters)
-                return {"success": True, "message": "Transação deletada com sucesso!"}
+                delete_result = service.delete_by_filters(user_id, filters)
+                count = delete_result.get("deleted_count", 0)
+                items = delete_result.get("deleted_items", [])
+                if count > 0:
+                    return {"success": True, "message": f"{count} transação(ões) deletada(s): {', '.join(items)}"}
+                return {"success": False, "message": "Nenhuma transação encontrada com essa descrição."}
             except Exception as e:
                 logger.error(f"Erro ao deletar transação: {e}")
+                return {"success": False, "error": str(e)}
+
+        elif action == "update_finance":
+            filters = result.get("filters", {})
+            updates = result.get("updates", {})
+            try:
+                update_result = service.update_by_filters(user_id, filters, updates)
+                if update_result.get("success"):
+                    old = update_result["old"]
+                    new = update_result["new"]
+                    return {
+                        "success": True,
+                        "message": f"Transação atualizada: '{old['description']}' R${old['amount']:.2f} → '{new['description']}' R${new['amount']:.2f}",
+                    }
+                return {"success": False, "message": update_result.get("error", "Transação não encontrada")}
+            except Exception as e:
+                logger.error(f"Erro ao atualizar transação: {e}")
                 return {"success": False, "error": str(e)}
 
         return {"success": False, "error": "Ação desconhecida"}

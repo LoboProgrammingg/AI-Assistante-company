@@ -323,6 +323,117 @@ class ContactService:
         logger.info(f"Contato desativado: {contact_id}")
         return True
 
+    def delete_by_filters(self, user_id: int, filters: dict) -> dict:
+        """
+        Deleta contatos baseado em filtros flexíveis.
+        
+        Args:
+            user_id: ID do usuário
+            filters: Dict com filtros (id, nome)
+        
+        Returns:
+            Dict com resultado da operação
+        """
+        deleted_count = 0
+        deleted_items = []
+        
+        # Deletar por ID específico
+        if filters.get("id"):
+            contact = self.get_by_id(user_id, filters["id"])
+            if contact:
+                name = contact.name
+                contact.is_active = False
+                deleted_count += 1
+                deleted_items.append(name)
+        
+        # Deletar por nome (busca parcial)
+        elif filters.get("nome"):
+            nome = filters["nome"].lower().strip()
+            
+            contacts = (
+                self.db.query(Contact)
+                .filter(
+                    and_(
+                        Contact.user_id == user_id,
+                        Contact.is_active == True,
+                        Contact.name.ilike(f"%{nome}%"),
+                    )
+                )
+                .all()
+            )
+            
+            for contact in contacts:
+                deleted_items.append(contact.name)
+                contact.is_active = False
+                deleted_count += 1
+        
+        if deleted_count > 0:
+            self.db.commit()
+            logger.info(f"[CONTACT] Deletados {deleted_count} contatos: {deleted_items}")
+        
+        return {
+            "deleted_count": deleted_count,
+            "deleted_items": deleted_items,
+        }
+
+    def update_by_filters(self, user_id: int, filters: dict, updates: dict) -> dict:
+        """
+        Atualiza contato baseado em filtros.
+        
+        Args:
+            user_id: ID do usuário
+            filters: Dict com filtros para encontrar o contato
+            updates: Dict com campos a atualizar
+        
+        Returns:
+            Dict com resultado da operação
+        """
+        contact = None
+        
+        # Encontrar por ID
+        if filters.get("id"):
+            contact = self.get_by_id(user_id, filters["id"])
+        
+        # Encontrar por nome (último que bate)
+        elif filters.get("nome"):
+            nome = filters["nome"].lower().strip()
+            contact = (
+                self.db.query(Contact)
+                .filter(
+                    and_(
+                        Contact.user_id == user_id,
+                        Contact.is_active == True,
+                        Contact.name.ilike(f"%{nome}%"),
+                    )
+                )
+                .order_by(Contact.created_at.desc())
+                .first()
+            )
+        
+        if not contact:
+            return {"success": False, "error": "Contato não encontrado"}
+        
+        old_name = contact.name
+        
+        # Aplicar atualizações
+        if "name" in updates:
+            contact.name = updates["name"]
+        if "phone_number" in updates:
+            contact.phone_number = updates["phone_number"]
+        if "group_name" in updates:
+            contact.group_name = normalize_group_name(updates["group_name"])
+            self.group_service.get_or_create(user_id, contact.group_name)
+        
+        self.db.commit()
+        self.db.refresh(contact)
+        
+        logger.info(f"[CONTACT] Atualizado: '{old_name}' -> '{contact.name}'")
+        
+        return {
+            "success": True,
+            "message": f"'{old_name}' atualizado",
+        }
+
     def delete_permanent(self, user_id: int, contact_id: int) -> bool:
         """Remove permanentemente um contato."""
         contact = self.get_by_id(user_id, contact_id)

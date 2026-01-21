@@ -29,6 +29,21 @@ class ListarContatosSchema(BaseModel):
     busca: Optional[str] = Field(description="Termo de busca por nome", default=None)
 
 
+class DeletarContatoSchema(BaseModel):
+    """Schema para deletar contato."""
+
+    nome: str = Field(description="Nome ou parte do nome do contato a deletar")
+
+
+class AtualizarContatoSchema(BaseModel):
+    """Schema para atualizar contato."""
+
+    nome_busca: str = Field(description="Nome atual do contato para encontrá-lo")
+    novo_nome: Optional[str] = Field(description="Novo nome do contato", default=None)
+    novo_telefone: Optional[str] = Field(description="Novo telefone", default=None)
+    novo_grupo: Optional[str] = Field(description="Novo grupo", default=None)
+
+
 class AgendarMensagemSchema(BaseModel):
     """Schema para agendar mensagem."""
 
@@ -102,12 +117,54 @@ def listar_mensagens_agendadas(status: Optional[str] = None) -> dict:
     return {"action": "list_scheduled_messages", "filters": {"status": status}, "status": "pending_execution"}
 
 
+@tool(args_schema=DeletarContatoSchema)
+def deletar_contato(nome: str) -> dict:
+    """
+    Deleta contato(s) por nome.
+    Use quando o usuário pedir para remover/deletar um contato.
+    Exemplos: "delete o contato do João", "remove o contato da Maria"
+    """
+    return {
+        "action": "delete_contact",
+        "filters": {"nome": nome},
+        "status": "pending_execution",
+    }
+
+
+@tool(args_schema=AtualizarContatoSchema)
+def atualizar_contato(
+    nome_busca: str,
+    novo_nome: Optional[str] = None,
+    novo_telefone: Optional[str] = None,
+    novo_grupo: Optional[str] = None,
+) -> dict:
+    """
+    Atualiza um contato existente.
+    Use quando o usuário quiser alterar nome, telefone ou grupo de um contato.
+    Exemplos: "mude o telefone do João", "coloque o Pedro no grupo Trabalho"
+    """
+    updates = {}
+    if novo_nome:
+        updates["name"] = novo_nome
+    if novo_telefone:
+        updates["phone_number"] = novo_telefone
+    if novo_grupo:
+        updates["group_name"] = novo_grupo
+    
+    return {
+        "action": "update_contact",
+        "filters": {"nome": nome_busca},
+        "updates": updates,
+        "status": "pending_execution",
+    }
+
+
 class ContactTools:
     """Agregador de tools de contatos e mensagens agendadas."""
 
     @staticmethod
     def get_all_tools() -> List:
-        return [criar_contato, listar_contatos, agendar_mensagem, listar_mensagens_agendadas]
+        return [criar_contato, listar_contatos, deletar_contato, atualizar_contato, agendar_mensagem, listar_mensagens_agendadas]
 
     @staticmethod
     def execute_tool_result(result: dict, db, user_id: int) -> dict:
@@ -135,14 +192,41 @@ class ContactTools:
             filters = result.get("filters", {})
             try:
                 service = ContactService(db)
-                result = service.list(user_id, group_name=filters.get("grupo"), search=filters.get("busca"))
+                list_result = service.list(user_id, group_name=filters.get("grupo"), search=filters.get("busca"))
                 contacts = [
                     {"id": c.id, "name": c.name, "phone": c.phone_number, "group": c.group_name}
-                    for c in result["items"]
+                    for c in list_result["items"]
                 ]
-                return {"success": True, "data": contacts, "total": result["total"]}
+                return {"success": True, "data": contacts, "total": list_result["total"]}
             except Exception as e:
                 logger.error(f"Erro ao listar contatos: {e}")
+                return {"success": False, "error": str(e)}
+
+        elif action == "delete_contact":
+            filters = result.get("filters", {})
+            try:
+                service = ContactService(db)
+                delete_result = service.delete_by_filters(user_id, filters)
+                count = delete_result.get("deleted_count", 0)
+                items = delete_result.get("deleted_items", [])
+                if count > 0:
+                    return {"success": True, "message": f"{count} contato(s) deletado(s): {', '.join(items)}"}
+                return {"success": False, "message": "Nenhum contato encontrado com esse nome."}
+            except Exception as e:
+                logger.error(f"Erro ao deletar contato: {e}")
+                return {"success": False, "error": str(e)}
+
+        elif action == "update_contact":
+            filters = result.get("filters", {})
+            updates = result.get("updates", {})
+            try:
+                service = ContactService(db)
+                update_result = service.update_by_filters(user_id, filters, updates)
+                if update_result.get("success"):
+                    return {"success": True, "message": f"Contato atualizado: {update_result.get('message', '')}"}
+                return {"success": False, "message": update_result.get("error", "Contato não encontrado")}
+            except Exception as e:
+                logger.error(f"Erro ao atualizar contato: {e}")
                 return {"success": False, "error": str(e)}
 
         elif action == "schedule_message":

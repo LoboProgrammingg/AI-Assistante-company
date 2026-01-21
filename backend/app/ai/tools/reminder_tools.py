@@ -40,8 +40,15 @@ class ListarLembretesSchema(BaseModel):
 class DeletarLembreteSchema(BaseModel):
     """Schema para deletar lembrete."""
 
-    lembrete_id: Optional[int] = Field(description="ID do lembrete a deletar", default=None)
-    titulo: Optional[str] = Field(description="Título parcial para encontrar o lembrete", default=None)
+    titulo: str = Field(description="Título ou termo para encontrar o(s) lembrete(s) a deletar (ex: 'reunião', 'médico')")
+
+
+class AtualizarLembreteSchema(BaseModel):
+    """Schema para atualizar lembrete."""
+
+    titulo_busca: str = Field(description="Título atual do lembrete para encontrá-lo")
+    novo_titulo: Optional[str] = Field(description="Novo título do lembrete", default=None)
+    nova_data_hora: Optional[str] = Field(description="Nova data/hora (formato: YYYY-MM-DD HH:MM)", default=None)
 
 
 @tool(args_schema=CriarLembreteSchema)
@@ -71,14 +78,40 @@ def listar_lembretes(periodo: str = "semana", apenas_pendentes: bool = True) -> 
 
 
 @tool(args_schema=DeletarLembreteSchema)
-def deletar_lembrete(lembrete_id: Optional[int] = None, titulo: Optional[str] = None) -> dict:
+def deletar_lembrete(titulo: str) -> dict:
     """
-    Deleta um lembrete existente.
-    Use quando o usuário quiser remover um lembrete.
+    Deleta lembrete(s) por título.
+    Use quando o usuário pedir para remover/deletar um lembrete.
+    Exemplos: "delete o lembrete da reunião", "remove o lembrete do médico"
     """
     return {
         "action": "delete_reminder",
-        "filters": {"id": lembrete_id, "titulo": titulo},
+        "filters": {"titulo": titulo},
+        "status": "pending_execution",
+    }
+
+
+@tool(args_schema=AtualizarLembreteSchema)
+def atualizar_lembrete(
+    titulo_busca: str,
+    novo_titulo: Optional[str] = None,
+    nova_data_hora: Optional[str] = None,
+) -> dict:
+    """
+    Atualiza um lembrete existente.
+    Use quando o usuário quiser alterar título ou horário de um lembrete.
+    Exemplos: "mude a reunião para 18h", "altere o horário do médico para amanhã"
+    """
+    updates = {}
+    if novo_titulo:
+        updates["title"] = novo_titulo
+    if nova_data_hora:
+        updates["scheduled_time"] = nova_data_hora
+    
+    return {
+        "action": "update_reminder",
+        "filters": {"titulo": titulo_busca},
+        "updates": updates,
         "status": "pending_execution",
     }
 
@@ -88,7 +121,7 @@ class ReminderTools:
 
     @staticmethod
     def get_all_tools() -> List:
-        return [criar_lembrete, listar_lembretes, deletar_lembrete]
+        return [criar_lembrete, listar_lembretes, deletar_lembrete, atualizar_lembrete]
 
     @staticmethod
     def execute_tool_result(result: dict, db, user_id: int) -> dict:
@@ -123,10 +156,26 @@ class ReminderTools:
         elif action == "delete_reminder":
             filters = result.get("filters", {})
             try:
-                service.delete_by_filters(user_id, filters)
-                return {"success": True, "message": "Lembrete deletado!"}
+                delete_result = service.delete_by_filters(user_id, filters)
+                count = delete_result.get("deleted_count", 0)
+                items = delete_result.get("deleted_items", [])
+                if count > 0:
+                    return {"success": True, "message": f"{count} lembrete(s) deletado(s): {', '.join(items)}"}
+                return {"success": False, "message": "Nenhum lembrete encontrado com esse título."}
             except Exception as e:
                 logger.error(f"Erro ao deletar lembrete: {e}")
+                return {"success": False, "error": str(e)}
+
+        elif action == "update_reminder":
+            filters = result.get("filters", {})
+            updates = result.get("updates", {})
+            try:
+                update_result = service.update_by_filters(user_id, filters, updates)
+                if update_result.get("success"):
+                    return {"success": True, "message": f"Lembrete atualizado: {update_result.get('message', '')}"}
+                return {"success": False, "message": update_result.get("error", "Lembrete não encontrado")}
+            except Exception as e:
+                logger.error(f"Erro ao atualizar lembrete: {e}")
                 return {"success": False, "error": str(e)}
 
         return {"success": False, "error": "Ação desconhecida"}

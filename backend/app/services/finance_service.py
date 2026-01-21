@@ -250,6 +250,145 @@ class FinanceService:
         logger.info(f"Transação removida: {finance_id}")
         return True
 
+    def delete_by_filters(self, user_id: int, filters: dict) -> dict:
+        """
+        Deleta transações baseado em filtros flexíveis.
+        
+        Args:
+            user_id: ID do usuário
+            filters: Dict com filtros (id, descricao, ultima, data, tipo)
+        
+        Returns:
+            Dict com resultado da operação
+        """
+        deleted_count = 0
+        deleted_items = []
+        
+        # Deletar por ID específico
+        if filters.get("id"):
+            finance = self.get_by_id(filters["id"], user_id)
+            if finance:
+                desc = finance.description
+                self.db.delete(finance)
+                deleted_count += 1
+                deleted_items.append(desc)
+        
+        # Deletar última transação
+        elif filters.get("ultima"):
+            finance = (
+                self.db.query(Finance)
+                .filter(Finance.user_id == user_id)
+                .order_by(Finance.created_at.desc())
+                .first()
+            )
+            if finance:
+                desc = finance.description
+                self.db.delete(finance)
+                deleted_count += 1
+                deleted_items.append(desc)
+        
+        # Deletar por descrição (busca parcial)
+        elif filters.get("descricao"):
+            descricao = filters["descricao"].lower().strip()
+            data_filtro = filters.get("data")  # Data específica (ex: "hoje")
+            
+            query = self.db.query(Finance).filter(
+                and_(
+                    Finance.user_id == user_id,
+                    Finance.description.ilike(f"%{descricao}%"),
+                )
+            )
+            
+            # Filtrar por data se especificado
+            if data_filtro == "hoje":
+                query = query.filter(Finance.transaction_date == date.today())
+            
+            transactions = query.all()
+            for finance in transactions:
+                deleted_items.append(finance.description)
+                self.db.delete(finance)
+                deleted_count += 1
+        
+        if deleted_count > 0:
+            self.db.commit()
+            logger.info(f"[FINANCE] Deletadas {deleted_count} transações: {deleted_items}")
+        
+        return {
+            "deleted_count": deleted_count,
+            "deleted_items": deleted_items,
+        }
+
+    def update_by_filters(self, user_id: int, filters: dict, updates: dict) -> dict:
+        """
+        Atualiza transações baseado em filtros.
+        
+        Args:
+            user_id: ID do usuário
+            filters: Dict com filtros para encontrar a transação
+            updates: Dict com campos a atualizar
+        
+        Returns:
+            Dict com resultado da operação
+        """
+        finance = None
+        
+        # Encontrar por ID
+        if filters.get("id"):
+            finance = self.get_by_id(filters["id"], user_id)
+        
+        # Encontrar por descrição (última que bate)
+        elif filters.get("descricao"):
+            descricao = filters["descricao"].lower().strip()
+            finance = (
+                self.db.query(Finance)
+                .filter(
+                    and_(
+                        Finance.user_id == user_id,
+                        Finance.description.ilike(f"%{descricao}%"),
+                    )
+                )
+                .order_by(Finance.created_at.desc())
+                .first()
+            )
+        
+        # Encontrar última transação
+        elif filters.get("ultima"):
+            finance = (
+                self.db.query(Finance)
+                .filter(Finance.user_id == user_id)
+                .order_by(Finance.created_at.desc())
+                .first()
+            )
+        
+        if not finance:
+            return {"success": False, "error": "Transação não encontrada"}
+        
+        old_desc = finance.description
+        old_amount = finance.amount
+        
+        # Aplicar atualizações
+        if "amount" in updates:
+            finance.amount = float(updates["amount"])
+        if "description" in updates:
+            finance.description = updates["description"]
+        if "category" in updates:
+            category = self._get_or_create_category(updates["category"], finance.type.value)
+            finance.category_id = category.id if category else finance.category_id
+        if "type" in updates:
+            finance.type = FinanceType(updates["type"])
+        
+        finance.updated_at = utc_now()
+        self.db.commit()
+        self.db.refresh(finance)
+        
+        logger.info(f"[FINANCE] Atualizada: '{old_desc}' R${old_amount} -> '{finance.description}' R${finance.amount}")
+        
+        return {
+            "success": True,
+            "old": {"description": old_desc, "amount": float(old_amount)},
+            "new": {"description": finance.description, "amount": float(finance.amount)},
+        }
+
     def get_summary(self, user_id: int, start_date: date, end_date: date) -> Dict[str, Any]:
         """
         Retorna resumo financeiro do período.

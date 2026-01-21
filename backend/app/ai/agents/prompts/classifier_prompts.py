@@ -28,10 +28,10 @@ MENSAGEM ATUAL DO USUÁRIO: "{message[:1000]}"
 {audio_hint}
 
 REGRAS DE CLASSIFICAÇÃO:
-1. Se o usuário menciona VALORES em reais (R$, reais), PREÇOS ou GASTOS → finance
-2. Se menciona HORÁRIO, DATA, AGENDAR, LEMBRAR, MARCAR, compromisso, "agendar reunião" → reminder
+1. Se o usuário menciona VALORES em reais (R$, reais), PREÇOS, GASTOS, ou quer DELETAR/EDITAR gastos → finance
+2. Se menciona HORÁRIO, DATA, AGENDAR, LEMBRAR, MARCAR, compromisso, ou quer DELETAR/EDITAR lembretes → reminder
 3. Se o usuário ENVIOU UMA TRANSCRIÇÃO de reunião para resumir/analisar → meeting
-4. Se menciona CONTATO, SALVAR NÚMERO, ADICIONAR PESSOA, TELEFONE de alguém → contact
+4. Se menciona CONTATO, SALVAR NÚMERO, ADICIONAR PESSOA, ou quer DELETAR/EDITAR contatos → contact
 5. Se é uma CONTINUAÇÃO de uma conversa anterior (ex: "sim", "prossiga", "ok"), 
    MANTENHA a mesma intenção do histórico
 6. Apenas classifique como "general" se REALMENTE for conversa casual
@@ -41,6 +41,13 @@ REGRAS DE CLASSIFICAÇÃO:
 - "Marcar compromisso" → É REMINDER
 - "Me lembre da reunião" → É REMINDER
 - MEETING é APENAS para transcrições de reuniões que já aconteceram!
+
+🗑️ DELEÇÃO E EDIÇÃO (muito importante!):
+- "Delete o uber" / "Remove a fralda" / "Apaga o gasto" → finance (deletar)
+- "Na verdade eram 400 reais" / "Corrija o valor" → finance (editar)
+- "Delete o lembrete" / "Cancela o compromisso" → reminder (deletar)
+- "Mude o horário para 18h" → reminder (editar)
+- "Remove o contato do João" → contact (deletar)
 
 Intenções:
 - reminder: QUALQUER agendamento futuro (reuniões, compromissos, lembretes, horários)

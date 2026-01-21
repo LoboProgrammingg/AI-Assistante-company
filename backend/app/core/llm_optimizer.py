@@ -160,6 +160,11 @@ class LLMOptimizer:
                 "às 19",
                 "amanhã às",
                 "hoje às",
+                "delete o lembrete",
+                "deletar lembrete",
+                "remover lembrete",
+                "cancela o compromisso",
+                "mude o horário",
             ],
             "finance": [
                 "gastei",
@@ -173,6 +178,15 @@ class LLMOptimizer:
                 "quanto tenho",
                 "meu saldo",
                 "extrato",
+                "delete o gasto",
+                "deletar gasto",
+                "remover gasto",
+                "apaga o gasto",
+                "delete o uber",
+                "delete a fralda",
+                "na verdade eram",
+                "corrija o valor",
+                "altere o valor",
             ],
             "meeting": [
                 "transcreva",
@@ -191,6 +205,9 @@ class LLMOptimizer:
                 "broadcast",
                 "lista de contatos",
                 "meus contatos",
+                "delete o contato",
+                "deletar contato",
+                "remover contato",
             ],
         }
 

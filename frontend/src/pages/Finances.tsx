@@ -8,6 +8,9 @@ import {
   Filter,
   Calendar,
   Download,
+  ChevronLeft,
+  ChevronRight,
+  Trash2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,8 +41,11 @@ import { ptBR } from "date-fns/locale"
 
 type Period = "day" | "week" | "month" | "year"
 
+const ITEMS_PER_PAGE = 20
+
 export function Finances() {
   const [period, setPeriod] = useState<Period>("month")
+  const [page, setPage] = useState(1)
 
   const getDateRange = () => {
     const now = new Date()
@@ -58,16 +64,19 @@ export function Finances() {
   const { start, end } = getDateRange()
 
   const { data: transactions } = useQuery({
-    queryKey: ["transactions", period],
+    queryKey: ["transactions", period, page],
     queryFn: () =>
       financesApi
         .list({
           start_date: format(start, "yyyy-MM-dd"),
           end_date: format(end, "yyyy-MM-dd"),
-          limit: 100,
+          limit: ITEMS_PER_PAGE,
+          page: page,
         })
         .then((r) => r.data),
   })
+  
+  const totalPages = Math.ceil((transactions?.total || 0) / ITEMS_PER_PAGE)
 
   const { data: summary } = useQuery({
     queryKey: ["finance-summary", period],
@@ -156,7 +165,10 @@ export function Finances() {
             key={p}
             variant={period === p ? "default" : "ghost"}
             size="sm"
-            onClick={() => setPeriod(p)}
+            onClick={() => {
+              setPeriod(p)
+              setPage(1) // Reset page when period changes
+            }}
           >
             {periodLabels[p]}
           </Button>
@@ -256,9 +268,10 @@ export function Finances() {
           <CardContent>
             {summary?.by_category && summary.by_category.length > 0 ? (
               <div className="space-y-4">
-                {summary.by_category.slice(0, 8).map((cat: { category: string; amount: number; percentage?: number }, index: number) => {
+                {summary.by_category.slice(0, 8).map((cat: { category: string; total: number; percentage?: number }, index: number) => {
                   const totalExpenses = summary?.summary?.total_expenses || 1
-                  const percentage = cat.percentage ?? ((cat.amount / totalExpenses) * 100)
+                  const amount = cat.total || 0
+                  const percentage = cat.percentage ?? ((amount / totalExpenses) * 100)
                   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"]
                   return (
                     <div key={cat.category} className="space-y-2">
@@ -272,7 +285,7 @@ export function Finances() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="text-muted-foreground">{percentage.toFixed(0)}%</span>
-                          <span className="font-semibold min-w-[80px] text-right">{formatCurrency(cat.amount)}</span>
+                          <span className="font-semibold min-w-[80px] text-right">{formatCurrency(amount)}</span>
                         </div>
                       </div>
                       <div className="w-full bg-muted rounded-full h-2">
@@ -299,15 +312,20 @@ export function Finances() {
 
       {/* Transactions List */}
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Transações Recentes</CardTitle>
+          {transactions?.total ? (
+            <span className="text-sm text-muted-foreground">
+              {transactions.total} transação(ões)
+            </span>
+          ) : null}
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
             {transactions?.items?.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between p-4 rounded-lg bg-muted/50"
+                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 group"
               >
                 <div className="flex items-center gap-4">
                   <div
@@ -330,14 +348,30 @@ export function Finances() {
                     </p>
                   </div>
                 </div>
-                <span
-                  className={`font-semibold ${
-                    transaction.type === "income" ? "text-success" : "text-destructive"
-                  }`}
-                >
-                  {transaction.type === "income" ? "+" : "-"}
-                  {formatCurrency(transaction.amount)}
-                </span>
+                <div className="flex items-center gap-3">
+                  <span
+                    className={`font-semibold ${
+                      transaction.type === "income" ? "text-success" : "text-destructive"
+                    }`}
+                  >
+                    {transaction.type === "income" ? "+" : "-"}
+                    {formatCurrency(transaction.amount)}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
+                    onClick={() => {
+                      if (confirm(`Deletar "${transaction.description}"?`)) {
+                        financesApi.delete(transaction.id).then(() => {
+                          window.location.reload()
+                        })
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
             ))}
             {(!transactions?.items || transactions.items.length === 0) && (
@@ -346,6 +380,33 @@ export function Finances() {
               </p>
             )}
           </div>
+          
+          {/* Paginação */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-6 pt-4 border-t">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page === 1}
+              >
+                <ChevronLeft className="h-4 w-4 mr-1" />
+                Anterior
+              </Button>
+              <span className="text-sm text-muted-foreground">
+                Página {page} de {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+              >
+                Próxima
+                <ChevronRight className="h-4 w-4 ml-1" />
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

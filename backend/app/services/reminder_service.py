@@ -171,6 +171,119 @@ class ReminderService:
         logger.info(f"Lembrete desativado: {reminder_id}")
         return True
 
+    def delete_by_filters(self, user_id: int, filters: dict) -> dict:
+        """
+        Deleta lembretes baseado em filtros flexíveis.
+        
+        Args:
+            user_id: ID do usuário
+            filters: Dict com filtros (id, titulo)
+        
+        Returns:
+            Dict com resultado da operação
+        """
+        deleted_count = 0
+        deleted_items = []
+        
+        # Deletar por ID específico
+        if filters.get("id"):
+            reminder = self.get_by_id(filters["id"], user_id)
+            if reminder:
+                title = reminder.title
+                reminder.is_active = False
+                deleted_count += 1
+                deleted_items.append(title)
+        
+        # Deletar por título (busca parcial)
+        elif filters.get("titulo"):
+            titulo = filters["titulo"].lower().strip()
+            
+            reminders = (
+                self.db.query(Reminder)
+                .filter(
+                    and_(
+                        Reminder.user_id == user_id,
+                        Reminder.is_active == True,
+                        Reminder.title.ilike(f"%{titulo}%"),
+                    )
+                )
+                .all()
+            )
+            
+            for reminder in reminders:
+                deleted_items.append(reminder.title)
+                reminder.is_active = False
+                deleted_count += 1
+        
+        if deleted_count > 0:
+            self.db.commit()
+            logger.info(f"[REMINDER] Deletados {deleted_count} lembretes: {deleted_items}")
+        
+        return {
+            "deleted_count": deleted_count,
+            "deleted_items": deleted_items,
+        }
+
+    def update_by_filters(self, user_id: int, filters: dict, updates: dict) -> dict:
+        """
+        Atualiza lembrete baseado em filtros.
+        
+        Args:
+            user_id: ID do usuário
+            filters: Dict com filtros para encontrar o lembrete
+            updates: Dict com campos a atualizar
+        
+        Returns:
+            Dict com resultado da operação
+        """
+        reminder = None
+        
+        # Encontrar por ID
+        if filters.get("id"):
+            reminder = self.get_by_id(filters["id"], user_id)
+        
+        # Encontrar por título (último que bate)
+        elif filters.get("titulo"):
+            titulo = filters["titulo"].lower().strip()
+            reminder = (
+                self.db.query(Reminder)
+                .filter(
+                    and_(
+                        Reminder.user_id == user_id,
+                        Reminder.is_active == True,
+                        Reminder.title.ilike(f"%{titulo}%"),
+                    )
+                )
+                .order_by(Reminder.created_at.desc())
+                .first()
+            )
+        
+        if not reminder:
+            return {"success": False, "error": "Lembrete não encontrado"}
+        
+        old_title = reminder.title
+        
+        # Aplicar atualizações
+        if "title" in updates:
+            reminder.title = updates["title"]
+        if "scheduled_time" in updates:
+            try:
+                reminder.scheduled_time = datetime.fromisoformat(updates["scheduled_time"].replace("Z", "+00:00"))
+                reminder.actual_reminder_time = reminder.scheduled_time - timedelta(minutes=reminder.remind_before_minutes)
+            except:
+                pass
+        
+        reminder.updated_at = utc_now()
+        self.db.commit()
+        self.db.refresh(reminder)
+        
+        logger.info(f"[REMINDER] Atualizado: '{old_title}' -> '{reminder.title}'")
+        
+        return {
+            "success": True,
+            "message": f"'{old_title}' atualizado para '{reminder.title}'",
+        }
+
     def complete(self, reminder_id: int, user_id: int) -> Optional[Reminder]:
         """
         Marca lembrete como concluído.
