@@ -97,7 +97,8 @@ class Settings(BaseSettings):
     LANGGRAPH_RECURSION_LIMIT: int = 15
 
     # LangSmith (Observabilidade)
-    LANGCHAIN_TRACING_V2: bool = True
+    # LangSmith (desabilitado - causa erros 403 sem API key válida)
+    LANGCHAIN_TRACING_V2: bool = False
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = "AI Assistant"

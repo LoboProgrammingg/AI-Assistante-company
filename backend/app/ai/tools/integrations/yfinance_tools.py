@@ -73,22 +73,61 @@ class YFinanceTools:
     @tool
     def _get_crypto_price(crypto: str) -> str:
         """
-        Consulta preço de criptomoeda em USD.
+        Consulta preço de criptomoeda em USD (tempo real via CoinGecko).
         
         Args:
             crypto: Símbolo da cripto (ex: BTC, ETH, SOL)
         """
+        import httpx
+        
+        # Mapeamento de símbolos para IDs do CoinGecko
+        crypto_ids = {
+            "BTC": "bitcoin",
+            "ETH": "ethereum",
+            "SOL": "solana",
+            "XRP": "ripple",
+            "ADA": "cardano",
+            "DOGE": "dogecoin",
+            "DOT": "polkadot",
+            "MATIC": "matic-network",
+            "LINK": "chainlink",
+            "AVAX": "avalanche-2",
+            "BNB": "binancecoin",
+            "SHIB": "shiba-inu",
+        }
+        
+        symbol = crypto.upper()
+        coin_id = crypto_ids.get(symbol, symbol.lower())
+        
         try:
-            import yfinance as yf
-            ticker = f"{crypto.upper()}-USD"
-            coin = yf.Ticker(ticker)
-            info = coin.fast_info
+            # CoinGecko API (gratuita, sem API key)
+            url = f"https://api.coingecko.com/api/v3/simple/price?ids={coin_id}&vs_currencies=usd,brl&include_24hr_change=true"
+            response = httpx.get(url, timeout=10)
+            data = response.json()
             
-            price = info.last_price
-            return f"{crypto.upper()}: US$ {price:,.2f}"
+            if coin_id in data:
+                price_usd = data[coin_id].get("usd", 0)
+                price_brl = data[coin_id].get("brl", 0)
+                change_24h = data[coin_id].get("usd_24h_change", 0)
+                
+                logger.info(f"[CRYPTO] {symbol}: US$ {price_usd:,.2f} | R$ {price_brl:,.2f}")
+                return f"{symbol}: US$ {price_usd:,.2f} (R$ {price_brl:,.2f}) | 24h: {change_24h:+.2f}%"
+            else:
+                return f"Criptomoeda '{crypto}' não encontrada"
         except Exception as e:
-            logger.error(f"[YFINANCE] Erro ao buscar {crypto}: {e}")
-            return f"Erro: {str(e)}"
+            logger.error(f"[CRYPTO] Erro CoinGecko: {e}")
+            
+            # Fallback para yFinance
+            try:
+                import yfinance as yf
+                ticker = f"{symbol}-USD"
+                coin = yf.Ticker(ticker)
+                info = coin.fast_info
+                price = info.last_price
+                return f"{symbol}: US$ {price:,.2f} (via yFinance)"
+            except Exception as e2:
+                logger.error(f"[CRYPTO] Fallback yFinance falhou: {e2}")
+                return f"Não consegui obter o preço de {crypto}. Tente novamente em alguns segundos."
 
     @tool
     def _get_currency_rate(from_currency: str, to_currency: str = "BRL") -> str:
