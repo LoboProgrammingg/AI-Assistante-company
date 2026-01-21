@@ -7,22 +7,24 @@
 TAVILY_API_KEY=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
 ```
 
-### 2. Google Calendar (Service Account)
+### 2. Google Calendar OAuth (por Usuário)
 
-**IMPORTANTE:** O arquivo JSON das credenciais NÃO pode ir para o GitHub.
+Cada usuário conecta seu próprio calendário no dashboard. A IA acessa o calendário pessoal do usuário.
 
-Para configurar no Railway:
-1. Gere o base64 do arquivo JSON:
-   ```bash
-   cat keys/google_calendar_api.json | base64 -w 0
-   ```
+**Configuração no Google Cloud Console:**
+1. Acesse: https://console.cloud.google.com/apis/credentials
+2. Crie um "OAuth 2.0 Client ID" do tipo "Web application"
+3. Adicione a URI de redirecionamento autorizada:
+   - Production: `https://seu-backend.railway.app/api/v1/integrations/google-calendar/callback`
+   - Local: `http://localhost:8005/api/v1/integrations/google-calendar/callback`
 
-2. Copie a saída e cole no Railway como variável:
-   ```
-   GOOGLE_CREDENTIALS_JSON=<string_base64_aqui>
-   ```
-
-O sistema detecta automaticamente se é um caminho de arquivo (local) ou base64 (Railway).
+**Variáveis no Railway:**
+```
+GOOGLE_OAUTH_CLIENT_ID=seu_client_id.apps.googleusercontent.com
+GOOGLE_OAUTH_CLIENT_SECRET=seu_client_secret
+BACKEND_URL=https://seu-backend.railway.app
+FRONTEND_URL=https://seu-frontend.railway.app
+```
 
 ### 3. SMTP (Email)
 ```

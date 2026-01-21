@@ -23,6 +23,7 @@ from app.models.models import (
     Subscription,
     SubscriptionStatus,
     User,
+    UserIntegration,
     VerificationToken,
     VerificationTokenType,
 )
@@ -34,6 +35,7 @@ __all__ = [
     "ContactGroupEnum",
     "CustomContactGroup",
     "User",
+    "UserIntegration",
     "Message",
     "Reminder",
     "FinanceCategory",

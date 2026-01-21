@@ -117,8 +117,13 @@ class Settings(BaseSettings):
     # Tavily Web Search
     TAVILY_API_KEY: str = ""
 
-    # Google Calendar (JSON das credenciais como string base64 para Railway)
-    GOOGLE_CREDENTIALS_JSON: str = ""
+    # Google Calendar OAuth (para cada usuário conectar seu calendário)
+    GOOGLE_OAUTH_CLIENT_ID: str = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
+    GOOGLE_OAUTH_CLIENT_SECRET: str = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")
+
+    # URL base do backend (para OAuth redirect)
+    BACKEND_URL: str = os.getenv("BACKEND_URL", "http://localhost:8005")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
     class Config:
         env_file = ".env"
