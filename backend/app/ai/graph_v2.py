@@ -81,7 +81,7 @@ class IRISGraphV2:
             model=self.model,
             google_api_key=self.api_key,
             temperature=0.3,
-            max_output_tokens=8000,
+            max_output_tokens=20000,
         )
 
         # LLM rápido para classificação (flash é 10x mais rápido)
@@ -89,7 +89,7 @@ class IRISGraphV2:
             model="gemini-2.5-flash",
             google_api_key=self.api_key,
             temperature=0.1,
-            max_output_tokens=500,
+            max_output_tokens=2000,
         )
 
     def _collect_tools(self) -> list:

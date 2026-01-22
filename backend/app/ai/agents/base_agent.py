@@ -20,7 +20,7 @@ class BaseAgent(ABC):
             model=model or settings.GEMINI_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
             temperature=temperature,
-            max_output_tokens=20000,
+            max_output_tokens=35000,
         )
 
     @property

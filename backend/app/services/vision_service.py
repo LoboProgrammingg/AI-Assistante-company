@@ -62,43 +62,67 @@ class VisionService:
             # Upload para Gemini
             image_file = genai.upload_file(temp_path)
 
-            # Prompt especializado para análise financeira
-            prompt = f"""Analise esta imagem e extraia todas as informações relevantes.
+            # Prompt especializado para análise financeira (padrão do FinanceAgent)
+            prompt = f"""Analise esta imagem e extraia transações financeiras.
 
 {user_context}
 
-TIPOS DE IMAGEM QUE VOCÊ PODE ENCONTRAR:
-1. EXTRATO BANCÁRIO: Extraia transações, saldos, datas
-2. NOTA FISCAL: Extraia valor total, itens, data, CNPJ
-3. COMPROVANTE DE PAGAMENTO: Extraia valor, destinatário, data
-4. PIX/TRANSFERÊNCIA: Extraia valor, nome do destinatário/remetente, data
-5. CUPOM FISCAL: Extraia itens, valores, total
-6. PRINT DE APP BANCÁRIO: Extraia saldo, transações visíveis
-7. OUTROS: Descreva o que vê na imagem
+TIPOS DE IMAGEM:
+- EXTRATO BANCÁRIO: transações, saldos, datas
+- NOTA FISCAL: valor total, itens, data
+- COMPROVANTE/PIX: valor, destinatário/remetente, data
+- CUPOM FISCAL: itens, valores, total
+- APP BANCÁRIO: saldo, transações visíveis
 
-RETORNE UM JSON ESTRUTURADO com os seguintes campos:
+CATEGORIAS DE DESPESA (use EXATAMENTE estes nomes):
+- Moradia: aluguel, prestação, IPTU, condomínio
+- Contas: luz, água, gás, telefone, internet
+- Alimentação: supermercado, restaurante, delivery, padaria
+- Transporte: combustível, Uber/99, ônibus, estacionamento
+- Saúde: consultas, remédios, plano de saúde, farmácia
+- Educação: mensalidades, cursos, livros
+- Lazer: cinema, streaming, viagens, hobbies
+- Vestuário: roupas, calçados
+- Dívidas: cartão de crédito, empréstimos
+- Serviços Financeiros: taxas bancárias, tarifas
+- Outros: despesas não categorizadas
+
+CATEGORIAS DE RECEITA:
+- Salário
+- Freelance
+- Investimentos
+- Vendas
+- Outros
+
+REGRAS PARA EXTRAÇÃO:
+- Título: nome SIMPLES e CURTO do estabelecimento ou tipo de transação (ex: "Supermercado", "Uber", "PIX Recebido")
+- Descrição: breve e objetiva (ex: "Compras no mercado", "Corrida de app", "Transferência recebida")
+- Categoria: escolha a mais apropriada da lista acima
+- Se não identificar o estabelecimento, use a descrição genérica do tipo (ex: "Restaurante", "Farmácia")
+
+RETORNE JSON:
 {{
     "tipo_imagem": "extrato|nota_fiscal|comprovante|pix|cupom|app_bancario|outro",
-    "descricao": "Descrição breve do que a imagem mostra",
+    "descricao": "Descrição breve da imagem",
     "transacoes": [
         {{
             "tipo": "entrada|saida",
             "valor": 100.00,
-            "descricao": "Descrição da transação",
+            "titulo": "Nome curto (ex: Supermercado Extra)",
+            "descricao": "Descrição simples da transação",
             "data": "2026-01-22",
-            "categoria_sugerida": "alimentacao|transporte|moradia|lazer|saude|educacao|trabalho|outros"
+            "categoria": "Categoria exata da lista acima"
         }}
     ],
     "saldo_visivel": 1000.00,
     "total_entradas": 0.00,
     "total_saidas": 0.00,
-    "observacoes": "Qualquer informação adicional relevante",
     "confianca": "alta|media|baixa"
 }}
 
-Se não conseguir identificar valores específicos, use null.
-Se a imagem não for relacionada a finanças, retorne tipo_imagem="outro" com descrição.
-RETORNE APENAS O JSON, sem markdown ou explicações."""
+Se não identificar valores, use null.
+Se não for imagem financeira, retorne tipo_imagem="outro".
+RETORNE APENAS O JSON."""
 
             result = self.model.generate_content([prompt, image_file])
             
@@ -191,13 +215,16 @@ RETORNE APENAS O JSON, sem markdown ou explicações."""
             if len(registradas) == 1:
                 t = registradas[0]
                 tipo_str = "receita" if t["type"] == "income" else "gasto"
+                cat = t.get("category", "Outros")
                 parts.append(f"{emoji} {primeiro_nome}, registrei seu {tipo_str}:")
-                parts.append(f"� *R$ {t['amount']:.2f}* - {t['description']}")
+                parts.append(f"💰 *R$ {t['amount']:.2f}* - {t['description']}")
+                parts.append(f"📁 Categoria: {cat}")
             else:
                 parts.append(f"{emoji} {primeiro_nome}, registrei {len(registradas)} transações:")
                 for t in registradas[:3]:
                     tipo_emoji_t = "📥" if t["type"] == "income" else "📤"
-                    parts.append(f"{tipo_emoji_t} R$ {t['amount']:.2f} - {t['description']}")
+                    cat = t.get("category", "Outros")
+                    parts.append(f"{tipo_emoji_t} R$ {t['amount']:.2f} - {t['description']} ({cat})")
                 if len(registradas) > 3:
                     parts.append(f"... e mais {len(registradas) - 3}")
         elif transacoes:
@@ -205,51 +232,76 @@ RETORNE APENAS O JSON, sem markdown ou explicações."""
             if len(transacoes) == 1:
                 t = transacoes[0]
                 valor = t.get("valor", 0)
-                desc = t.get("descricao", "Transação")
-                parts.append(f"{emoji} Identifiquei: *R$ {valor:.2f}* - {desc}")
+                titulo = t.get("titulo", t.get("descricao", "Transação"))
+                cat = t.get("categoria", "Outros")
+                parts.append(f"{emoji} Identifiquei: *R$ {valor:.2f}* - {titulo}")
+                parts.append(f"📁 Categoria: {cat}")
             else:
-                parts.append(f"{emoji} Identifiquei {len(transacoes)} transações")
+                parts.append(f"{emoji} Identifiquei {len(transacoes)} transações:")
                 for t in transacoes[:3]:
                     valor = t.get("valor", 0)
-                    desc = t.get("descricao", "")
-                    parts.append(f"• R$ {valor:.2f} - {desc}")
+                    titulo = t.get("titulo", t.get("descricao", ""))
+                    cat = t.get("categoria", "Outros")
+                    parts.append(f"• R$ {valor:.2f} - {titulo} ({cat})")
         else:
             parts.append(f"{emoji} Imagem analisada, mas não encontrei transações para registrar.")
         
         return "\n".join(parts)
 
     async def _registrar_transacoes(self, db, user_id: int, transacoes: list) -> list:
-        """Registra transações no banco de dados."""
+        """Registra transações no banco de dados com título, descrição e categoria."""
         from app.services.finance_service import FinanceService
         from app.schemas.finance import FinanceCreate, FinanceTypeEnum
-        from datetime import date
+        from app.models import FinanceCategory
+        from datetime import date, datetime
         
         registradas = []
         finance_service = FinanceService(db)
         
         for t in transacoes:
             try:
-                descricao = t.get("descricao", "Transação da imagem")
+                # Usar título como descrição principal (mais curto e legível)
+                titulo = t.get("titulo", t.get("descricao", "Transação"))
+                descricao = t.get("descricao", titulo)
+                categoria_nome = t.get("categoria", "Outros")
                 tipo = FinanceTypeEnum.EXPENSE if t.get("tipo") == "saida" else FinanceTypeEnum.INCOME
+                
+                # Buscar categoria pelo nome
+                categoria = db.query(FinanceCategory).filter(
+                    FinanceCategory.name.ilike(f"%{categoria_nome}%")
+                ).first()
+                
+                # Tratar data da transação
+                data_str = t.get("data")
+                if data_str:
+                    try:
+                        transaction_date = datetime.strptime(data_str, "%Y-%m-%d").date()
+                    except ValueError:
+                        transaction_date = date.today()
+                else:
+                    transaction_date = date.today()
                 
                 # Criar schema de transação
                 finance_data = FinanceCreate(
                     type=tipo,
                     amount=t.get("valor", 0),
-                    description=descricao,
-                    transaction_date=date.today(),
+                    description=titulo,
+                    transaction_date=transaction_date,
+                    category_id=categoria.id if categoria else None,
                 )
                 
                 # Registrar transação
                 finance = finance_service.create(user_id=user_id, data=finance_data)
                 
                 if finance:
+                    cat_name = finance.category.name if finance.category else "Outros"
                     registradas.append({
                         "type": finance.type,
                         "amount": finance.amount,
                         "description": finance.description,
+                        "category": cat_name,
                     })
-                    logger.info(f"[VISION] Transação registrada: R${finance.amount} - {finance.description}")
+                    logger.info(f"[VISION] Transação registrada: R${finance.amount} - {finance.description} ({cat_name})")
             except Exception as e:
                 logger.error(f"[VISION] Erro ao registrar transação: {e}")
         
@@ -288,8 +340,9 @@ RETORNE APENAS O JSON, sem markdown ou explicações."""
             formatted.append({
                 "type": "expense" if t.get("tipo") == "saida" else "income",
                 "amount": t.get("valor", 0),
+                "title": t.get("titulo", t.get("descricao", "Transação")),
                 "description": t.get("descricao", "Transação da imagem"),
-                "category": t.get("categoria_sugerida", "outros"),
+                "category": t.get("categoria", "Outros"),
                 "date": t.get("data"),
             })
         
