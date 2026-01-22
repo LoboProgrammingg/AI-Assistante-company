@@ -144,13 +144,15 @@ RETORNE APENAS O JSON, sem markdown ou explicações."""
                 "error": str(e)
             }
 
-    async def analyze_financial_image(self, image_data: bytes, user_name: str = "") -> str:
+    async def analyze_financial_image(self, image_data: bytes, user_name: str = "", db=None, user_id: int = None) -> str:
         """
-        Analisa imagem financeira e retorna resposta humanizada.
+        Analisa imagem financeira, registra transações automaticamente e retorna resposta.
         
         Args:
             image_data: Bytes da imagem
             user_name: Nome do usuário para personalização
+            db: Sessão do banco para registrar transações
+            user_id: ID do usuário para registrar transações
             
         Returns:
             Resposta humanizada sobre a imagem
@@ -163,63 +165,113 @@ RETORNE APENAS O JSON, sem markdown ou explicações."""
         
         analysis = result.get("analysis", {})
         tipo = analysis.get("tipo_imagem", "outro")
-        descricao = analysis.get("descricao", "")
         transacoes = analysis.get("transacoes", [])
-        saldo = analysis.get("saldo_visivel")
-        total_entradas = analysis.get("total_entradas", 0)
-        total_saidas = analysis.get("total_saidas", 0)
-        observacoes = analysis.get("observacoes", "")
         
-        # Construir resposta humanizada
-        greeting = f"{user_name}, " if user_name else ""
+        # Nome curto do usuário (primeiro nome)
+        primeiro_nome = user_name.split()[0] if user_name else ""
         
         if tipo == "outro":
-            return f"{greeting}analisei a imagem: {descricao}"
+            descricao = analysis.get("descricao", "")
+            return f"📷 {descricao}" if descricao else "📷 Imagem analisada!"
         
-        parts = [f"{greeting}analisei sua imagem! 📸"]
+        # Registrar transações automaticamente se tiver db e user_id
+        registradas = []
+        if transacoes and db and user_id:
+            registradas = await self._registrar_transacoes(db, user_id, transacoes)
         
-        if tipo == "extrato":
-            parts.append("\n📊 *Extrato Bancário*")
-        elif tipo == "nota_fiscal":
-            parts.append("\n🧾 *Nota Fiscal*")
-        elif tipo == "comprovante":
-            parts.append("\n✅ *Comprovante de Pagamento*")
-        elif tipo == "pix":
-            parts.append("\n💸 *Transferência PIX*")
-        elif tipo == "cupom":
-            parts.append("\n🛒 *Cupom Fiscal*")
-        elif tipo == "app_bancario":
-            parts.append("\n📱 *App Bancário*")
+        # Resposta simplificada
+        parts = []
         
-        if descricao:
-            parts.append(f"\n{descricao}")
+        # Emoji e tipo
+        tipo_emoji = {"extrato": "📊", "nota_fiscal": "🧾", "comprovante": "✅", "pix": "💸", "cupom": "🛒", "app_bancario": "📱"}
+        emoji = tipo_emoji.get(tipo, "📷")
         
-        if transacoes:
-            parts.append(f"\n\n💰 *Transações identificadas ({len(transacoes)}):*")
-            for t in transacoes[:5]:  # Limitar a 5 transações
-                emoji = "📥" if t.get("tipo") == "entrada" else "📤"
+        if registradas:
+            # Transações foram registradas automaticamente
+            if len(registradas) == 1:
+                t = registradas[0]
+                tipo_str = "receita" if t["type"] == "income" else "gasto"
+                parts.append(f"{emoji} {primeiro_nome}, registrei seu {tipo_str}:")
+                parts.append(f"� *R$ {t['amount']:.2f}* - {t['description']}")
+            else:
+                parts.append(f"{emoji} {primeiro_nome}, registrei {len(registradas)} transações:")
+                for t in registradas[:3]:
+                    tipo_emoji_t = "📥" if t["type"] == "income" else "📤"
+                    parts.append(f"{tipo_emoji_t} R$ {t['amount']:.2f} - {t['description']}")
+                if len(registradas) > 3:
+                    parts.append(f"... e mais {len(registradas) - 3}")
+        elif transacoes:
+            # Transações identificadas mas não registradas (sem db)
+            if len(transacoes) == 1:
+                t = transacoes[0]
                 valor = t.get("valor", 0)
-                desc = t.get("descricao", "")
-                parts.append(f"{emoji} R$ {valor:.2f} - {desc}")
-            
-            if len(transacoes) > 5:
-                parts.append(f"... e mais {len(transacoes) - 5} transações")
-        
-        if saldo is not None:
-            parts.append(f"\n\n💵 *Saldo visível:* R$ {saldo:.2f}")
-        
-        if total_entradas > 0 or total_saidas > 0:
-            parts.append(f"\n📈 Entradas: R$ {total_entradas:.2f}")
-            parts.append(f"📉 Saídas: R$ {total_saidas:.2f}")
-        
-        if observacoes:
-            parts.append(f"\n\n📝 {observacoes}")
-        
-        # Oferecer registrar transações
-        if transacoes:
-            parts.append("\n\n*Quer que eu registre essas transações para você?* Basta confirmar!")
+                desc = t.get("descricao", "Transação")
+                parts.append(f"{emoji} Identifiquei: *R$ {valor:.2f}* - {desc}")
+            else:
+                parts.append(f"{emoji} Identifiquei {len(transacoes)} transações")
+                for t in transacoes[:3]:
+                    valor = t.get("valor", 0)
+                    desc = t.get("descricao", "")
+                    parts.append(f"• R$ {valor:.2f} - {desc}")
+        else:
+            parts.append(f"{emoji} Imagem analisada, mas não encontrei transações para registrar.")
         
         return "\n".join(parts)
+
+    async def _registrar_transacoes(self, db, user_id: int, transacoes: list) -> list:
+        """Registra transações no banco de dados."""
+        from app.services.finance_service import FinanceService
+        from datetime import date
+        
+        registradas = []
+        finance_service = FinanceService(db)
+        
+        for t in transacoes:
+            try:
+                # Determinar categoria baseada na descrição
+                descricao = t.get("descricao", "Transação da imagem")
+                categoria = self._inferir_categoria(descricao)
+                
+                # Criar transação
+                finance = finance_service.create(
+                    user_id=user_id,
+                    amount=t.get("valor", 0),
+                    description=descricao,
+                    type="expense" if t.get("tipo") == "saida" else "income",
+                    category_name=categoria,
+                    transaction_date=date.today(),
+                )
+                
+                if finance:
+                    registradas.append({
+                        "type": finance.type,
+                        "amount": finance.amount,
+                        "description": finance.description,
+                    })
+                    logger.info(f"[VISION] Transação registrada: R${finance.amount} - {finance.description}")
+            except Exception as e:
+                logger.error(f"[VISION] Erro ao registrar transação: {e}")
+        
+        return registradas
+
+    def _inferir_categoria(self, descricao: str) -> str:
+        """Infere categoria baseada na descrição."""
+        descricao_lower = descricao.lower()
+        
+        if any(x in descricao_lower for x in ["uber", "99", "taxi", "combustivel", "gasolina", "posto"]):
+            return "Transporte"
+        elif any(x in descricao_lower for x in ["mercado", "supermercado", "açougue", "padaria", "restaurante", "ifood", "comida"]):
+            return "Alimentação"
+        elif any(x in descricao_lower for x in ["aluguel", "condominio", "agua", "luz", "energia", "internet"]):
+            return "Moradia"
+        elif any(x in descricao_lower for x in ["farmacia", "hospital", "medico", "saude", "plano"]):
+            return "Saúde"
+        elif any(x in descricao_lower for x in ["salario", "freelance", "projeto", "pagamento recebido"]):
+            return "Trabalho"
+        elif any(x in descricao_lower for x in ["netflix", "spotify", "cinema", "lazer", "diversao"]):
+            return "Lazer"
+        else:
+            return "Outros"
 
     def format_transactions_for_registration(self, analysis: Dict[str, Any]) -> list:
         """

@@ -395,10 +395,12 @@ async def whatsapp_webhook(
                         content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
                     )
                 
-                # Analisar imagem
+                # Analisar imagem e registrar transações automaticamente
                 response_text = await vision_service.analyze_financial_image(
                     image_data, 
-                    user_name=user.name
+                    user_name=user.name,
+                    db=db,
+                    user_id=user.id
                 )
                 
                 # Salvar e enviar resposta da imagem
