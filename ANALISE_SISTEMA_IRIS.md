@@ -156,10 +156,19 @@ As tools não validam se os dados são coerentes:
 
 **Solução:**
 - Corrigido formato de inserção: `emb_str = "[" + ",".join(str(x) for x in embedding) + "]"`
-- Adicionado cast explícito no INSERT: `VALUES (:doc_id, :idx, :text, :emb::vector)`
-- Query de busca usa parâmetros seguros: `:query_emb::vector` ao invés de interpolação de string
+- Usado `CAST(:emb AS vector)` ao invés de `:emb::vector` (evita conflito com SQLAlchemy)
+- Query de busca usa parâmetros seguros com CAST
 
-### 2. Response Formatter (`backend/app/ai/nodes/response_formatter.py`)
+### 2. Migração da Coluna Embedding
+
+**Problema:** Modelo Gemini gera embeddings de 3072 dimensões, não 768
+
+**Solução:**
+- Coluna alterada para `vector(3072)`
+- Índice não criado (pgvector não suporta índices >2000 dimensões)
+- Busca funciona, apenas mais lenta sem índice
+
+### 3. Response Formatter (`backend/app/ai/nodes/response_formatter.py`)
 
 **Problema:** Ações de query/delete/update não eram executadas
 
@@ -178,28 +187,25 @@ As tools não validam se os dados são coerentes:
 - Atualizado `_aggregate_results()` para chamar `_execute_pending_action()`
 - Atualizado `_set_state_actions()` para processar `query_results`
 
+### 4. Centralização de Timezone
+
+- Removida duplicação de `get_current_datetime()` e `TIMEZONE_DEFAULT`
+- Todos os arquivos agora importam de `datetime_utils.py`
+
 ---
 
-## ⚠️ AÇÕES PENDENTES
+## ✅ AÇÕES CONCLUÍDAS
 
-### Alta Prioridade
-1. **Re-indexar documentos existentes** - Os embeddings antigos estão em formato incorreto
-   ```bash
-   # Executar script de re-indexação
-   python -c "from app.services.embedding_service import EmbeddingService; ..."
-   ```
+1. ✅ **Re-indexar documentos existentes** - Concluído (2 chunks indexados)
+2. ✅ **Migrar coluna para vector(3072)** - Concluído
+3. ✅ **Centralizar timezone** - Concluído
+4. ✅ **Deploy das correções** - Commit `7168449` enviado para produção
 
-2. **Verificar tipo da coluna no banco** - Garantir que `embedding` é tipo `vector(768)`
-   ```sql
-   ALTER TABLE document_embeddings 
-   ALTER COLUMN embedding TYPE vector(768) 
-   USING embedding::vector(768);
-   ```
+## ⚠️ AÇÕES PENDENTES (Baixa Prioridade)
 
-### Média Prioridade
-3. **Testes de integração** - Testar fluxo completo de cada tipo de ação
-4. **Centralizar timezone** - Usar apenas `datetime_utils.py`
-5. **Remover código legado** - Verificar se `finance_agent.py` ainda é usado
+1. **Testes de integração** - Testar fluxo completo de cada tipo de ação
+2. **Remover código legado** - Verificar se `finance_agent.py` ainda é usado
+3. **Considerar modelo de embedding menor** - Para usar índice vetorial (< 2000 dimensões)
 
 ---
 
@@ -207,7 +213,20 @@ As tools não validam se os dados são coerentes:
 
 | Arquivo | Alteração |
 |---------|----------|
-| `embedding_service.py` | Corrigido formato de embedding e query SQL |
+| `embedding_service.py` | Corrigido formato de embedding e query SQL com CAST() |
 | `response_formatter.py` | Adicionada execução de ações pendentes |
+| `finance_tools.py` | Import centralizado de datetime_utils |
+| `models.py` | Comentário atualizado sobre tipo vector |
+| `datetime_utils.py` | Novo arquivo centralizando timezone |
+| `nodes/` | Novo diretório com módulos refatorados |
 
-**Próximos passos:** Reiniciar o servidor e testar as consultas financeiras.
+## 🚀 STATUS DO DEPLOY
+
+**Commit:** `7168449`  
+**Data:** Janeiro 2026  
+**Branch:** main  
+**Destino:** Railway (deploy automático via push)
+
+**Migrações executadas no banco:**
+- `ALTER TABLE document_embeddings ALTER COLUMN embedding TYPE vector(3072)`
+- Re-indexação de 1 documento (2 chunks)
