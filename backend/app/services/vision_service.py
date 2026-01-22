@@ -26,7 +26,8 @@ class VisionService:
 
     def __init__(self):
         genai.configure(api_key=settings.GOOGLE_API_KEY)
-        self.model = genai.GenerativeModel("gemini-1.5-flash")
+        # Usar modelo do config (gemini-2.5-flash suporta visão)
+        self.model = genai.GenerativeModel(settings.GEMINI_MODEL)
 
     async def download_image(self, url: str, auth: tuple = None) -> Optional[bytes]:
         """Baixa imagem de uma URL."""
