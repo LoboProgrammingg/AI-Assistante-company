@@ -54,7 +54,7 @@ class Settings(BaseSettings):
 
     # Google Gemini AI
     GOOGLE_API_KEY: str
-    GEMINI_MODEL: str = "gemini-2.5-flash"
+    GEMINI_MODEL: str = "gemini-2.5-pro"
     GEMINI_TEMPERATURE: float = 0.7
     GEMINI_MAX_OUTPUT_TOKENS: int = 40000
 

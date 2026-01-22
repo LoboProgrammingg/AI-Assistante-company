@@ -40,11 +40,11 @@ class AgentState(TypedDict):
 
 
 class WhatsAppAIAgent:
-    def __init__(self, api_key: str, model: str = "gemini-2.5-flash"):
+    def __init__(self, api_key: str, model: str = "gemini-2.5-pro"):
         self.llm = ChatGoogleGenerativeAI(
             model=model,
             google_api_key=api_key,
-            temperature=0.3,
+            temperature=0.7,
             max_output_tokens=15000,
         )
 

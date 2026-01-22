@@ -20,7 +20,7 @@ class MeetingAgent(BaseAgent):
 
     def __init__(self):
         super().__init__(
-            name="MeetingAgent", description="Especialista em agendar reuniões e analisar transcrições", temperature=0.3
+            name="MeetingAgent", description="Especialista em agendar reuniões e analisar transcrições", temperature=0.7
         )
 
     @property

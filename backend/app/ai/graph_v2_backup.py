@@ -86,7 +86,7 @@ class IRISGraphV2:
         
         # LLM rápido para classificação (flash é 10x mais rápido)
         self.llm_fast = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-pro",
             google_api_key=self.api_key,
             temperature=0.1,
             max_output_tokens=20000,  # Classificação precisa de pouco output

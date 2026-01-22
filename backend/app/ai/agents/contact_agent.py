@@ -32,7 +32,7 @@ class ContactAgent:
         self.llm = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL,
             google_api_key=settings.GOOGLE_API_KEY,
-            temperature=0.2,
+            temperature=0.7,
         )
         self.whatsapp_service = WhatsAppService(
             account_sid=settings.TWILIO_ACCOUNT_SID,

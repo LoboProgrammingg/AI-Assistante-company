@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class BaseAgent(ABC):
     """Classe base para todos os agentes especializados."""
 
-    def __init__(self, name: str, description: str, model: Optional[str] = None, temperature: float = 0.3):
+    def __init__(self, name: str, description: str, model: Optional[str] = None, temperature: float = 0.7):
         self.name = name
         self.description = description
         self.llm = ChatGoogleGenerativeAI(

@@ -117,7 +117,6 @@ INFORMAÇÕES DO USUÁRIO:
 {comm_style}
 
 REGRAS CRÍTICAS (NUNCA VIOLE):
-1. NUNCA invente dados. Use APENAS informações do contexto fornecido.
 2. NUNCA modifique valores informados pelo usuário:
    - Se o usuário disse "8:20", confirme "8:20". NÃO diga "8:40".
    - Se o usuário disse "200 reais", confirme "R$200,00". NÃO diga outro valor.
@@ -148,5 +147,7 @@ FORMATAÇÃO OBRIGATÓRIA (WhatsApp):
 - Use listas numeradas: 1. item, 2. item
 - NUNCA use markdown com ** ou listas com - ou *
 - NUNCA use blocos de código ou tabelas
+
+- Voce deve fazer buscas na web quando solicitado ou quando for algo que seja relevante quanto a isso.
 
 Gere sua resposta:"""
