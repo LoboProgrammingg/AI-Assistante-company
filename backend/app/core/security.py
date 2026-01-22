@@ -39,7 +39,7 @@ class SecurityConfig:
     REQUIRE_UPPERCASE = True
     REQUIRE_LOWERCASE = True
     REQUIRE_DIGIT = True
-    REQUIRE_SPECIAL = False
+    REQUIRE_SPECIAL = True  # SEGURANÇA: Exigir caractere especial
 
     # Rate Limiting
     MAX_LOGIN_ATTEMPTS = 5
@@ -49,21 +49,40 @@ class SecurityConfig:
     SESSION_TIMEOUT_MINUTES = 60
 
     # Headers de segurança
+    # NOTA: unsafe-inline removido. Frontend deve usar nonces ou hashes.
+    # Para desenvolvimento, pode ser necessário reativar temporariamente.
     SECURITY_HEADERS = {
         "X-Content-Type-Options": "nosniff",
         "X-Frame-Options": "DENY",
         "X-XSS-Protection": "1; mode=block",
-        "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
+        "Strict-Transport-Security": "max-age=31536000; includeSubDomains; preload",
         "Content-Security-Policy": (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
-            "img-src 'self' data: https://fastapi.tiangolo.com; "
-            "font-src 'self' https://cdn.jsdelivr.net; "
-            "connect-src 'self'"
+            "script-src 'self' https://cdn.jsdelivr.net; "
+            "style-src 'self' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+            "connect-src 'self' https://api.smith.langchain.com; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
         ),
         "Referrer-Policy": "strict-origin-when-cross-origin",
         "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
+        "X-Permitted-Cross-Domain-Policies": "none",
+    }
+    
+    # CSP para desenvolvimento (com unsafe-inline)
+    SECURITY_HEADERS_DEV = {
+        **SECURITY_HEADERS,
+        "Content-Security-Policy": (
+            "default-src 'self'; "
+            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; "
+            "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+            "img-src 'self' data: https:; "
+            "font-src 'self' https://cdn.jsdelivr.net https://fonts.gstatic.com; "
+            "connect-src 'self' ws: wss: https://api.smith.langchain.com"
+        ),
     }
 
 

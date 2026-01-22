@@ -9,6 +9,7 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
+from app.config import settings
 from app.core.security import RequestValidator, SecurityConfig
 
 logger = logging.getLogger(__name__)
@@ -25,13 +26,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Strict-Transport-Security
     - Content-Security-Policy
     - Referrer-Policy
+    
+    SEGURANÇA: Usa CSP diferente para dev/prod
     """
 
     async def dispatch(self, request: Request, call_next) -> Response:
         response = await call_next(request)
 
+        # Usar headers apropriados para o ambiente
+        headers = (
+            SecurityConfig.SECURITY_HEADERS_DEV 
+            if settings.DEBUG 
+            else SecurityConfig.SECURITY_HEADERS
+        )
+
         # Adicionar headers de segurança
-        for header, value in SecurityConfig.SECURITY_HEADERS.items():
+        for header, value in headers.items():
             # Não sobrescrever CSP em respostas de API (pode quebrar frontend)
             if header == "Content-Security-Policy" and request.url.path.startswith("/api"):
                 continue

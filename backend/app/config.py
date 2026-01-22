@@ -101,7 +101,7 @@ class Settings(BaseSettings):
     LANGCHAIN_TRACING_V2: bool = True
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
     LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "IRIS-WhatsApp"
+    LANGCHAIN_PROJECT: str = "iris-whatsapp"
     
     @property
     def langsmith_enabled(self) -> bool:

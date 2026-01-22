@@ -11,7 +11,8 @@ from app.api.exceptions import register_exception_handlers
 from app.api.rate_limiter import RateLimiter
 from app.config import settings
 from app.database import engine
-from app.middleware import SecurityHeadersMiddleware
+from app.middleware.sanitization_middleware import SanitizationMiddleware
+from app.middleware.security_middleware import SecurityHeadersMiddleware
 from app.models import Base
 
 # Configuração de logging
@@ -47,6 +48,9 @@ register_exception_handlers(app)
 
 # Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
+
+# Sanitization Middleware - SEGURANÇA: Sanitiza inputs automaticamente
+app.add_middleware(SanitizationMiddleware)
 
 # CORS - SEGURANÇA: Especificar métodos e headers permitidos
 origins = [origin.strip() for origin in settings.BACKEND_CORS_ORIGINS.split(",")]
