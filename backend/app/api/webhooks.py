@@ -420,7 +420,6 @@ async def whatsapp_webhook(
 
         # Enviar indicador "digitando..." antes de processar
         if MessageSid:
-            from app.config import settings
             from app.services.whatsapp_service import WhatsAppService
 
             whatsapp_service = WhatsAppService(
