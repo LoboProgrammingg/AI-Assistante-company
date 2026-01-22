@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 
 from sqlalchemy.orm import Session
 
+from app.services.ai_context_cache import get_ai_cache
 from app.services.memory_service import MemoryService
 
 logger = logging.getLogger(__name__)
@@ -14,6 +15,8 @@ class MemoryManager:
     """
     Gerenciador central de memória do usuário para o agente de IA.
     Responsável por manter contexto, preferências e fatos aprendidos.
+    
+    Usa Redis para cache de contexto entre requests.
     """
 
     def __init__(self, db: Session, user_id: int):
@@ -21,32 +24,67 @@ class MemoryManager:
         self.user_id = user_id
         self.service = MemoryService(db)
         self._cache: Dict[str, Any] = {}
+        self._redis_cache = get_ai_cache()
 
     def get_full_context(self) -> Dict[str, Any]:
         """
         Retorna contexto completo para o agente.
+        Usa cache Redis para persistência entre requests.
 
         Returns:
             Dict com conversation, preferences, facts, stats
         """
+        # 1. Cache local (mesma request)
         if "full_context" in self._cache:
             return self._cache["full_context"]
 
+        # 2. Cache Redis (entre requests)
+        cached = self._redis_cache.get_full_context(self.user_id)
+        if cached:
+            self._cache["full_context"] = cached
+            logger.debug(f"[MEMORY] Cache hit Redis para contexto user {self.user_id}")
+            return cached
+
+        # 3. Busca no banco
         context = self.service.get_full_context(self.user_id)
+        
+        # Salva em ambos os caches
         self._cache["full_context"] = context
+        self._redis_cache.set_full_context(self.user_id, context)
+        logger.debug(f"[MEMORY] Contexto carregado do DB e cacheado para user {self.user_id}")
+        
         return context
 
     def get_conversation_history(self, limit: int = 20) -> List[Dict[str, Any]]:
-        """Retorna histórico de conversa expandido."""
-        return self.service.get_conversation_context(self.user_id, limit)
+        """Retorna histórico de conversa expandido com cache Redis."""
+        # Tentar cache Redis primeiro
+        cached = self._redis_cache.get_conversation(self.user_id, limit)
+        if cached:
+            return cached
+        
+        messages = self.service.get_conversation_context(self.user_id, limit)
+        self._redis_cache.set_conversation(self.user_id, messages, limit)
+        return messages
 
     def get_user_preferences(self) -> Dict[str, Any]:
-        """Retorna preferências do usuário."""
-        return self.service.get_user_preferences(self.user_id)
+        """Retorna preferências do usuário com cache Redis."""
+        cached = self._redis_cache.get_preferences(self.user_id)
+        if cached:
+            return cached
+        
+        prefs = self.service.get_user_preferences(self.user_id)
+        self._redis_cache.set_preferences(self.user_id, prefs)
+        return prefs
 
     def get_learned_facts(self) -> Dict[str, Any]:
-        """Retorna fatos aprendidos sobre o usuário."""
-        return self.service.get_learned_facts(self.user_id)
+        """Retorna fatos aprendidos sobre o usuário com cache Redis."""
+        cached = self._redis_cache.get_learned_facts(self.user_id)
+        if cached:
+            return cached
+        
+        facts = self.service.get_learned_facts(self.user_id)
+        self._redis_cache.set_learned_facts(self.user_id, facts)
+        return facts
 
     def build_context_prompt(self) -> str:
         """
@@ -513,9 +551,16 @@ class MemoryManager:
 
         return style
 
-    def _invalidate_cache(self) -> None:
-        """Invalida cache local."""
+    def _invalidate_cache(self, action: str = None) -> None:
+        """Invalida cache local e Redis."""
         self._cache.clear()
+        
+        # Invalidar cache Redis
+        if action:
+            self._redis_cache.invalidate_after_action(self.user_id, action)
+        else:
+            self._redis_cache.invalidate_full_context(self.user_id)
+            self._redis_cache.invalidate_conversation(self.user_id)
 
     def clear_memory(self) -> int:
         """
@@ -525,4 +570,5 @@ class MemoryManager:
             Quantidade de registros removidos
         """
         self._invalidate_cache()
+        self._redis_cache.invalidate_user(self.user_id)
         return self.service.clear_user_memory(self.user_id)

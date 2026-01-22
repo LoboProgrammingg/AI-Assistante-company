@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.models import RecurrenceType, Reminder
 from app.schemas.reminder import ReminderCreate, ReminderUpdate
+from app.services.ai_context_cache import get_ai_cache
 
 
 def utc_now():
@@ -53,6 +54,9 @@ class ReminderService:
         self.db.add(reminder)
         self.db.commit()
         self.db.refresh(reminder)
+
+        # Invalidar cache após criar lembrete
+        get_ai_cache().invalidate_full_context(user_id)
 
         logger.info(f"Lembrete criado: {reminder.id} para usuário {user_id}")
         return reminder
@@ -146,6 +150,9 @@ class ReminderService:
         self.db.commit()
         self.db.refresh(reminder)
 
+        # Invalidar cache após atualização
+        get_ai_cache().invalidate_full_context(user_id)
+
         logger.info(f"Lembrete atualizado: {reminder_id}")
         return reminder
 
@@ -167,6 +174,9 @@ class ReminderService:
         reminder.is_active = False
         reminder.updated_at = utc_now()
         self.db.commit()
+
+        # Invalidar cache após remoção
+        get_ai_cache().invalidate_full_context(user_id)
 
         logger.info(f"Lembrete desativado: {reminder_id}")
         return True
@@ -217,6 +227,8 @@ class ReminderService:
         
         if deleted_count > 0:
             self.db.commit()
+            # Invalidar cache após remoção
+            get_ai_cache().invalidate_full_context(user_id)
             logger.info(f"[REMINDER] Deletados {deleted_count} lembretes: {deleted_items}")
         
         return {

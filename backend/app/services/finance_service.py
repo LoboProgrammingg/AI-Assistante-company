@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Finance, FinanceCategory, FinanceType
 from app.schemas.finance import FinanceCreate, FinanceUpdate
+from app.services.ai_context_cache import get_ai_cache
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +122,9 @@ class FinanceService:
         self.db.add(finance)
         self.db.commit()
         self.db.refresh(finance)
+
+        # Invalidar cache após criar transação
+        get_ai_cache().invalidate_finance(user_id)
 
         logger.info(f"Transação criada: {finance.id} - R${data.amount}")
         return finance
@@ -242,6 +246,9 @@ class FinanceService:
         self.db.commit()
         self.db.refresh(finance)
 
+        # Invalidar cache após atualização
+        get_ai_cache().invalidate_finance(user_id)
+
         logger.info(f"Transação atualizada: {finance_id}")
         return finance
 
@@ -253,6 +260,9 @@ class FinanceService:
 
         self.db.delete(finance)
         self.db.commit()
+
+        # Invalidar cache após remoção
+        get_ai_cache().invalidate_finance(user_id)
 
         logger.info(f"Transação removida: {finance_id}")
         return True
@@ -318,6 +328,8 @@ class FinanceService:
         
         if deleted_count > 0:
             self.db.commit()
+            # Invalidar cache após remoção
+            get_ai_cache().invalidate_finance(user_id)
             logger.info(f"[FINANCE] Deletadas {deleted_count} transações: {deleted_items}")
         
         return {
