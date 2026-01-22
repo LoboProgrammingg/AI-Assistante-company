@@ -1,21 +1,25 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
+import { useState, useMemo } from "react"
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   DollarSign,
   TrendingUp,
   TrendingDown,
   Plus,
-  Filter,
-  Calendar,
   Download,
   ChevronLeft,
   ChevronRight,
   Trash2,
+  X,
+  Calendar,
+  Tag,
+  FileText,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Pagination } from "@/components/ui/pagination"
 import { financesApi, type Finance } from "@/lib/api"
-import { formatCurrency, formatDate } from "@/lib/utils"
+import { formatCurrency, formatDate, formatShortDate } from "@/lib/utils"
+import toast from "react-hot-toast"
 import {
   BarChart,
   Bar,
@@ -44,8 +48,23 @@ type Period = "day" | "week" | "month" | "year"
 const ITEMS_PER_PAGE = 20
 
 export function Finances() {
+  const queryClient = useQueryClient()
   const [period, setPeriod] = useState<Period>("month")
   const [page, setPage] = useState(1)
+  const [selectedTransaction, setSelectedTransaction] = useState<Finance | null>(null)
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: number) => financesApi.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] })
+      queryClient.invalidateQueries({ queryKey: ["finance-summary"] })
+      queryClient.invalidateQueries({ queryKey: ["finance-trend"] })
+      toast.success("Transação removida!")
+    },
+    onError: () => {
+      toast.error("Erro ao remover transação")
+    },
+  })
 
   const getDateRange = () => {
     const now = new Date()
@@ -321,23 +340,24 @@ export function Finances() {
       {/* Transactions List */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Transações Recentes</CardTitle>
+          <CardTitle>Transações</CardTitle>
           {transactions?.total ? (
             <span className="text-sm text-muted-foreground">
-              {transactions.total} transação(ões)
+              {transactions.total} transação(ões) • Página {page} de {totalPages || 1}
             </span>
           ) : null}
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-3">
             {transactions?.items?.map((transaction) => (
               <div
                 key={transaction.id}
-                className="flex items-center justify-between p-4 rounded-lg bg-muted/50 group"
+                className="flex items-center justify-between p-4 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors group cursor-pointer"
+                onClick={() => setSelectedTransaction(transaction)}
               >
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-1 min-w-0">
                   <div
-                    className={`p-2 rounded-full ${
+                    className={`p-2.5 rounded-full shrink-0 ${
                       transaction.type === "income"
                         ? "bg-success/10 text-success"
                         : "bg-destructive/10 text-destructive"
@@ -349,31 +369,37 @@ export function Finances() {
                       <TrendingDown className="h-4 w-4" />
                     )}
                   </div>
-                  <div>
-                    <p className="font-medium">{transaction.description}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {transaction.category?.name} • {formatDate(transaction.transaction_date)}
-                    </p>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium truncate">{transaction.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mt-0.5">
+                      <span className="truncate">{transaction.category?.name || "Sem categoria"}</span>
+                      <span>•</span>
+                      <span className="shrink-0">{formatShortDate(transaction.transaction_date)}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`font-semibold ${
-                      transaction.type === "income" ? "text-success" : "text-destructive"
-                    }`}
-                  >
-                    {transaction.type === "income" ? "+" : "-"}
-                    {formatCurrency(transaction.amount)}
-                  </span>
+                <div className="flex items-center gap-3 shrink-0 ml-4">
+                  <div className="text-right">
+                    <span
+                      className={`font-semibold text-lg ${
+                        transaction.type === "income" ? "text-success" : "text-destructive"
+                      }`}
+                    >
+                      {transaction.type === "income" ? "+" : "-"}
+                      {formatCurrency(transaction.amount)}
+                    </span>
+                  </div>
                   <Button
                     variant="ghost"
                     size="icon"
                     className="opacity-0 group-hover:opacity-100 transition-opacity h-8 w-8"
-                    onClick={() => {
+                    disabled={deleteMutation.isPending}
+                    onClick={(e) => {
+                      e.stopPropagation()
                       if (confirm(`Deletar "${transaction.description}"?`)) {
-                        financesApi.delete(transaction.id).then(() => {
-                          window.location.reload()
-                        })
+                        deleteMutation.mutate(transaction.id)
                       }
                     }}
                   >
@@ -389,34 +415,139 @@ export function Finances() {
             )}
           </div>
           
-          {/* Paginação */}
+          {/* Paginação melhorada */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between mt-6 pt-4 border-t">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(p => Math.max(1, p - 1))}
-                disabled={page === 1}
-              >
-                <ChevronLeft className="h-4 w-4 mr-1" />
-                Anterior
-              </Button>
-              <span className="text-sm text-muted-foreground">
-                Página {page} de {totalPages}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                disabled={page >= totalPages}
-              >
-                Próxima
-                <ChevronRight className="h-4 w-4 ml-1" />
-              </Button>
+            <div className="flex justify-center mt-6 pt-4 border-t">
+              <Pagination
+                currentPage={page}
+                totalPages={totalPages}
+                onPageChange={setPage}
+              />
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Modal de Detalhes da Transação */}
+      {selectedTransaction && (
+        <div 
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setSelectedTransaction(null)}
+        >
+          <div 
+            className="bg-background rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-3 rounded-full ${
+                    selectedTransaction.type === "income"
+                      ? "bg-success/10 text-success"
+                      : "bg-destructive/10 text-destructive"
+                  }`}
+                >
+                  {selectedTransaction.type === "income" ? (
+                    <TrendingUp className="h-6 w-6" />
+                  ) : (
+                    <TrendingDown className="h-6 w-6" />
+                  )}
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold">
+                    {selectedTransaction.type === "income" ? "Receita" : "Despesa"}
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Detalhes da transação
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedTransaction(null)}
+              >
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-6">
+              {/* Valor */}
+              <div className="text-center py-4">
+                <span
+                  className={`text-4xl font-bold ${
+                    selectedTransaction.type === "income" ? "text-success" : "text-destructive"
+                  }`}
+                >
+                  {selectedTransaction.type === "income" ? "+" : "-"}
+                  {formatCurrency(selectedTransaction.amount)}
+                </span>
+              </div>
+
+              {/* Descrição */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <FileText className="h-4 w-4" />
+                  <span>Descrição</span>
+                </div>
+                <p className="text-base bg-muted/50 rounded-xl p-4">
+                  {selectedTransaction.description || "Sem descrição"}
+                </p>
+              </div>
+
+              {/* Categoria */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Tag className="h-4 w-4" />
+                  <span>Categoria</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="bg-primary/10 text-primary px-3 py-1.5 rounded-full text-sm font-medium">
+                    {selectedTransaction.category?.name || "Sem categoria"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Data */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Calendar className="h-4 w-4" />
+                  <span>Data</span>
+                </div>
+                <p className="text-base">
+                  {formatDate(selectedTransaction.transaction_date, "long")}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-6 border-t flex gap-3">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setSelectedTransaction(null)}
+              >
+                Fechar
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => {
+                  if (confirm(`Deletar "${selectedTransaction.description}"?`)) {
+                    deleteMutation.mutate(selectedTransaction.id)
+                    setSelectedTransaction(null)
+                  }
+                }}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

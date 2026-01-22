@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { Link } from "react-router-dom"
 import {
   DollarSign,
   TrendingUp,
@@ -8,10 +9,18 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Trash2,
+  ChevronRight,
+  FileText,
+  Calendar,
+  Sparkles,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
 import { usersApi, remindersApi, financesApi, meetingsApi } from "@/lib/api"
-import { formatCurrency, formatRelativeDate } from "@/lib/utils"
+import { formatCurrency, formatRelativeDate, formatShortDate } from "@/lib/utils"
+import { cn } from "@/lib/utils"
+import { useUIStore } from "@/stores/ui"
+import toast from "react-hot-toast"
 import {
   AreaChart,
   Area,
@@ -82,83 +91,109 @@ export function Dashboard() {
         .then((r) => r.data),
   })
 
-  const balance = (stats?.total_income ?? 0) - (stats?.total_expenses ?? 0)
+  const { setChatOpen } = useUIStore()
+  
+  // CORREÇÃO: Usar monthlySummary para valores consistentes com a página Finanças
+  const totalIncome = monthlySummary?.summary?.total_income ?? 0
+  const totalExpenses = monthlySummary?.summary?.total_expenses ?? 0
+  const balance = totalIncome - totalExpenses
   const isPositive = balance >= 0
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground">
-          Visão geral das suas atividades e finanças.
-        </p>
+      {/* Header com ação rápida */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Visão geral das suas atividades e finanças.
+          </p>
+        </div>
+        <Button 
+          onClick={() => setChatOpen(true)}
+          className="gap-2 shadow-lg hover:shadow-xl transition-shadow"
+        >
+          <Sparkles className="h-4 w-4" />
+          Falar com IA
+        </Button>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards - Interativos */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${isPositive ? "text-success" : "text-destructive"}`}>
-              {formatCurrency(balance)}
-            </div>
-            <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-              {isPositive ? (
-                <ArrowUpRight className="h-3 w-3 text-success" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3 text-destructive" />
-              )}
-              <span>Este mês</span>
-            </p>
-          </CardContent>
-        </Card>
+        <Link to="/finances">
+          <Card className="hover:shadow-lg hover:border-primary/50 transition-all duration-300 cursor-pointer group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Saldo Total</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${isPositive ? "text-success" : "text-destructive"}`}>
+                {formatCurrency(balance)}
+              </div>
+              <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                {isPositive ? (
+                  <ArrowUpRight className="h-3 w-3 text-success" />
+                ) : (
+                  <ArrowDownRight className="h-3 w-3 text-destructive" />
+                )}
+                <span>Este mês</span>
+                <ChevronRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Receitas</CardTitle>
-            <TrendingUp className="h-4 w-4 text-success" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-success">
-              {formatCurrency(stats?.total_income ?? 0)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats?.total_transactions ?? 0} transações
-            </p>
-          </CardContent>
-        </Card>
+        <Link to="/finances">
+          <Card className="hover:shadow-lg hover:border-success/50 transition-all duration-300 cursor-pointer group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Receitas</CardTitle>
+              <TrendingUp className="h-4 w-4 text-success" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-success">
+                {formatCurrency(totalIncome)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                <span>{monthlySummary?.summary?.transaction_count ?? 0} transações</span>
+                <ChevronRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Despesas</CardTitle>
-            <TrendingDown className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-destructive">
-              {formatCurrency(stats?.total_expenses ?? 0)}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {stats?.total_transactions ?? 0} transações
-            </p>
-          </CardContent>
-        </Card>
+        <Link to="/finances">
+          <Card className="hover:shadow-lg hover:border-destructive/50 transition-all duration-300 cursor-pointer group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Despesas</CardTitle>
+              <TrendingDown className="h-4 w-4 text-destructive" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                {formatCurrency(totalExpenses)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                <span>{monthlySummary?.summary?.transaction_count ?? 0} transações</span>
+                <ChevronRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Lembretes Ativos</CardTitle>
-            <Bell className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats?.active_reminders ?? 0}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {upcomingReminders?.count ?? 0} nas próximas 48h
-            </p>
-          </CardContent>
-        </Card>
+        <Link to="/reminders">
+          <Card className="hover:shadow-lg hover:border-primary/50 transition-all duration-300 cursor-pointer group">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Lembretes Ativos</CardTitle>
+              <Bell className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stats?.active_reminders ?? 0}</div>
+              <p className="text-xs text-muted-foreground mt-1 flex items-center">
+                <span>{upcomingReminders?.count ?? 0} nas próximas 48h</span>
+                <ChevronRight className="h-3 w-3 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
+              </p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Charts Row */}
@@ -260,32 +295,43 @@ export function Dashboard() {
       {/* Lists Row */}
       <div className="grid gap-4 md:grid-cols-2">
         {/* Upcoming Reminders */}
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Próximos Lembretes</CardTitle>
-            <Bell className="h-5 w-5 text-muted-foreground" />
+            <Link to="/reminders">
+              <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
+                Ver todos
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
+            <div className="space-y-3">
               {upcomingReminders?.items?.slice(0, 5).map((reminder) => (
                 <div
                   key={reminder.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 group"
+                  className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors group"
                 >
-                  <div>
-                    <p className="font-medium">{reminder.title}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatRelativeDate(reminder.scheduled_time)}
-                    </p>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-full bg-primary/10 text-primary shrink-0">
+                      <Bell className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <p className="font-medium">{reminder.title}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {formatRelativeDate(reminder.scheduled_time)}
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={(e) => {
                       e.stopPropagation()
                       if (confirm(`Deletar lembrete "${reminder.title}"?`)) {
                         deleteReminderMutation.mutate(reminder.id)
+                        toast.success("Lembrete removido!")
                       }
                     }}
-                    className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-destructive/10 rounded transition-opacity"
+                    className="opacity-0 group-hover:opacity-100 p-2 hover:bg-destructive/10 rounded-lg transition-all"
                     title="Deletar lembrete"
                   >
                     <Trash2 className="h-4 w-4 text-destructive" />
@@ -293,38 +339,60 @@ export function Dashboard() {
                 </div>
               ))}
               {(!upcomingReminders?.items || upcomingReminders.items.length === 0) && (
-                <p className="text-center text-muted-foreground py-4">
-                  Nenhum lembrete próximo
-                </p>
+                <div className="text-center py-8">
+                  <Bell className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-muted-foreground">Nenhum lembrete próximo</p>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => useUIStore.getState().setChatOpen(true)}
+                  >
+                    Criar com IA
+                  </Button>
+                </div>
               )}
             </div>
           </CardContent>
         </Card>
 
         {/* Recent Transactions */}
-        <Card>
+        <Card className="hover:shadow-md transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-lg">Transações Recentes</CardTitle>
-            <DollarSign className="h-5 w-5 text-muted-foreground" />
+            <Link to="/finances">
+              <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
+                Ver todas
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
               {recentFinances?.items?.slice(0, 5).map((finance) => (
                 <div
                   key={finance.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-muted/50 group"
+                  className="flex items-center justify-between p-3 rounded-xl bg-muted/50 hover:bg-muted/70 transition-colors group"
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-2 h-2 rounded-full ${finance.type === "income" ? "bg-green-500" : "bg-red-500"}`} />
-                    <div>
-                      <p className="font-medium">{finance.description}</p>
+                    <div className={cn(
+                      "p-2 rounded-full shrink-0",
+                      finance.type === "income" ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive"
+                    )}>
+                      {finance.type === "income" ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-medium truncate">{finance.description}</p>
                       <p className="text-sm text-muted-foreground">
-                        {finance.category?.name || "Sem categoria"}
+                        {finance.category?.name || "Sem categoria"} • {formatShortDate(finance.transaction_date)}
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`font-semibold ${finance.type === "income" ? "text-green-600" : "text-red-600"}`}>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={cn(
+                      "font-semibold",
+                      finance.type === "income" ? "text-success" : "text-destructive"
+                    )}>
                       {finance.type === "income" ? "+" : "-"}{formatCurrency(finance.amount)}
                     </span>
                     <button
@@ -332,9 +400,10 @@ export function Dashboard() {
                         e.stopPropagation()
                         if (confirm(`Deletar transação "${finance.description}"?`)) {
                           deleteFinanceMutation.mutate(finance.id)
+                          toast.success("Transação removida!")
                         }
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-destructive/10 rounded transition-opacity"
+                      className="opacity-0 group-hover:opacity-100 p-2 hover:bg-destructive/10 rounded-lg transition-all"
                       title="Deletar transação"
                     >
                       <Trash2 className="h-4 w-4 text-destructive" />
@@ -343,9 +412,18 @@ export function Dashboard() {
                 </div>
               ))}
               {(!recentFinances?.items || recentFinances.items.length === 0) && (
-                <p className="text-center text-muted-foreground py-4">
-                  Nenhuma transação registrada
-                </p>
+                <div className="text-center py-8">
+                  <DollarSign className="h-10 w-10 text-muted-foreground/30 mx-auto mb-2" />
+                  <p className="text-muted-foreground">Nenhuma transação registrada</p>
+                  <Button 
+                    variant="link" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => useUIStore.getState().setChatOpen(true)}
+                  >
+                    Registrar com IA
+                  </Button>
+                </div>
               )}
             </div>
           </CardContent>
