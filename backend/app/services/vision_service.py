@@ -221,6 +221,7 @@ RETORNE APENAS O JSON, sem markdown ou explicações."""
     async def _registrar_transacoes(self, db, user_id: int, transacoes: list) -> list:
         """Registra transações no banco de dados."""
         from app.services.finance_service import FinanceService
+        from app.schemas.finance import FinanceCreate, FinanceTypeEnum
         from datetime import date
         
         registradas = []
@@ -228,19 +229,19 @@ RETORNE APENAS O JSON, sem markdown ou explicações."""
         
         for t in transacoes:
             try:
-                # Determinar categoria baseada na descrição
                 descricao = t.get("descricao", "Transação da imagem")
-                categoria = self._inferir_categoria(descricao)
+                tipo = FinanceTypeEnum.EXPENSE if t.get("tipo") == "saida" else FinanceTypeEnum.INCOME
                 
-                # Criar transação
-                finance = finance_service.create(
-                    user_id=user_id,
+                # Criar schema de transação
+                finance_data = FinanceCreate(
+                    type=tipo,
                     amount=t.get("valor", 0),
                     description=descricao,
-                    type="expense" if t.get("tipo") == "saida" else "income",
-                    category_name=categoria,
                     transaction_date=date.today(),
                 )
+                
+                # Registrar transação
+                finance = finance_service.create(user_id=user_id, data=finance_data)
                 
                 if finance:
                     registradas.append({
