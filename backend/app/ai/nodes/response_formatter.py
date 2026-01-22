@@ -32,8 +32,12 @@ class ResponseFormatterNode:
         """
         self.llm = llm
 
-    def format(self, state: IRISState) -> IRISState:
-        """Formata resposta final para o usuário."""
+    def format(self, state: IRISState) -> dict:
+        """
+        Formata resposta final para o usuário.
+        
+        IMPORTANTE: Retorna dict com atualizações (estado imutável - padrão LangGraph)
+        """
         user_ctx = state.get("user_context")
         user_name = user_ctx.user_name if user_ctx else ""
 
@@ -41,10 +45,10 @@ class ResponseFormatterNode:
 
         logger.info(f"[FORMATTER] 🔍 Tool results pendentes: {len(tool_results)}")
 
-        # Se já tem resposta do agente E não há tool_results para processar, retornar
+        # Se já tem resposta do agente E não há tool_results para processar, retornar vazio
         if state["messages"] and isinstance(state["messages"][-1], AIMessage) and not tool_results:
             logger.info("[FORMATTER] ⏭️ Resposta já existe e sem tool_results, pulando")
-            return state
+            return {}
 
         if tool_results:
             return self._process_tool_results(state, tool_results, user_name)
@@ -53,7 +57,7 @@ class ResponseFormatterNode:
 
     def _process_tool_results(
         self, state: IRISState, tool_results: List[Dict], user_name: str
-    ) -> IRISState:
+    ) -> dict:
         """Processa resultados das tools e gera resposta."""
         logger.info(f"[FORMATTER] 📦 Tool results recebidos: {len(tool_results)}")
         for tr in tool_results:
@@ -75,8 +79,8 @@ class ResponseFormatterNode:
         if db and user_id:
             self._save_to_database(db, user_id, aggregated)
 
-        # Definir ações para resposta
-        self._set_state_actions(state, aggregated)
+        # Extrair ações (sem mutar estado)
+        next_action, entities = self._get_state_actions(aggregated)
 
         if failed:
             logger.warning(f"Alguns itens falharam: {failed}")
@@ -85,8 +89,8 @@ class ResponseFormatterNode:
         if aggregated["integration_responses"]:
             return self._handle_integration_responses(state, aggregated["integration_responses"])
 
-        # Gerar resposta humanizada
-        return self._generate_tool_response(state, user_name)
+        # Gerar resposta humanizada - retornar dict imutável
+        return self._generate_tool_response(state, user_name, next_action, entities)
 
     def _aggregate_results(self, successful: List[Dict], state: IRISState) -> Dict[str, Any]:
         """Agrega resultados das tools por tipo e executa ações pendentes."""
@@ -452,19 +456,23 @@ class ResponseFormatterNode:
             except Exception as e:
                 logger.error(f"Erro ao agendar mensagem: {e}")
 
-    def _set_state_actions(self, state: IRISState, aggregated: Dict[str, Any]) -> None:
-        """Define ações no estado baseado nos resultados agregados."""
+    def _get_state_actions(self, aggregated: Dict[str, Any]) -> tuple:
+        """
+        Extrai ações dos resultados agregados.
+        Retorna (next_action, entities) sem mutar estado.
+        """
+        next_action = ""
+        entities = {}
         
         # Processar resultados de queries (prioridade)
         query_results = aggregated.get("query_results", [])
         if query_results:
-            # Usar o primeiro resultado de query como ação principal
             query = query_results[0]
-            state["next_action"] = query.get("action", "")
-            state["entities"] = query.get("data", {})
-            state["query_success"] = query.get("success", False)
-            logger.info(f"[STATE] Ação definida: {state['next_action']} | Success: {state['query_success']}")
-            return
+            next_action = query.get("action", "")
+            entities = query.get("data", {})
+            entities["query_success"] = query.get("success", False)
+            logger.info(f"[STATE] Ação definida: {next_action} | Success: {entities.get('query_success')}")
+            return next_action, entities
         
         # Processar ações de criação
         action_configs = [
@@ -478,20 +486,18 @@ class ResponseFormatterNode:
         for list_key, item_key, single_action, plural_action in action_configs:
             items = aggregated.get(list_key, [])
             if len(items) > 1:
-                state["next_action"] = plural_action
-                state["entities"] = {list_key: items}
+                next_action = plural_action
+                entities = {list_key: items}
             elif len(items) == 1:
-                state["next_action"] = single_action
-                state["entities"] = {item_key: items[0]}
+                next_action = single_action
+                entities = {item_key: items[0]}
 
-        # Processar calendar actions
-        if aggregated.get("calendar_actions"):
-            state["calendar_action"] = aggregated["calendar_actions"][0]
+        return next_action, entities
 
     def _handle_integration_responses(
         self, state: IRISState, integration_responses: List[str]
-    ) -> IRISState:
-        """Processa respostas de tools de integração."""
+    ) -> dict:
+        """Processa respostas de tools de integração. Retorna dict imutável."""
         integration_context = "\n\n".join(integration_responses)
 
         integration_prompt = f"""Você é IRIS, assistente pessoal.
@@ -505,27 +511,29 @@ PERGUNTA DO USUÁRIO:
 Responda de forma natural e amigável, usando os dados acima. Seja conciso."""
 
         response = self.llm.invoke(integration_prompt)
-        state["messages"] = list(state["messages"]) + [AIMessage(content=response.content)]
-        return state
+        return {"messages": [AIMessage(content=response.content)]}
 
-    def _generate_tool_response(self, state: IRISState, user_name: str) -> IRISState:
-        """Gera resposta humanizada baseada nos resultados das tools."""
+    def _generate_tool_response(self, state: IRISState, user_name: str, next_action: str = "", entities: dict = None) -> dict:
+        """Gera resposta humanizada baseada nos resultados das tools. Retorna dict imutável."""
         response_prompt = ResponsePrompts.get_response_generation_prompt(
             user_name=user_name,
             comm_style="",
             context_prompt=state.get("context_prompt", ""),
-            next_action=state.get("next_action", ""),
-            entities=state.get("entities", {}),
+            next_action=next_action or state.get("next_action", ""),
+            entities=entities or state.get("entities", {}),
             last_message=state["messages"][-1].content if state["messages"] else "",
             rag_context=state.get("rag_context", ""),
         )
 
         response = self.llm.invoke(response_prompt)
-        state["messages"] = list(state["messages"]) + [AIMessage(content=response.content)]
-        return state
+        return {
+            "messages": [AIMessage(content=response.content)],
+            "next_action": next_action,
+            "entities": entities or {},
+        }
 
-    def _generate_general_response(self, state: IRISState, user_name: str) -> IRISState:
-        """Gera resposta para chat geral."""
+    def _generate_general_response(self, state: IRISState, user_name: str) -> dict:
+        """Gera resposta para chat geral. Retorna dict imutável."""
         response_prompt = ResponsePrompts.get_response_generation_prompt(
             user_name=user_name,
             comm_style="",
@@ -536,5 +544,4 @@ Responda de forma natural e amigável, usando os dados acima. Seja conciso."""
             rag_context=state.get("rag_context", ""),
         )
         response = self.llm.invoke(response_prompt)
-        state["messages"] = list(state["messages"]) + [AIMessage(content=response.content)]
-        return state
+        return {"messages": [AIMessage(content=response.content)]}

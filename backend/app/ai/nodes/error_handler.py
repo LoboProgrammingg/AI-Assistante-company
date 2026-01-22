@@ -19,8 +19,12 @@ class ErrorHandlerNode:
     """Nó responsável pelo tratamento de erros."""
 
     @staticmethod
-    def handle(state: IRISState) -> IRISState:
-        """Trata erros de forma amigável."""
+    def handle(state: IRISState) -> dict:
+        """
+        Trata erros de forma amigável.
+        
+        IMPORTANTE: Retorna dict com atualizações (estado imutável - padrão LangGraph)
+        """
         error = state.get("error", "Erro desconhecido")
         logger.error(f"Erro no grafo: {error}")
 
@@ -29,5 +33,4 @@ class ErrorHandlerNode:
             "Por favor, tente novamente ou reformule sua mensagem."
         )
 
-        state["messages"] = list(state["messages"]) + [AIMessage(content=error_message)]
-        return state
+        return {"messages": [AIMessage(content=error_message)]}

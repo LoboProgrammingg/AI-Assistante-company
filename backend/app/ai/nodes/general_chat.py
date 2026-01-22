@@ -33,17 +33,17 @@ class GeneralChatNode:
         """
         self.llm_with_tools = llm_with_tools
 
-    def process(self, state: IRISState) -> IRISState:
+    def process(self, state: IRISState) -> dict:
         """
         Processa chat geral com acesso a tools de pesquisa e consulta.
         Inclui: Web Search, Investimentos, Brasil API, Google Calendar.
+        
+        IMPORTANTE: Retorna dict com atualizações (estado imutável - padrão LangGraph)
         """
         last_message = state["messages"][-1]
 
         # Busca semântica nos documentos do usuário (RAG)
         rag_context = self._get_rag_context(state, last_message.content)
-        if rag_context:
-            state["rag_context"] = rag_context
 
         # Contexto de data/hora atual
         datetime_context = get_datetime_context()
@@ -56,15 +56,20 @@ class GeneralChatNode:
         # Usar LLM com tools para poder acessar pesquisa, investimentos, etc.
         response = self.llm_with_tools.invoke(messages)
 
+        # Retornar dict imutável
+        result = {"next_action": "general_response"}
+        
+        if rag_context:
+            result["rag_context"] = rag_context
+
         # Verificar se há tool calls
         if hasattr(response, "tool_calls") and response.tool_calls:
-            state["tool_calls"] = response.tool_calls
+            result["tool_calls"] = response.tool_calls
             logger.info(f"[GENERAL] 🛠️ Tools: {[tc['name'] for tc in response.tool_calls]}")
         else:
-            state["messages"] = list(state["messages"]) + [response]
+            result["messages"] = [response]
 
-        state["next_action"] = "general_response"
-        return state
+        return result
 
     def _build_system_prompt(self, datetime_context: str, rag_context: str) -> str:
         """Constrói o prompt de sistema para chat geral."""

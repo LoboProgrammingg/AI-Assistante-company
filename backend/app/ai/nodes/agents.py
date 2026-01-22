@@ -32,26 +32,28 @@ class AgentNodes:
         """
         self.llm_with_tools = llm_with_tools
 
-    def finance_agent(self, state: IRISState) -> IRISState:
+    def finance_agent(self, state: IRISState) -> dict:
         """Agente de finanças usando tools."""
         return self._process_with_tools(state, "finance")
 
-    def reminder_agent(self, state: IRISState) -> IRISState:
+    def reminder_agent(self, state: IRISState) -> dict:
         """Agente de lembretes usando tools."""
         return self._process_with_tools(state, "reminder")
 
-    def meeting_agent(self, state: IRISState) -> IRISState:
+    def meeting_agent(self, state: IRISState) -> dict:
         """Agente de reuniões usando tools."""
         return self._process_with_tools(state, "meeting")
 
-    def contact_agent(self, state: IRISState) -> IRISState:
+    def contact_agent(self, state: IRISState) -> dict:
         """Agente de contatos usando tools."""
         return self._process_with_tools(state, "contact")
 
-    def _process_with_tools(self, state: IRISState, domain: str) -> IRISState:
+    def _process_with_tools(self, state: IRISState, domain: str) -> dict:
         """
         Processa mensagem usando LLM com tools.
         O LLM decide qual tool chamar, ToolNode executa.
+        
+        IMPORTANTE: Retorna dict com atualizações (estado imutável - padrão LangGraph)
         """
         last_message = state["messages"][-1]
 
@@ -74,17 +76,15 @@ class AgentNodes:
         # Chamar LLM com tools
         response = self.llm_with_tools.invoke(messages)
 
-        # Verificar se há tool calls
+        # Verificar se há tool calls - retornar dict imutável
         if hasattr(response, "tool_calls") and response.tool_calls:
-            state["tool_calls"] = response.tool_calls
             logger.info(f"[AGENT] 🛠️ Tools chamadas: {[tc['name'] for tc in response.tool_calls]}")
+            return {"tool_calls": response.tool_calls}
         else:
-            # ⚠️ PROBLEMA: LLM respondeu sem chamar tools!
+            # ⚠️ LLM respondeu sem chamar tools
             logger.warning(f"[AGENT] ⚠️ LLM respondeu SEM chamar tools para intent={domain}!")
             logger.warning(f"[AGENT] Resposta: {response.content[:200] if response.content else 'vazio'}")
-            state["messages"] = list(state["messages"]) + [response]
-
-        return state
+            return {"messages": [response]}
 
     def _get_rag_context(self, state: IRISState, message_content: str) -> str:
         """Busca contexto RAG nos documentos do usuário."""

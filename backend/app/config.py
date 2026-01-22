@@ -97,11 +97,16 @@ class Settings(BaseSettings):
     LANGGRAPH_RECURSION_LIMIT: int = 15
 
     # LangSmith (Observabilidade)
-    # LangSmith (desabilitado - causa erros 403 sem API key válida)
-    LANGCHAIN_TRACING_V2: bool = False
+    # Habilitar quando LANGCHAIN_API_KEY estiver configurada
+    LANGCHAIN_TRACING_V2: bool = True
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
     LANGCHAIN_API_KEY: str = ""
-    LANGCHAIN_PROJECT: str = "AI Assistant"
+    LANGCHAIN_PROJECT: str = "IRIS-WhatsApp"
+    
+    @property
+    def langsmith_enabled(self) -> bool:
+        """LangSmith só funciona com API key válida."""
+        return bool(self.LANGCHAIN_API_KEY and self.LANGCHAIN_TRACING_V2)
 
     # SMTP (Gmail)
     SMTP_HOST: str = "smtp.gmail.com"

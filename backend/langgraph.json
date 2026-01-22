@@ -1,0 +1,20 @@
+{
+  "graphs": {
+    "iris": {
+      "path": "./app/ai/graph_v2.py:get_iris_graph"
+    }
+  },
+  "checkpointer": {
+    "type": "postgres",
+    "ttl": {
+      "default_ttl": 86400,
+      "sweep_interval": 3600
+    }
+  },
+  "http": {
+    "configurable_headers": {
+      "includes": ["x-user-plan", "x-user-id"]
+    }
+  },
+  "env": ".env"
+}

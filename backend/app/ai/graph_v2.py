@@ -10,10 +10,13 @@ Melhorias implementadas:
 - Proteção contra loops infinitos
 - Separação clara: LLM decide, ToolNode executa
 - Código modularizado em nodes/
+- Estado imutável (nós retornam dict)
+- Suporte a streaming
+- Human-in-the-Loop para ações sensíveis
 """
 
 import logging
-from typing import Optional
+from typing import AsyncIterator, Optional
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langgraph.graph import END, StateGraph
@@ -168,6 +171,12 @@ class IRISGraphV2:
         # Error handler -> END
         workflow.add_edge("error_handler", END)
 
+        # Compilar com suporte a HITL (Human-in-the-Loop)
+        # interrupt_before: Pausa antes de executar tools (confirmação)
+        # Descomente para habilitar HITL em produção:
+        # return workflow.compile(
+        #     interrupt_before=["tool_executor"],  # Confirmar antes de executar
+        # )
         return workflow.compile()
 
     async def process_message(
@@ -254,6 +263,51 @@ class IRISGraphV2:
             "next_action": result.get("next_action", ""),
             "confidence": result.get("confidence", 0.0),
         }
+
+    async def process_message_stream(
+        self,
+        user_id: int,
+        session_id: str,
+        message: str,
+        context: dict = None,
+        db: Optional[Session] = None,
+    ) -> AsyncIterator[str]:
+        """
+        Processa mensagem com streaming para respostas incrementais.
+        
+        Ideal para WhatsApp/Web onde queremos enviar chunks conforme são gerados.
+        
+        Yields:
+            Chunks de texto da resposta
+        """
+        enriched_context = context or {}
+        
+        if db:
+            enriched_context["db"] = db
+            memory_manager = MemoryManager(db, user_id)
+            enriched_context["memory"] = memory_manager.get_full_context()
+            enriched_context["context_prompt"] = memory_manager.build_context_prompt()
+
+        initial_state = create_initial_state(
+            user_id=user_id,
+            session_id=session_id,
+            message=message,
+            context=enriched_context,
+        )
+
+        config = get_thread_config(user_id, session_id)
+
+        # Usar astream para streaming com subgraphs
+        async for event in self.graph.astream(initial_state, config=config, subgraphs=True):
+            # Extrair mensagens do evento
+            if isinstance(event, tuple) and len(event) >= 2:
+                _, node_output = event
+                if isinstance(node_output, dict) and "messages" in node_output:
+                    messages = node_output["messages"]
+                    if messages:
+                        last_msg = messages[-1]
+                        if hasattr(last_msg, "content") and last_msg.content:
+                            yield last_msg.content
 
 
 # Singleton para reutilização

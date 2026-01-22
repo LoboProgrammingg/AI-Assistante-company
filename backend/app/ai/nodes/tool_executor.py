@@ -29,9 +29,11 @@ class ToolExecutorNode:
         self.tools = tools
         self._tools_by_name = {tool.name: tool for tool in tools}
 
-    def execute(self, state: IRISState) -> IRISState:
+    def execute(self, state: IRISState) -> dict:
         """
         Executa as tools chamadas pelo LLM.
+        
+        IMPORTANTE: Retorna dict com atualizações (estado imutável - padrão LangGraph)
         """
         tool_calls = state.get("tool_calls", [])
         tool_results = []
@@ -65,7 +67,8 @@ class ToolExecutorNode:
                     "success": False,
                 })
 
-        state["tool_results"] = tool_results
-        state["tool_calls"] = []  # Limpar após execução
-
-        return state
+        # Retornar dict imutável
+        return {
+            "tool_results": tool_results,
+            "tool_calls": [],  # Limpar após execução
+        }

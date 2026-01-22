@@ -33,17 +33,22 @@ class RouterNode:
         """
         self.llm_fast = llm_fast
 
-    def route(self, state: IRISState) -> IRISState:
+    def route(self, state: IRISState) -> dict:
         """
         Classifica intenção e roteia para o agente correto.
         Implementa proteção contra loops.
+        
+        IMPORTANTE: Retorna dict com atualizações (estado imutável - padrão LangGraph)
         """
         # Proteção contra loops
-        state["step_count"] = state.get("step_count", 0) + 1
-        if state["step_count"] > state.get("max_steps", 15):
-            state["error"] = "Limite de passos atingido"
-            state["intent"] = "error"
-            return state
+        step_count = state.get("step_count", 0) + 1
+        if step_count > state.get("max_steps", 15):
+            logger.warning("[ROUTER] ⚠️ Limite de passos atingido")
+            return {
+                "step_count": step_count,
+                "error": "Limite de passos atingido",
+                "intent": "error",
+            }
 
         last_message = state["messages"][-1]
         optimizer = get_optimizer()
@@ -51,10 +56,12 @@ class RouterNode:
         # Tentar classificação rápida (sem LLM)
         use_fast, fast_intent = optimizer.should_use_fast_classification(last_message.content)
         if use_fast and fast_intent:
-            state["intent"] = fast_intent
-            state["confidence"] = 0.85
             logger.info(f"[ROUTER] ⚡ Fast: {fast_intent}")
-            return state
+            return {
+                "step_count": step_count,
+                "intent": fast_intent,
+                "confidence": 0.85,
+            }
 
         # Classificação com LLM rápido (flash)
         user_ctx = state.get("user_context") or {}
@@ -69,24 +76,31 @@ class RouterNode:
         optimizer.track_call()
         response = self.llm_fast.invoke(classification_prompt)
 
+        # Parse da resposta
+        intent = "general"
+        confidence = 0.5
+        entities = {}
+
         try:
             json_start = response.content.find("{")
             json_end = response.content.rfind("}") + 1
             if json_start >= 0 and json_end > json_start:
                 classification = json.loads(response.content[json_start:json_end])
-                state["intent"] = classification.get("intent", "general")
-                state["confidence"] = classification.get("confidence", 0.5)
-                state["entities"] = classification.get("entities", {})
-            else:
-                state["intent"] = "general"
-                state["confidence"] = 0.5
+                intent = classification.get("intent", "general")
+                confidence = classification.get("confidence", 0.5)
+                entities = classification.get("entities", {})
         except Exception as e:
             logger.error(f"Erro na classificação: {e}")
-            state["intent"] = "general"
-            state["confidence"] = 0.3
+            confidence = 0.3
 
-        logger.info(f"[ROUTER] 🎯 Intent: {state['intent']} ({state['confidence']:.0%})")
-        return state
+        logger.info(f"[ROUTER] 🎯 Intent: {intent} ({confidence:.0%})")
+        
+        return {
+            "step_count": step_count,
+            "intent": intent,
+            "confidence": confidence,
+            "entities": entities,
+        }
 
     def _format_conversation(self, state: IRISState) -> str:
         """Formata histórico de conversa para contexto."""
