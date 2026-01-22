@@ -226,7 +226,9 @@ class IRISGraphV2:
             memory_manager = MemoryManager(db, user_id)
             memory_context = memory_manager.get_full_context()
             enriched_context["memory"] = memory_context
-            enriched_context["context_prompt"] = memory_manager.build_context_prompt()
+            # Passar nome do usuário para o context_prompt
+            user_name = enriched_context.get("user_name", "")
+            enriched_context["context_prompt"] = memory_manager.build_context_prompt(user_name=user_name)
 
         # Criar estado inicial
         initial_state = create_initial_state(

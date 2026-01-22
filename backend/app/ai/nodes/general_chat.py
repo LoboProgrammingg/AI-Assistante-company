@@ -47,9 +47,15 @@ class GeneralChatNode:
 
         # Contexto de data/hora atual
         datetime_context = get_datetime_context()
+        
+        # Contexto do usuário (nome, preferências, memória)
+        user_context_prompt = state.get("context_prompt", "")
+        user_name = ""
+        if state.get("user_context"):
+            user_name = state["user_context"].user_name
 
         # System prompt com acesso às tools de pesquisa e consulta
-        system_prompt = self._build_system_prompt(datetime_context, rag_context)
+        system_prompt = self._build_system_prompt(datetime_context, rag_context, user_context_prompt, user_name)
 
         messages = [SystemMessage(content=system_prompt), last_message]
 
@@ -71,33 +77,34 @@ class GeneralChatNode:
 
         return result
 
-    def _build_system_prompt(self, datetime_context: str, rag_context: str) -> str:
+    def _build_system_prompt(self, datetime_context: str, rag_context: str, user_context: str = "", user_name: str = "") -> str:
         """Constrói o prompt de sistema para chat geral."""
+        # Saudação personalizada
+        greeting = f"O usuário se chama **{user_name}**. Chame-o pelo nome quando apropriado." if user_name else ""
+        
         return f"""Você é IRIS, assistente pessoal inteligente.
 
 📅 DATA/HORA ATUAL: {datetime_context}
 
-SUAS CAPACIDADES ESPECIAIS:
-1. PESQUISA WEB: Use _search_web ou _search_news para buscar informações atualizadas na internet.
-2. INVESTIMENTOS: Use _get_stock_price, _get_stock_info, _get_crypto_price, _get_currency_rate para dados financeiros.
+{greeting}
+
+{user_context}
+
+SUAS CAPACIDADES:
+1. FINANÇAS: Use registrar_transacao para registrar gastos/receitas do usuário.
+2. PESQUISA WEB: Use _search_web ou _search_news para buscar informações na internet.
+3. INVESTIMENTOS: Use _get_stock_price, _get_stock_info, _get_crypto_price, _get_currency_rate.
    - Ações brasileiras: adicione .SA (ex: PETR4.SA, VALE3.SA)
-   - Criptos: BTC, ETH, SOL
-   - Câmbio: USD, EUR para BRL
-3. BRASIL API:
-   - _consultar_cep: Endereço completo por CEP
-   - _consultar_clima: Previsão do tempo
-   - _listar_feriados: Feriados nacionais
-   - _consultar_taxas: Selic, CDI, IPCA
-   - _listar_bancos / _consultar_banco: Códigos bancários
-   - _consultar_fipe: Preços de veículos
-4. GOOGLE CALENDAR: _listar_eventos, _criar_evento, _verificar_disponibilidade
+4. BRASIL API: _consultar_cep, _consultar_clima, _listar_feriados, _consultar_taxas, _consultar_fipe
+5. GOOGLE CALENDAR: _listar_eventos, _criar_evento, _verificar_disponibilidade
 
 {rag_context}
 
-REGRAS:
-- Se o usuário perguntar sobre algo que precisa de dados atualizados, USE as tools.
-- Para investimentos, SEMPRE consulte dados reais, NUNCA invente valores.
-- Responda de forma natural e útil."""
+REGRAS IMPORTANTES:
+- VOCÊ CONHECE O USUÁRIO! Use o contexto acima para personalizar respostas.
+- Para dados atualizados (clima, cotações, etc), USE as tools.
+- Para finanças, SEMPRE use registrar_transacao para salvar no banco.
+- Responda de forma natural, amigável e útil."""
 
     def _get_rag_context(self, state: IRISState, message_content: str) -> str:
         """Busca contexto RAG nos documentos do usuário."""

@@ -86,9 +86,12 @@ class MemoryManager:
         self._redis_cache.set_learned_facts(self.user_id, facts)
         return facts
 
-    def build_context_prompt(self) -> str:
+    def build_context_prompt(self, user_name: str = "") -> str:
         """
         Constrói prompt de contexto para o agente.
+
+        Args:
+            user_name: Nome do usuário (do User model)
 
         Returns:
             String formatada com contexto do usuário
@@ -101,8 +104,10 @@ class MemoryManager:
 
         parts = ["CONTEXTO DO USUÁRIO (MEMÓRIA DE LONGO PRAZO):"]
 
-        if facts.get("name"):
-            parts.append(f"Nome: {facts['name']}")
+        # Nome: priorizar do User model, fallback para facts
+        name = user_name or facts.get("name", "")
+        if name:
+            parts.append(f"Nome: {name}")
 
         if preferences.get("timezone"):
             parts.append(f"Timezone: {preferences['timezone']}")

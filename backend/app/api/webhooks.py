@@ -351,24 +351,64 @@ async def whatsapp_webhook(
             if not input_sanitizer.is_safe(Body):
                 logger.warning(f"Input suspeito detectado de user_id={user.id}")
 
-        # Verificar se é áudio
+        # Verificar se é mídia (áudio ou imagem)
         num_media = int(NumMedia) if NumMedia else 0
-        if num_media > 0 and MediaContentType0 and MediaContentType0.startswith("audio/"):
-            is_audio = True
-            logger.info(f"Áudio recebido de {ProfileName or From}: {MediaUrl0}")
+        is_image = False
+        image_analysis = None
+        
+        if num_media > 0 and MediaContentType0:
+            # ÁUDIO
+            if MediaContentType0.startswith("audio/"):
+                is_audio = True
+                logger.info(f"Áudio recebido de {ProfileName or From}: {MediaUrl0}")
 
-            # Transcrever áudio passando o content_type
-            message_text = await transcribe_audio_from_url(MediaUrl0, MediaContentType0)
-            if not message_text:
-                send_whatsapp_message(
-                    From, "Desculpe, não consegui entender o áudio. Pode repetir ou enviar por texto?"
+                # Transcrever áudio passando o content_type
+                message_text = await transcribe_audio_from_url(MediaUrl0, MediaContentType0)
+                if not message_text:
+                    send_whatsapp_message(
+                        From, "Desculpe, não consegui entender o áudio. Pode repetir ou enviar por texto?"
+                    )
+                    return Response(
+                        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
+                    )
+                # Sanitizar transcrição de áudio também
+                message_text = input_sanitizer.sanitize_message(message_text)
+                logger.info(f"Áudio transcrito: {message_text}")
+            
+            # IMAGEM
+            elif MediaContentType0.startswith("image/"):
+                is_image = True
+                logger.info(f"📸 Imagem recebida de {ProfileName or From}: {MediaUrl0}")
+                
+                from app.services.vision_service import get_vision_service
+                vision_service = get_vision_service()
+                
+                # Baixar imagem do Twilio (requer autenticação)
+                auth = (settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
+                image_data = await vision_service.download_image(MediaUrl0, auth)
+                
+                if not image_data:
+                    send_whatsapp_message(
+                        From, "Desculpe, não consegui baixar a imagem. Pode enviar novamente?"
+                    )
+                    return Response(
+                        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
+                    )
+                
+                # Analisar imagem
+                response_text = await vision_service.analyze_financial_image(
+                    image_data, 
+                    user_name=user.name
                 )
+                
+                # Salvar e enviar resposta da imagem
+                save_whatsapp_message(db, user.id, f"[IMAGEM: {MediaContentType0}]", "incoming")
+                save_whatsapp_message(db, user.id, response_text, "outgoing", ai_response=response_text)
+                send_whatsapp_message(From, response_text)
+                
                 return Response(
                     content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
                 )
-            # Sanitizar transcrição de áudio também
-            message_text = input_sanitizer.sanitize_message(message_text)
-            logger.info(f"Áudio transcrito: {message_text}")
 
         logger.info(f"Mensagem recebida de {ProfileName or From}: {message_text}")
 
