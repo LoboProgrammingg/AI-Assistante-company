@@ -70,12 +70,14 @@ async def register(request: Request, data: RegisterRequest, db: Session = Depend
 
 
 @router.post("/verify-email", response_model=VerifyEmailResponse)
-def verify_email(data: VerifyEmailRequest, db: Session = Depends(get_db)):
+async def verify_email(request: Request, data: VerifyEmailRequest, db: Session = Depends(get_db)):
     """
     Verifica email do usuário com o código recebido.
 
     Após verificação bem-sucedida, o usuário pode fazer login.
     """
+    # Rate limiting para prevenir brute force no código
+    await auth_limiter(request)
     auth_service = AuthService(db)
 
     try:
@@ -88,10 +90,12 @@ def verify_email(data: VerifyEmailRequest, db: Session = Depends(get_db)):
 
 
 @router.post("/resend-code", response_model=ResendCodeResponse)
-def resend_verification_code(data: ResendCodeRequest, db: Session = Depends(get_db)):
+async def resend_verification_code(request: Request, data: ResendCodeRequest, db: Session = Depends(get_db)):
     """
     Reenvia código de verificação para o email.
     """
+    # Rate limiting para prevenir spam de emails
+    await auth_limiter(request)
     auth_service = AuthService(db)
 
     try:
@@ -197,7 +201,18 @@ def change_password(
 
 @router.post("/bypass-verify")
 async def bypass_verify_email(request: Request, db: Session = Depends(get_db)):
-    """Endpoint temporário para bypass de verificação (apenas para desenvolvimento)"""
+    """
+    Endpoint para bypass de verificação.
+    APENAS DISPONÍVEL EM MODO DEBUG.
+    """
+    from app.config import settings
+
+    # SEGURANÇA: Bloquear em produção
+    if not settings.DEBUG:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este endpoint está desabilitado em produção"
+        )
 
     from app.models import User
 
@@ -216,20 +231,30 @@ async def bypass_verify_email(request: Request, db: Session = Depends(get_db)):
         user.updated_at = datetime.now(timezone.utc)
         db.commit()
 
+        logger.warning(f"[SECURITY] Bypass verification usado para: {email}")
         return {"message": "Conta verificada com sucesso (bypass)"}
 
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=f"Erro: {str(e)}")
 
 
 @router.get("/email-config")
-async def check_email_config():
+async def check_email_config(current_user: User = Depends(get_current_user)):
     """
     Endpoint de diagnóstico para verificar configuração de email.
-    Útil para debug no Railway.
+    REQUER AUTENTICAÇÃO e MODO DEBUG.
     """
     from app.config import settings
     from app.services.email_service import email_service
+
+    # SEGURANÇA: Bloquear em produção
+    if not settings.DEBUG:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este endpoint está desabilitado em produção"
+        )
 
     return {
         "smtp_host": settings.SMTP_HOST,
@@ -237,26 +262,30 @@ async def check_email_config():
         "smtp_use_ssl": settings.SMTP_USE_SSL,
         "smtp_user_configured": bool(settings.SMTP_USER),
         "smtp_password_configured": bool(settings.SMTP_PASSWORD),
-        "smtp_from_email": settings.SMTP_FROM_EMAIL or "(usando SMTP_USER)",
-        "smtp_from_name": settings.SMTP_FROM_NAME,
         "email_service_ready": email_service.is_configured,
     }
 
 
 @router.post("/test-email")
-async def test_email_send(request: Request):
+async def test_email_send(request: Request, current_user: User = Depends(get_current_user)):
     """
     Endpoint para testar envio de email.
-    Envia um email de teste para o endereço especificado.
+    REQUER AUTENTICAÇÃO e MODO DEBUG.
+    Envia apenas para o email do usuário autenticado.
     """
+    from app.config import settings
     from app.services.email_service import email_service
 
-    try:
-        body = await request.json()
-        to_email = body.get("email")
+    # SEGURANÇA: Bloquear em produção
+    if not settings.DEBUG:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Este endpoint está desabilitado em produção"
+        )
 
-        if not to_email:
-            raise HTTPException(status_code=400, detail="Email é obrigatório")
+    try:
+        # SEGURANÇA: Enviar apenas para o email do usuário autenticado
+        to_email = current_user.email
 
         success = email_service.send_email(
             to_email=to_email,

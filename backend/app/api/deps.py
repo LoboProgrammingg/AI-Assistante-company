@@ -44,6 +44,7 @@ def create_access_token(user_id: int, expires_delta: Optional[timedelta] = None)
         "sub": str(user_id),
         "exp": expire,
         "iat": datetime.now(timezone.utc),
+        "type": "access",  # SEGURANÇA: Diferenciar tipos de token
     }
 
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
@@ -77,11 +78,20 @@ def get_current_user(
     try:
         payload = jwt.decode(credentials.credentials, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
         user_id: str = payload.get("sub")
+        token_type: str = payload.get("type", "access")
 
         if user_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token inválido",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        # SEGURANÇA: Verificar tipo de token
+        if token_type != "access":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Tipo de token inválido",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
@@ -96,6 +106,13 @@ def get_current_user(
 
     if not user:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Usuário não encontrado")
+
+    # SEGURANÇA: Verificar se usuário está ativo
+    if not user.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Conta desativada"
+        )
 
     return user
 

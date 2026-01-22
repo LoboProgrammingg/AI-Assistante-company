@@ -48,14 +48,21 @@ register_exception_handlers(app)
 # Security Headers Middleware
 app.add_middleware(SecurityHeadersMiddleware)
 
-# CORS
+# CORS - SEGURANÇA: Especificar métodos e headers permitidos
 origins = [origin.strip() for origin in settings.BACKEND_CORS_ORIGINS.split(",")]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+    ],
+    expose_headers=["X-RateLimit-Remaining", "Retry-After"],
 )
 
 # Rate Limiter
