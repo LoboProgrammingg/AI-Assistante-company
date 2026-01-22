@@ -72,10 +72,10 @@ class TavilySearchTools:
             client = TavilyClient(api_key=settings.TAVILY_API_KEY)
             response = client.search(
                 query=query,
-                search_depth="basic",
-                topic="news",
+                search_depth="advanced",
+                topic="general",
                 days=min(days, 30),
-                max_results=5,
+                max_results=10,
                 include_answer=True,
             )
             
