@@ -98,13 +98,15 @@ class EmbeddingService:
             if not embedding:
                 continue
 
-            # Inserir embedding como texto (cast para vector será feito na busca)
-            emb_str = str(embedding)
+            # Converter embedding para formato pgvector: '[0.1,0.2,...]'
+            # O formato deve ser uma string com colchetes e valores separados por vírgula
+            emb_str = "[" + ",".join(str(x) for x in embedding) + "]"
+            
             self.db.execute(
                 text(
                     """
                     INSERT INTO document_embeddings (document_id, chunk_index, chunk_text, embedding)
-                    VALUES (:doc_id, :idx, :text, :emb)
+                    VALUES (:doc_id, :idx, :text, CAST(:emb AS vector))
                 """
                 ),
                 {"doc_id": document_id, "idx": i, "text": chunk, "emb": emb_str},
@@ -112,7 +114,7 @@ class EmbeddingService:
             indexed += 1
 
         self.db.commit()
-        logger.debug(f"Documento {document_id} indexado com {indexed} chunks")
+        logger.info(f"[EMBEDDING] Documento {document_id} indexado com {indexed} chunks")
         return indexed
 
     def search_similar(self, user_id: int, query: str, limit: int = 5, threshold: float = 0.7) -> List[Dict[str, Any]]:
@@ -120,31 +122,35 @@ class EmbeddingService:
         try:
             query_embedding = self.generate_query_embedding(query)
             if not query_embedding:
+                logger.warning("[EMBEDDING] Falha ao gerar embedding da query")
                 return []
 
+            # Converter embedding para formato pgvector
+            query_emb_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
+            
             # Buscar usando pgvector com filtro por usuário
-            query_emb_str = str(query_embedding)
+            # Usa parâmetro seguro para evitar SQL injection
             result = self.db.execute(
                 text(
-                    f"""
+                    """
                     SELECT 
                         de.chunk_text,
                         de.chunk_index,
                         d.id as document_id,
                         d.title,
                         d.category,
-                        1 - (de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)) as similarity
+                        1 - (de.embedding <=> CAST(:query_emb AS vector)) as similarity
                     FROM document_embeddings de
                     JOIN documents d ON de.document_id = d.id
                     WHERE d.user_id = :user_id 
                         AND d.send_to_ai = true 
                         AND d.is_active = true
                         AND de.embedding IS NOT NULL
-                    ORDER BY de.embedding::vector(768) <=> '{query_emb_str}'::vector(768)
+                    ORDER BY de.embedding <=> CAST(:query_emb AS vector)
                     LIMIT :limit
-                """
+                    """
                 ),
-                {"user_id": user_id, "limit": limit},
+                {"user_id": user_id, "limit": limit, "query_emb": query_emb_str},
             )
 
             results = []
@@ -161,9 +167,10 @@ class EmbeddingService:
                         }
                     )
 
+            logger.debug(f"[EMBEDDING] Busca retornou {len(results)} resultados")
             return results
         except Exception as e:
-            logger.warning(f"Erro na busca semântica: {e}")
+            logger.warning(f"[EMBEDDING] Erro na busca semântica: {e}")
             self.db.rollback()
             return []
 

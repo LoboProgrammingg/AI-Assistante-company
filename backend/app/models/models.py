@@ -478,8 +478,8 @@ class DocumentEmbedding(Base):
     chunk_index = Column(Integer, nullable=False)
     chunk_text = Column(Text, nullable=False)
 
-    # Embedding armazenado como Text (lista JSON serializada)
-    embedding = Column(Text, nullable=True)
+    # Embedding armazenado como vector(768) do pgvector
+    embedding = Column(Text, nullable=True)  # Tipo real no banco é vector(768)
 
     # Timestamps
     created_at = Column(DateTime, default=utc_now)
