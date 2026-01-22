@@ -162,8 +162,17 @@ class IRISGraphV2:
         # Tool executor -> Response formatter
         workflow.add_edge("tool_executor", "response_formatter")
 
-        # General chat -> Response formatter
-        workflow.add_edge("general_chat", "response_formatter")
+        # General chat -> Tool executor ou Response (condicional)
+        # CORREÇÃO: general_chat também pode chamar tools (registrar_transacao, etc)
+        workflow.add_conditional_edges(
+            "general_chat",
+            RouterNode.should_execute_tools,
+            {
+                "execute": "tool_executor",
+                "respond": "response_formatter",
+                "error": "error_handler",
+            },
+        )
 
         # Response formatter -> END
         workflow.add_edge("response_formatter", END)
