@@ -523,23 +523,57 @@ Responda APENAS com a mensagem, sem explicações."""
             logger.error(f"❌ Erro ao deletar tarefa {task_id}: {e}")
             return False
 
-    async def get_projects(self) -> list[dict]:
+    async def get_projects(self, include_welcome: bool = False) -> list[dict]:
         """Retorna todos os projetos do Todoist."""
         if not self.api:
             return []
 
         try:
             projects = self.api.get_projects()
-            return [
-                {
-                    "id": project.id,
-                    "name": project.name,
-                    "color": project.color,
-                    "is_favorite": project.is_favorite,
-                    "url": project.url,
-                }
-                for project in projects
-            ]
+            
+            if include_welcome:
+                # Retorna todos os projetos sem filtro
+                return [
+                    {
+                        "id": project.id,
+                        "name": project.name,
+                        "color": project.color,
+                        "is_favorite": project.is_favorite,
+                        "url": project.url,
+                    }
+                    for project in projects
+                ]
+            else:
+                # Filtra projetos de boas-vindas
+                welcome_keywords = [
+                    "inbox",
+                    "primeiros passos",
+                    "getting started",
+                    "welcome",
+                    "bem-vindo",
+                    "tutorial",
+                    "exemplos",
+                    "samples"
+                ]
+                
+                filtered_projects = []
+                for project in projects:
+                    name_lower = project.name.lower()
+                    # Verificar se é projeto de boas-vindas
+                    is_welcome_project = any(keyword in name_lower for keyword in welcome_keywords)
+                    
+                    # Incluir apenas se não for projeto de boas-vindas
+                    if not is_welcome_project:
+                        filtered_projects.append({
+                            "id": project.id,
+                            "name": project.name,
+                            "color": project.color,
+                            "is_favorite": project.is_favorite,
+                            "url": project.url,
+                        })
+                
+                return filtered_projects
+                
         except Exception as e:
             logger.error(f"❌ Erro ao buscar projetos: {e}")
             return []

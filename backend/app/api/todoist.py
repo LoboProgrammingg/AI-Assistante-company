@@ -274,8 +274,9 @@ async def get_alerts(
     return alerts
 
 
-@router.get("/projects", response_model=list[dict])
-async def list_projects(
+@router.get("/projects", response_model=list[ProjectResponse])
+async def get_projects(
+    include_welcome: Optional[bool] = Query(False, description="Incluir projetos de boas-vindas"),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -286,7 +287,7 @@ async def list_projects(
     if not service.is_configured:
         raise HTTPException(status_code=503, detail="Todoist não configurado")
     
-    projects = await service.get_projects()
+    projects = await service.get_projects(include_welcome=include_welcome)
     return projects
 
 
