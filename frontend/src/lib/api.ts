@@ -481,7 +481,7 @@ export interface TodoistTaskUpdate {
 export const todoistApi = {
   getStatus: () => api.get<TodoistStatus>("/todoist/status"),
 
-  listTasks: (params?: { filter?: string; project_id?: string }) =>
+  listTasks: (params?: { filter?: string; project_id?: string; include_welcome?: boolean }) =>
     api.get<TodoistTask[]>("/todoist/tasks", { params }),
 
   getTask: (id: string) => api.get<TodoistTask>(`/todoist/tasks/${id}`),
@@ -500,7 +500,8 @@ export const todoistApi = {
 
   getAlerts: () => api.get<TodoistAlert[]>("/todoist/alerts"),
 
-  getProjects: () => api.get<TodoistProject[]>("/todoist/projects"),
+  getProjects: (include_welcome?: boolean) => 
+    api.get<TodoistProject[]>("/todoist/projects", { params: { include_welcome } }),
 
   getLabels: () => api.get<TodoistLabel[]>("/todoist/labels"),
 

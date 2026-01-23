@@ -99,7 +99,9 @@ export function Todoist() {
     queryKey: ["todoist-tasks", filter],
     queryFn: () =>
       todoistApi
-        .listTasks({ filter: filter === "all" ? undefined : filter })
+        .listTasks({ 
+          filter: filter === "all" ? undefined : filter
+        })
         .then((r) => r.data),
     enabled: status?.connected,
   })

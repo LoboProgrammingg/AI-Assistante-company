@@ -71,6 +71,15 @@ class StatusResponse(BaseModel):
     message: str
 
 
+class ProjectResponse(BaseModel):
+    """Schema de resposta de projeto."""
+    id: str
+    name: str
+    color: Optional[str] = None
+    is_favorite: bool = False
+    url: Optional[str] = None
+
+
 # ==================== Endpoints ====================
 
 @router.get("/status", response_model=StatusResponse)
