@@ -402,6 +402,111 @@ export interface DocumentStats {
   total_size_bytes: number
 }
 
+// ==================== Todoist ====================
+
+export interface TodoistTask {
+  id: string
+  content: string
+  description: string | null
+  due: {
+    date: string
+    datetime?: string
+    string?: string
+    timezone?: string
+  } | null
+  priority: number
+  project_id: string | null
+  labels: string[]
+  is_completed: boolean
+  created_at: string
+  url: string
+}
+
+export interface TodoistProject {
+  id: string
+  name: string
+  color: string
+  is_favorite: boolean
+  url: string
+}
+
+export interface TodoistLabel {
+  id: string
+  name: string
+  color: string
+}
+
+export interface TodoistAlert {
+  task_id: string
+  task_title: string
+  due_datetime: string
+  minutes_remaining: number
+  message: string
+  priority: number
+}
+
+export interface TodoistStatus {
+  configured: boolean
+  connected: boolean
+  message: string
+}
+
+export interface TodoistSummary {
+  today_count: number
+  overdue_count: number
+  alerts_count: number
+  priority_breakdown: Record<number, number>
+  today_tasks: TodoistTask[]
+  overdue_tasks: TodoistTask[]
+  alerts: TodoistAlert[]
+}
+
+export interface TodoistTaskCreate {
+  content: string
+  description?: string
+  due_string?: string
+  due_datetime?: string
+  priority?: number
+  project_id?: string
+  labels?: string[]
+}
+
+export interface TodoistTaskUpdate {
+  content?: string
+  description?: string
+  due_string?: string
+  priority?: number
+}
+
+export const todoistApi = {
+  getStatus: () => api.get<TodoistStatus>("/todoist/status"),
+
+  listTasks: (params?: { filter?: string; project_id?: string }) =>
+    api.get<TodoistTask[]>("/todoist/tasks", { params }),
+
+  getTask: (id: string) => api.get<TodoistTask>(`/todoist/tasks/${id}`),
+
+  createTask: (data: TodoistTaskCreate) =>
+    api.post<TodoistTask>("/todoist/tasks", data),
+
+  updateTask: (id: string, data: TodoistTaskUpdate) =>
+    api.put<{ success: boolean; message: string }>(`/todoist/tasks/${id}`, data),
+
+  completeTask: (id: string) =>
+    api.post<{ success: boolean; message: string }>(`/todoist/tasks/${id}/complete`),
+
+  deleteTask: (id: string) =>
+    api.delete<{ success: boolean; message: string }>(`/todoist/tasks/${id}`),
+
+  getAlerts: () => api.get<TodoistAlert[]>("/todoist/alerts"),
+
+  getProjects: () => api.get<TodoistProject[]>("/todoist/projects"),
+
+  getLabels: () => api.get<TodoistLabel[]>("/todoist/labels"),
+
+  getTodaySummary: () => api.get<TodoistSummary>("/todoist/tasks/today/summary"),
+}
+
 export const documentsApi = {
   list: (params?: { category?: string; send_to_ai?: boolean; search?: string; page?: number; limit?: number }) =>
     api.get<DocumentListResponse>("/documents/", { params }),

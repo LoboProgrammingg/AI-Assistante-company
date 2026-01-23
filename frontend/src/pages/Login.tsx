@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react"
 import { useNavigate, Link, useLocation } from "react-router-dom"
-import { MessageSquare, Mail, Lock, Eye, EyeOff } from "lucide-react"
+import { Mail, Lock, Eye, EyeOff, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { AuthBackground } from "@/components/AuthBackground"
 import { useAuthStore } from "@/stores/auth"
 import toast from "react-hot-toast"
 
@@ -18,111 +18,106 @@ export function Login() {
 
   useEffect(() => {
     if (location.state?.verified) {
-      toast.success("Email verificado! Faça login para continuar.")
+      toast.success("Email verificado!")
     }
   }, [location.state])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
-    if (!email.trim()) {
-      toast.error("Por favor, insira seu email")
-      return
-    }
-
-    if (!password) {
-      toast.error("Por favor, insira sua senha")
+    if (!email.trim() || !password) {
+      toast.error("Preencha todos os campos")
       return
     }
 
     setIsLoading(true)
     try {
       await login(email, password)
-      toast.success("Login realizado com sucesso!")
       navigate("/")
     } catch (error: any) {
-      const message = error.response?.data?.detail || "Email ou senha inválidos"
-      toast.error(message)
+      toast.error(error.response?.data?.detail || "Credenciais inválidas")
     } finally {
       setIsLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-            <MessageSquare className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-2xl">WhatsApp AI Assistant</CardTitle>
-          <CardDescription>
-            Entre com seu email e senha para acessar o dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="email">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
+    <AuthBackground>
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-0">
+          <img 
+            src="/images/iris-logo.png" 
+            alt="IRIS" 
+            className="w-96 h-96 object-contain mx-auto drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]"
+          />
+        </div>
+
+        {/* Form Card */}
+        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.05] rounded-2xl p-8">
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="relative">
+              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
+              <Input
+                type="email"
+                placeholder="Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="h-13 pl-12 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/30 rounded-xl focus:border-purple-500/50 focus:ring-purple-500/20"
+              />
             </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-sm font-medium" htmlFor="password">
-                  Senha
-                </label>
-                <Link 
-                  to="/forgot-password" 
-                  className="text-xs text-primary hover:underline"
-                >
-                  Esqueceu a senha?
-                </Link>
-              </div>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="Sua senha"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
-              </div>
+
+            <div className="relative">
+              <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
+              <Input
+                type={showPassword ? "text" : "password"}
+                placeholder="Senha"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="h-13 pl-12 pr-12 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/30 rounded-xl focus:border-purple-500/50 focus:ring-purple-500/20"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
+              >
+                {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+              </button>
             </div>
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Entrando..." : "Entrar"}
+
+            <div className="text-right">
+              <Link to="/forgot-password" className="text-sm text-white/40 hover:text-purple-400 transition-colors">
+                Esqueceu a senha?
+              </Link>
+            </div>
+
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full h-13 text-base font-medium bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 border-0 rounded-xl transition-all duration-300"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <span className="flex items-center gap-2">
+                  Entrar
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
             </Button>
           </form>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Não tem uma conta?{" "}
-            <Link to="/register" className="text-primary hover:underline">
-              Cadastre-se
+
+          <div className="mt-6 pt-6 border-t border-white/[0.05] text-center">
+            <span className="text-white/40 text-sm">Não tem conta? </span>
+            <Link to="/register" className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors">
+              Criar conta
             </Link>
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+          </div>
+        </div>
+
+        <p className="mt-6 text-center text-white/20 text-xs">
+          © 2026 IRIS
+        </p>
+      </div>
+    </AuthBackground>
   )
 }

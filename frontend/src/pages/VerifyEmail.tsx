@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react"
 import { useNavigate, useLocation, Link } from "react-router-dom"
-import { MessageSquare, Mail, RefreshCw } from "lucide-react"
+import { RefreshCw, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
+import { AuthBackground } from "@/components/AuthBackground"
 import { authApi } from "@/lib/api"
 import toast from "react-hot-toast"
 
@@ -62,18 +62,17 @@ export function VerifyEmail() {
 
     const fullCode = code.join("")
     if (fullCode.length !== 6) {
-      toast.error("Digite o código completo de 6 dígitos")
+      toast.error("Digite o código completo")
       return
     }
 
     setIsLoading(true)
     try {
       await authApi.verifyEmail({ email, code: fullCode })
-      toast.success("Email verificado com sucesso!")
+      toast.success("Email verificado!")
       navigate("/login", { state: { verified: true } })
     } catch (error: any) {
-      const message = error.response?.data?.detail || "Código inválido ou expirado"
-      toast.error(message)
+      toast.error(error.response?.data?.detail || "Código inválido")
       setCode(["", "", "", "", "", ""])
       inputRefs.current[0]?.focus()
     } finally {
@@ -87,34 +86,34 @@ export function VerifyEmail() {
     setIsResending(true)
     try {
       await authApi.resendCode({ email })
-      toast.success("Código reenviado! Verifique seu email.")
+      toast.success("Código reenviado!")
       setCountdown(60)
       setCode(["", "", "", "", "", ""])
       inputRefs.current[0]?.focus()
     } catch (error: any) {
-      const message = error.response?.data?.detail || "Erro ao reenviar código"
-      toast.error(message)
+      toast.error(error.response?.data?.detail || "Erro ao reenviar")
     } finally {
       setIsResending(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-            <Mail className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-2xl">Verificar Email</CardTitle>
-          <CardDescription>
-            Digite o código de 6 dígitos enviado para{" "}
-            <span className="font-medium text-foreground">{email}</span>
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <AuthBackground>
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-0">
+          <img 
+            src="/images/iris-logo.png" 
+            alt="IRIS" 
+            className="w-80 h-80 object-contain mx-auto drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]"
+          />
+        </div>
+
+        {/* Form Card */}
+        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.05] rounded-2xl p-8">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="flex justify-center gap-2">
+            {/* Code Inputs */}
+            <div className="flex justify-center gap-3">
               {code.map((digit, index) => (
                 <Input
                   key={index}
@@ -126,41 +125,54 @@ export function VerifyEmail() {
                   onChange={(e) => handleChange(index, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(index, e)}
                   onPaste={index === 0 ? handlePaste : undefined}
-                  className="w-12 h-14 text-center text-2xl font-bold"
+                  className="w-12 h-14 text-center text-2xl font-bold bg-white/[0.03] border-white/[0.08] text-white rounded-xl focus:border-purple-500/50 focus:ring-purple-500/20"
                   autoFocus={index === 0}
                 />
               ))}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Verificando..." : "Verificar Email"}
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full h-13 text-base font-medium bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 border-0 rounded-xl transition-all duration-300"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <span className="flex items-center gap-2">
+                  Verificar
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-muted-foreground mb-2">
-              Não recebeu o código?
-            </p>
+          {/* Resend */}
+          <div className="mt-6 pt-6 border-t border-white/[0.05] text-center">
+            <p className="text-white/40 text-sm mb-3">Não recebeu?</p>
             <Button
-              variant="outline"
+              variant="ghost"
               onClick={handleResend}
               disabled={isResending || countdown > 0}
-              className="gap-2"
+              className="text-purple-400 hover:text-purple-300 hover:bg-white/5"
             >
-              <RefreshCw className={`h-4 w-4 ${isResending ? "animate-spin" : ""}`} />
-              {countdown > 0 ? `Reenviar em ${countdown}s` : "Reenviar código"}
+              <RefreshCw className={`h-4 w-4 mr-2 ${isResending ? "animate-spin" : ""}`} />
+              {countdown > 0 ? `Aguarde ${countdown}s` : "Reenviar código"}
             </Button>
           </div>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Email errado?{" "}
-            <Link to="/register" className="text-primary hover:underline">
-              Voltar ao cadastro
-            </Link>
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+        </div>
+
+        {/* Back Link */}
+        <div className="mt-6 text-center">
+          <Link to="/register" className="text-white/40 hover:text-purple-400 text-sm transition-colors">
+            ← Voltar ao cadastro
+          </Link>
+        </div>
+
+        <p className="mt-6 text-center text-white/20 text-xs">
+          © 2026 IRIS
+        </p>
+      </div>
+    </AuthBackground>
   )
 }

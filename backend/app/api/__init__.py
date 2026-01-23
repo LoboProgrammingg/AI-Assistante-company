@@ -9,6 +9,7 @@ from app.api.integrations import router as integrations_router
 from app.api.meetings import router as meetings_router
 from app.api.metrics import router as metrics_router
 from app.api.reminders import router as reminders_router
+from app.api.todoist import router as todoist_router
 from app.api.users import router as users_router
 from app.api.webhooks import router as webhooks_router
 
@@ -25,5 +26,6 @@ api_router.include_router(contacts_router)
 api_router.include_router(documents_router)
 api_router.include_router(metrics_router)
 api_router.include_router(integrations_router)
+api_router.include_router(todoist_router)
 
 __all__ = ["api_router"]

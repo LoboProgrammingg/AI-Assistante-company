@@ -123,6 +123,11 @@ class Settings(BaseSettings):
     # Tavily Web Search
     TAVILY_API_KEY: str = ""
 
+    # Todoist Integration
+    TODOIST_API_KEY: str = ""
+    TODOIST_ALERT_MINUTES: int = 60  # Alertar quando faltar X minutos
+    TODOIST_POLLING_SECONDS: int = 300  # Polling a cada 5 minutos
+
     # Google Calendar OAuth (para cada usuário conectar seu calendário)
     GOOGLE_OAUTH_CLIENT_ID: str = os.getenv("GOOGLE_OAUTH_CLIENT_ID", "")
     GOOGLE_OAUTH_CLIENT_SECRET: str = os.getenv("GOOGLE_OAUTH_CLIENT_SECRET", "")

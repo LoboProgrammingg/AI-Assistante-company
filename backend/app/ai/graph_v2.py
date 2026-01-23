@@ -36,6 +36,7 @@ from app.ai.tools.finance_tools import FinanceTools
 from app.ai.tools.integrations.brasil_api import brasil_api_tools
 from app.ai.tools.integrations.google_calendar import google_calendar_tools
 from app.ai.tools.integrations.tavily_search import tavily_tools
+from app.ai.tools.integrations.todoist_tools import todoist_tools
 from app.ai.tools.integrations.yfinance_tools import yfinance_tools
 from app.ai.tools.meeting_tools import MeetingTools
 from app.ai.tools.reminder_tools import ReminderTools
@@ -103,6 +104,7 @@ class IRISGraphV2:
             + yfinance_tools.get_tools()
             + brasil_api_tools.get_tools()
             + google_calendar_tools.get_tools()
+            + todoist_tools.get_tools()
         )
 
     def _init_nodes(self) -> None:

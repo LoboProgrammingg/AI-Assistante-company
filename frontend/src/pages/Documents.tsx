@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react"
+import { useState, useRef, useCallback, useMemo } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
 import { 
   FileText, Upload, Search, Filter, Trash2, Brain, 
@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch"
 import { Badge } from "@/components/ui/badge"
 import { Pagination } from "@/components/ui/pagination"
 import { cn } from "@/lib/utils"
+import { useDebouncedCallback } from "@/lib/hooks"
 
 const CATEGORIES = [
   { value: "work", label: "Trabalho", color: "bg-blue-500" },
@@ -81,10 +82,22 @@ export function Documents() {
     else if (type === "ai") setAiFilter(value)
   }, [])
 
+  const uploadMutationRef = useRef(false)
+  
   const uploadMutation = useMutation({
     mutationFn: async () => {
+      // Prevenir múltiplas chamadas simultâneas
+      if (uploadMutationRef.current) {
+        throw new Error("Upload já em andamento")
+      }
       if (!selectedFile) throw new Error("Nenhum arquivo selecionado")
-      return documentsApi.upload(selectedFile, uploadData)
+      
+      uploadMutationRef.current = true
+      try {
+        return await documentsApi.upload(selectedFile, uploadData)
+      } finally {
+        uploadMutationRef.current = false
+      }
     },
     onSuccess: () => {
       // Limpar estado primeiro para evitar re-envios
@@ -99,6 +112,7 @@ export function Documents() {
       queryClient.invalidateQueries({ queryKey: ["documents"] })
     },
     onError: (error) => {
+      uploadMutationRef.current = false
       console.error("Erro no upload:", error)
     },
   })
@@ -439,12 +453,16 @@ export function Documents() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setUploadDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setUploadDialogOpen(false)} disabled={uploadMutation.isPending}>
               Cancelar
             </Button>
             <Button 
-              onClick={() => uploadMutation.mutate()}
-              disabled={uploadMutation.isPending}
+              onClick={() => {
+                if (!uploadMutation.isPending && !uploadMutationRef.current) {
+                  uploadMutation.mutate()
+                }
+              }}
+              disabled={uploadMutation.isPending || !selectedFile}
             >
               {uploadMutation.isPending ? "Enviando..." : "Enviar"}
             </Button>

@@ -1,10 +1,10 @@
 import { useState } from "react"
 import { useNavigate, Link } from "react-router-dom"
-import { MessageSquare, User, Mail, Lock, Phone, Eye, EyeOff, MapPin } from "lucide-react"
+import { User, Mail, Lock, Phone, Eye, EyeOff, MapPin, ArrowRight } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { AuthBackground } from "@/components/AuthBackground"
 import { authApi } from "@/lib/api"
 import toast from "react-hot-toast"
 
@@ -151,180 +151,170 @@ export function Register() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-muted p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-            <MessageSquare className="w-8 h-8 text-primary-foreground" />
-          </div>
-          <CardTitle className="text-2xl">Criar Conta</CardTitle>
-          <CardDescription>
-            Cadastre-se para acessar o WhatsApp AI Assistant
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+    <AuthBackground>
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-0">
+          <img 
+            src="/images/iris-logo.png" 
+            alt="IRIS" 
+            className="w-80 h-80 object-contain mx-auto drop-shadow-[0_0_30px_rgba(139,92,246,0.3)]"
+          />
+        </div>
+
+        {/* Form Card */}
+        <div className="bg-white/[0.02] backdrop-blur-sm border border-white/[0.05] rounded-2xl p-6">
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="name">
-                Nome Completo
-              </label>
+            {/* Nome */}
+            <div>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <User className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
                 <Input
-                  id="name"
                   name="name"
                   type="text"
-                  placeholder="Seu nome completo"
+                  placeholder="Nome completo"
                   value={formData.name}
                   onChange={handleChange}
-                  className={`pl-10 ${errors.name ? "border-destructive" : ""}`}
+                  className={`h-12 pl-12 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/30 rounded-xl focus:border-purple-500/50 ${errors.name ? "border-red-500/50" : ""}`}
                 />
               </div>
-              {errors.name && <p className="text-xs text-destructive">{errors.name}</p>}
+              {errors.name && <p className="text-xs text-red-400 mt-1">{errors.name}</p>}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="email">
-                Email
-              </label>
+            {/* Email */}
+            <div>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
                 <Input
-                  id="email"
                   name="email"
                   type="email"
-                  placeholder="seu@email.com"
+                  placeholder="Email"
                   value={formData.email}
                   onChange={handleChange}
-                  className={`pl-10 ${errors.email ? "border-destructive" : ""}`}
+                  className={`h-12 pl-12 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/30 rounded-xl focus:border-purple-500/50 ${errors.email ? "border-red-500/50" : ""}`}
                 />
               </div>
-              {errors.email && <p className="text-xs text-destructive">{errors.email}</p>}
+              {errors.email && <p className="text-xs text-red-400 mt-1">{errors.email}</p>}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="phone_number">
-                Telefone (WhatsApp)
-              </label>
+            {/* Telefone */}
+            <div>
               <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
                 <Input
-                  id="phone_number"
                   name="phone_number"
                   type="tel"
-                  placeholder="5565992540370"
+                  placeholder="WhatsApp (5565992540370)"
                   value={formData.phone_number}
                   onChange={handleChange}
-                  className={`pl-10 ${errors.phone_number ? "border-destructive" : ""}`}
+                  className={`h-12 pl-12 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/30 rounded-xl focus:border-purple-500/50 ${errors.phone_number ? "border-red-500/50" : ""}`}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                Formato: código país + DDD + número (ex: 5565992540370)
-              </p>
-              {errors.phone_number && <p className="text-xs text-destructive">{errors.phone_number}</p>}
+              {errors.phone_number && <p className="text-xs text-red-400 mt-1">{errors.phone_number}</p>}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="state">
-                Estado
-              </label>
+            {/* Estado */}
+            <div>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10" />
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30 z-10" />
                 <Select
                   value={formData.state}
                   onValueChange={(value) => {
                     setFormData((prev) => ({ ...prev, state: value }))
-                    if (errors.state) {
-                      setErrors((prev) => ({ ...prev, state: "" }))
-                    }
+                    if (errors.state) setErrors((prev) => ({ ...prev, state: "" }))
                   }}
                 >
-                  <SelectTrigger className={`pl-10 ${errors.state ? "border-destructive" : ""}`}>
+                  <SelectTrigger className={`h-12 pl-12 bg-white/[0.03] border-white/[0.08] text-white rounded-xl focus:border-purple-500/50 [&>span]:text-white/30 ${formData.state ? "[&>span]:text-white" : ""} ${errors.state ? "border-red-500/50" : ""}`}>
                     <SelectValue placeholder="Selecione seu estado" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-[#0a0a12] border-white/10">
                     {Object.entries(ESTADOS_TIMEZONE)
                       .sort((a, b) => a[1].nome.localeCompare(b[1].nome))
                       .map(([sigla, { nome }]) => (
-                        <SelectItem key={sigla} value={sigla}>
+                        <SelectItem key={sigla} value={sigla} className="text-white hover:bg-white/10">
                           {nome} ({sigla})
                         </SelectItem>
                       ))}
                   </SelectContent>
                 </Select>
               </div>
-              <p className="text-xs text-muted-foreground">
-                Usado para ajustar o horário da IA ao seu fuso
-              </p>
-              {errors.state && <p className="text-xs text-destructive">{errors.state}</p>}
+              {errors.state && <p className="text-xs text-red-400 mt-1">{errors.state}</p>}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="password">
-                Senha
-              </label>
+            {/* Senha */}
+            <div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
                 <Input
-                  id="password"
                   name="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder="Senha (mín. 8 caracteres)"
                   value={formData.password}
                   onChange={handleChange}
-                  className={`pl-10 pr-10 ${errors.password ? "border-destructive" : ""}`}
+                  className={`h-12 pl-12 pr-12 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/30 rounded-xl focus:border-purple-500/50 ${errors.password ? "border-red-500/50" : ""}`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
                 >
-                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              {errors.password && <p className="text-xs text-destructive">{errors.password}</p>}
+              {errors.password && <p className="text-xs text-red-400 mt-1">{errors.password}</p>}
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium" htmlFor="password_confirm">
-                Confirmar Senha
-              </label>
+            {/* Confirmar Senha */}
+            <div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/30" />
                 <Input
-                  id="password_confirm"
                   name="password_confirm"
                   type={showConfirmPassword ? "text" : "password"}
-                  placeholder="Confirme sua senha"
+                  placeholder="Confirmar senha"
                   value={formData.password_confirm}
                   onChange={handleChange}
-                  className={`pl-10 pr-10 ${errors.password_confirm ? "border-destructive" : ""}`}
+                  className={`h-12 pl-12 pr-12 bg-white/[0.03] border-white/[0.08] text-white placeholder:text-white/30 rounded-xl focus:border-purple-500/50 ${errors.password_confirm ? "border-red-500/50" : ""}`}
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 transition-colors"
                 >
-                  {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                 </button>
               </div>
-              {errors.password_confirm && <p className="text-xs text-destructive">{errors.password_confirm}</p>}
+              {errors.password_confirm && <p className="text-xs text-red-400 mt-1">{errors.password_confirm}</p>}
             </div>
 
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Cadastrando..." : "Criar Conta"}
+            <Button 
+              type="submit" 
+              disabled={isLoading}
+              className="w-full h-12 text-base font-medium bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 border-0 rounded-xl transition-all duration-300 mt-2"
+            >
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              ) : (
+                <span className="flex items-center gap-2">
+                  Criar Conta
+                  <ArrowRight className="w-4 h-4" />
+                </span>
+              )}
             </Button>
           </form>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-          <p className="text-sm text-muted-foreground">
-            Já tem uma conta?{" "}
-            <Link to="/login" className="text-primary hover:underline">
-              Faça login
+
+          <div className="mt-5 pt-5 border-t border-white/[0.05] text-center">
+            <span className="text-white/40 text-sm">Já tem conta? </span>
+            <Link to="/login" className="text-purple-400 hover:text-purple-300 text-sm font-medium transition-colors">
+              Fazer login
             </Link>
-          </p>
-        </CardFooter>
-      </Card>
-    </div>
+          </div>
+        </div>
+
+        <p className="mt-5 text-center text-white/20 text-xs">
+          © 2026 IRIS
+        </p>
+      </div>
+    </AuthBackground>
   )
 }

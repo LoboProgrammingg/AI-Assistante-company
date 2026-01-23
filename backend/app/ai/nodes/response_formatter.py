@@ -332,6 +332,172 @@ class ResponseFormatterNode:
                     "success": True,
                     "data": {"messages": messages, "count": len(messages)},
                 }
+            
+            # ========== TODOIST ==========
+            elif action == "create_todoist_task":
+                import asyncio
+                from app.services.todoist_service import get_todoist_service
+                service = get_todoist_service()
+                task_data = result_data.get("task", {})
+                
+                loop = asyncio.get_event_loop()
+                task = loop.run_until_complete(service.create_task(
+                    content=task_data.get("content"),
+                    description=task_data.get("description"),
+                    due_string=task_data.get("due_string"),
+                    priority=task_data.get("priority", 1),
+                    labels=task_data.get("labels"),
+                ))
+                
+                if task:
+                    logger.info(f"[EXECUTE] ✅ Todoist task criada: {task.get('content')}")
+                    return {
+                        "action": "create_todoist_task",
+                        "success": True,
+                        "data": {"task": task, "message": f"Tarefa '{task.get('content')}' criada no Todoist!"},
+                    }
+                return {
+                    "action": "create_todoist_task",
+                    "success": False,
+                    "error": "Erro ao criar tarefa no Todoist",
+                }
+            
+            elif action == "list_todoist_tasks":
+                import asyncio
+                from app.services.todoist_service import get_todoist_service
+                service = get_todoist_service()
+                filters = result_data.get("filters", {})
+                filter_str = filters.get("filter", "today")
+                
+                if filter_str == "all":
+                    filter_str = None
+                
+                loop = asyncio.get_event_loop()
+                tasks = loop.run_until_complete(service.get_tasks(filter_str=filter_str))
+                
+                logger.info(f"[EXECUTE] 📋 Todoist tasks: {len(tasks)} encontradas")
+                return {
+                    "action": "list_todoist_tasks",
+                    "success": True,
+                    "data": {"tasks": tasks, "count": len(tasks)},
+                }
+            
+            elif action == "complete_todoist_task":
+                import asyncio
+                from app.services.todoist_service import get_todoist_service
+                service = get_todoist_service()
+                filters = result_data.get("filters", {})
+                titulo_ou_id = filters.get("titulo_ou_id", "")
+                
+                loop = asyncio.get_event_loop()
+                tasks = loop.run_until_complete(service.get_tasks())
+                
+                matching_task = None
+                for task in tasks:
+                    if titulo_ou_id.lower() in task["content"].lower() or task["id"] == titulo_ou_id:
+                        matching_task = task
+                        break
+                
+                if matching_task:
+                    success = loop.run_until_complete(service.complete_task(matching_task["id"]))
+                    if success:
+                        logger.info(f"[EXECUTE] ✅ Todoist task concluída: {matching_task['content']}")
+                        return {
+                            "action": "complete_todoist_task",
+                            "success": True,
+                            "data": {"message": f"Tarefa '{matching_task['content']}' concluída!"},
+                        }
+                
+                return {
+                    "action": "complete_todoist_task",
+                    "success": False,
+                    "error": f"Tarefa '{titulo_ou_id}' não encontrada",
+                }
+            
+            elif action == "update_todoist_task":
+                import asyncio
+                from app.services.todoist_service import get_todoist_service
+                service = get_todoist_service()
+                filters = result_data.get("filters", {})
+                updates = result_data.get("updates", {})
+                titulo = filters.get("titulo", "")
+                
+                loop = asyncio.get_event_loop()
+                tasks = loop.run_until_complete(service.get_tasks())
+                
+                matching_task = None
+                for task in tasks:
+                    if titulo.lower() in task["content"].lower():
+                        matching_task = task
+                        break
+                
+                if matching_task:
+                    success = loop.run_until_complete(service.update_task(
+                        task_id=matching_task["id"],
+                        content=updates.get("content"),
+                        due_string=updates.get("due_string"),
+                        priority=updates.get("priority"),
+                    ))
+                    if success:
+                        logger.info(f"[EXECUTE] ✏️ Todoist task atualizada: {matching_task['content']}")
+                        return {
+                            "action": "update_todoist_task",
+                            "success": True,
+                            "data": {"message": f"Tarefa '{matching_task['content']}' atualizada!"},
+                        }
+                
+                return {
+                    "action": "update_todoist_task",
+                    "success": False,
+                    "error": f"Tarefa '{titulo}' não encontrada",
+                }
+            
+            elif action == "delete_todoist_task":
+                import asyncio
+                from app.services.todoist_service import get_todoist_service
+                service = get_todoist_service()
+                filters = result_data.get("filters", {})
+                titulo_ou_id = filters.get("titulo_ou_id", "")
+                
+                loop = asyncio.get_event_loop()
+                tasks = loop.run_until_complete(service.get_tasks())
+                
+                matching_task = None
+                for task in tasks:
+                    if titulo_ou_id.lower() in task["content"].lower() or task["id"] == titulo_ou_id:
+                        matching_task = task
+                        break
+                
+                if matching_task:
+                    success = loop.run_until_complete(service.delete_task(matching_task["id"]))
+                    if success:
+                        logger.info(f"[EXECUTE] 🗑️ Todoist task deletada: {matching_task['content']}")
+                        return {
+                            "action": "delete_todoist_task",
+                            "success": True,
+                            "data": {"message": f"Tarefa '{matching_task['content']}' deletada!"},
+                        }
+                
+                return {
+                    "action": "delete_todoist_task",
+                    "success": False,
+                    "error": f"Tarefa '{titulo_ou_id}' não encontrada",
+                }
+            
+            elif action == "check_todoist_alerts":
+                import asyncio
+                from app.services.todoist_service import get_todoist_service
+                service = get_todoist_service()
+                
+                loop = asyncio.get_event_loop()
+                alerts = loop.run_until_complete(service.check_deadlines())
+                
+                logger.info(f"[EXECUTE] ⚠️ Todoist alerts: {len(alerts)} encontrados")
+                return {
+                    "action": "check_todoist_alerts",
+                    "success": True,
+                    "data": {"alerts": alerts, "count": len(alerts)},
+                }
                 
         except Exception as e:
             logger.error(f"[EXECUTE] ❌ Erro ao executar {action}: {e}")
