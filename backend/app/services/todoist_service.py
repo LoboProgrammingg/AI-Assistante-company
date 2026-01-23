@@ -344,27 +344,61 @@ Responda APENAS com a mensagem, sem explicações."""
                     for task in tasks
                 ]
             else:
-                # Filtra tarefas de boas-vindas
-                welcome_keywords = [
-                    "começando a usar o todoist",
-                    "todoist em aparelhos móveis",
-                    "getting started",
-                    "welcome",
-                    "bem-vindo",
-                    "tutorial",
-                    "guia",
-                    "assista",
-                    "download"
-                ]
+                # Filtra tarefas de boas-vindas do Todoist
+                # Detecta tarefas de onboarding por padrões específicos
+                def is_onboarding_task(task_content: str) -> bool:
+                    content = task_content.lower()
+                    
+                    # Padrão 1: Contém links markdown com URLs do Todoist/YouTube
+                    # Ex: ([Assista](https://youtu.be/...))
+                    if "](http" in content and ("todoist" in content or "youtu" in content):
+                        return True
+                    
+                    # Padrão 2: Contém formato de link markdown com ações
+                    if any(action in content for action in [
+                        "[assista]", "[leia]", "[download]", "[obtenha", "[assinar]",
+                        "(assista)", "(leia)", "(download)",
+                    ]):
+                        return True
+                    
+                    # Padrão 3: Frases específicas de onboarding (PT-BR)
+                    onboarding_pt = [
+                        "visualização de tarefas",
+                        "captar:",
+                        "esclarecer:",
+                        "concluir:",
+                        "descobrir os layouts",
+                        "transformar qualquer e-mail",
+                        "receba inspirações",
+                        "separe 5 minutos todos os dias",
+                        "conectar seu calendário para ver",
+                        "risque as tarefas da lista",
+                        "desktop: **",
+                        "atalhos do teclado",
+                        "entrada e hoje",
+                        "em breve",
+                    ]
+                    if any(phrase in content for phrase in onboarding_pt):
+                        return True
+                    
+                    # Padrão 4: Frases específicas de onboarding (EN)
+                    onboarding_en = [
+                        "getting started",
+                        "capture:",
+                        "clarify:",
+                        "complete:",
+                        "discover layouts",
+                        "forward emails",
+                        "keyboard shortcuts",
+                        "monthly inspiration",
+                        "check off tasks",
+                    ]
+                    return any(phrase in content for phrase in onboarding_en)
                 
                 filtered_tasks = []
                 for task in tasks:
-                    content_lower = task.content.lower()
-                    # Verificar se é tarefa de boas-vindas
-                    is_welcome_task = any(keyword in content_lower for keyword in welcome_keywords)
-                    
-                    # Incluir apenas se não for tarefa de boas-vindas
-                    if not is_welcome_task:
+                    # Incluir apenas se não for tarefa de onboarding
+                    if not is_onboarding_task(task.content):
                         filtered_tasks.append({
                             "id": task.id,
                             "content": task.content,
