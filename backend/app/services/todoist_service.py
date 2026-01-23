@@ -301,6 +301,7 @@ Responda APENAS com a mensagem, sem explicações."""
         self,
         filter_str: str = None,
         project_id: str = None,
+        include_welcome: bool = False,
     ) -> list[dict]:
         """
         Busca tarefas do Todoist.
@@ -308,6 +309,7 @@ Responda APENAS com a mensagem, sem explicações."""
         Args:
             filter_str: Filtro do Todoist (ex: "today", "overdue", "p1")
             project_id: ID do projeto para filtrar
+            include_welcome: Incluir tarefas de boas-vindas
             
         Returns:
             Lista de tarefas
@@ -323,21 +325,60 @@ Responda APENAS com a mensagem, sem explicações."""
             else:
                 tasks = self.api.get_tasks()
 
-            return [
-                {
-                    "id": task.id,
-                    "content": task.content,
-                    "description": task.description,
-                    "due": task.due.__dict__ if task.due else None,
-                    "priority": task.priority,
-                    "project_id": task.project_id,
-                    "labels": task.labels,
-                    "is_completed": task.is_completed,
-                    "created_at": task.created_at,
-                    "url": task.url,
-                }
-                for task in tasks
-            ]
+            # Filtrar tarefas de boas-vindas do Todoist (se solicitado)
+            if include_welcome:
+                # Retorna todas as tarefas sem filtro
+                return [
+                    {
+                        "id": task.id,
+                        "content": task.content,
+                        "description": task.description,
+                        "due": task.due.__dict__ if task.due else None,
+                        "priority": task.priority,
+                        "project_id": task.project_id,
+                        "labels": task.labels,
+                        "is_completed": task.is_completed,
+                        "created_at": task.created_at,
+                        "url": task.url,
+                    }
+                    for task in tasks
+                ]
+            else:
+                # Filtra tarefas de boas-vindas
+                welcome_keywords = [
+                    "começando a usar o todoist",
+                    "todoist em aparelhos móveis",
+                    "getting started",
+                    "welcome",
+                    "bem-vindo",
+                    "tutorial",
+                    "guia",
+                    "assista",
+                    "download"
+                ]
+                
+                filtered_tasks = []
+                for task in tasks:
+                    content_lower = task.content.lower()
+                    # Verificar se é tarefa de boas-vindas
+                    is_welcome_task = any(keyword in content_lower for keyword in welcome_keywords)
+                    
+                    # Incluir apenas se não for tarefa de boas-vindas
+                    if not is_welcome_task:
+                        filtered_tasks.append({
+                            "id": task.id,
+                            "content": task.content,
+                            "description": task.description,
+                            "due": task.due.__dict__ if task.due else None,
+                            "priority": task.priority,
+                            "project_id": task.project_id,
+                            "labels": task.labels,
+                            "is_completed": task.is_completed,
+                            "created_at": task.created_at,
+                            "url": task.url,
+                        })
+                
+                return filtered_tasks
         except Exception as e:
             logger.error(f"❌ Erro ao buscar tarefas: {e}")
             return []

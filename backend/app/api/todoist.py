@@ -110,6 +110,7 @@ async def get_todoist_status(
 async def list_tasks(
     filter: Optional[str] = Query(None, description="Filtro: today, tomorrow, overdue, p1-p4"),
     project_id: Optional[str] = Query(None, description="ID do projeto"),
+    include_welcome: Optional[bool] = Query(False, description="Incluir tarefas de boas-vindas"),
     current_user: User = Depends(get_current_user),
 ):
     """
@@ -126,7 +127,8 @@ async def list_tasks(
     if not service.is_configured:
         raise HTTPException(status_code=503, detail="Todoist não configurado")
     
-    tasks = await service.get_tasks(filter_str=filter, project_id=project_id)
+    tasks = await service.get_tasks(filter_str=filter, project_id=project_id, include_welcome=include_welcome)
+    
     return tasks
 
 
