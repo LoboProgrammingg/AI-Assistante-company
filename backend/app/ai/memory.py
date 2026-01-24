@@ -209,12 +209,13 @@ class MemoryManager:
                     parts.append(f"     Conteúdo: {doc.get('content_preview')[:200]}...")
 
         if conversation:
-            parts.append("\nÚltimas mensagens (contexto expandido):")
-            # Aumentar para 15 mensagens para melhor contexto
-            for msg in conversation[-15:]:
-                role = "Usuário" if msg["role"] == "user" else "Assistente"
+            parts.append("\nHISTÓRICO RECENTE DA CONVERSA:")
+            # Aumentar para 20 mensagens e mostrar mais conteúdo para melhor contexto
+            for msg in conversation[-20:]:
+                role = "👤 Usuário" if msg["role"] == "user" else "🤖 IRIS"
                 intent = f" [{msg.get('intent', '')}]" if msg.get("intent") else ""
-                content = msg["content"][:150] + "..." if len(msg["content"]) > 150 else msg["content"]
+                # Aumentar limite de conteúdo para 300 chars para manter mais contexto
+                content = msg["content"][:300] + "..." if len(msg["content"]) > 300 else msg["content"]
                 parts.append(f"  {role}{intent}: {content}")
 
         # Adicionar ações recentes confirmadas para evitar alucinações

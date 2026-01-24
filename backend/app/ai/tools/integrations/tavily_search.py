@@ -33,6 +33,7 @@ class TavilySearchTools:
         """
         Busca informações na web em tempo real.
         Use para: notícias, informações atualizadas, pesquisas gerais.
+        SEMPRE inclua os links na resposta ao usuário.
         
         Args:
             query: Termo de busca
@@ -42,17 +43,25 @@ class TavilySearchTools:
             client = TavilyClient(api_key=settings.TAVILY_API_KEY)
             response = client.search(
                 query=query,
-                search_depth="basic",
+                search_depth="advanced",
                 max_results=min(max_results, 10),
                 include_answer=True,
+                include_raw_content=False,
             )
             
             results = []
             if response.get("answer"):
-                results.append(f"Resumo: {response['answer']}")
+                results.append(f"📋 *Resumo:* {response['answer']}\n")
             
+            results.append("🔗 *Fontes:*")
             for r in response.get("results", [])[:max_results]:
-                results.append(f"- {r['title']}: {r['content'][:200]}...")
+                title = r.get('title', 'Sem título')
+                url = r.get('url', '')
+                content = r.get('content', '')[:250]
+                results.append(f"\n• *{title}*")
+                results.append(f"  {content}...")
+                if url:
+                    results.append(f"  Link: {url}")
             
             return "\n".join(results) if results else "Nenhum resultado encontrado."
         except Exception as e:
@@ -63,6 +72,7 @@ class TavilySearchTools:
     def _search_news(query: str, days: int = 7) -> str:
         """
         Busca notícias recentes sobre um tema.
+        SEMPRE inclua os links das notícias na resposta.
         
         Args:
             query: Termo de busca
@@ -73,7 +83,7 @@ class TavilySearchTools:
             response = client.search(
                 query=query,
                 search_depth="advanced",
-                topic="general",
+                topic="news",
                 days=min(days, 30),
                 max_results=10,
                 include_answer=True,
@@ -81,10 +91,21 @@ class TavilySearchTools:
             
             results = []
             if response.get("answer"):
-                results.append(f"Resumo: {response['answer']}")
+                results.append(f"📰 *Resumo das notícias:* {response['answer']}\n")
             
+            results.append("🔗 *Notícias encontradas:*")
             for r in response.get("results", []):
-                results.append(f"- {r['title']}: {r['content'][:150]}...")
+                title = r.get('title', 'Sem título')
+                url = r.get('url', '')
+                content = r.get('content', '')[:200]
+                published = r.get('published_date', '')
+                
+                results.append(f"\n• *{title}*")
+                if published:
+                    results.append(f"  📅 {published}")
+                results.append(f"  {content}...")
+                if url:
+                    results.append(f"  Link: {url}")
             
             return "\n".join(results) if results else "Nenhuma notícia encontrada."
         except Exception as e:

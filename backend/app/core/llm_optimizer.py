@@ -138,26 +138,46 @@ class LLMOptimizer:
         message_lower = message.lower().strip()
 
         # Padrões óbvios de intenção
-        # IMPORTANTE: "agendar reunião" é REMINDER, não MEETING
-        # MEETING é apenas para transcrições de reuniões já realizadas
+        # IMPORTANTE: 
+        # - "agendar reunião" é REMINDER, não MEETING
+        # - "anota uma tarefa" é GENERAL (usa Todoist)
+        # - MEETING é apenas para transcrições de reuniões já realizadas
         fast_patterns = {
+            # GENERAL tem prioridade para tarefas do Todoist
+            "general": [
+                "anota uma tarefa",
+                "anote uma tarefa",
+                "cria uma tarefa",
+                "criar tarefa",
+                "adiciona tarefa",
+                "adicione tarefa",
+                "coloca no todoist",
+                "add no todoist",
+                "tarefa no todoist",
+                "nova tarefa",
+                "pesquisa sobre",
+                "busca sobre",
+                "o que é",
+                "quem é",
+                "como funciona",
+                "me explica",
+                "me conta",
+            ],
             "reminder": [
                 "me lembre",
                 "lembre-me",
                 "lembrete",
                 "não esquecer",
                 "me avise",
-                "avisa",
+                "avisa quando",
                 "alarme",
                 "agenda pra",
                 "agendar reunião",
                 "marcar reunião",
                 "agende uma reunião",
                 "agende reunião",
-                "compromisso",
-                "às 17",
-                "às 18",
-                "às 19",
+                "marca um compromisso",
+                "compromisso às",
                 "amanhã às",
                 "hoje às",
                 "delete o lembrete",
@@ -189,19 +209,20 @@ class LLMOptimizer:
                 "altere o valor",
             ],
             "meeting": [
-                "transcreva",
-                "transcrição",
+                "transcreva isso",
+                "transcrição da reunião",
                 "resumo da reunião",
                 "ata da reunião",
                 "resuma a reunião",
-                "o que foi discutido",
+                "analise essa reunião",
+                "o que foi discutido na reunião",
             ],
             "contact": [
                 "salvar contato",
                 "novo contato",
                 "adicionar contato",
-                "enviar mensagem",
-                "manda mensagem",
+                "enviar mensagem para",
+                "manda mensagem para",
                 "broadcast",
                 "lista de contatos",
                 "meus contatos",

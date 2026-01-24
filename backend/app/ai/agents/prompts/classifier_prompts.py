@@ -17,52 +17,52 @@ class ClassifierPrompts:
             message: Mensagem atual do usuário (truncada em 1000 chars)
             audio_hint: Dica adicional se for áudio longo
         """
-        return f"""
-Você é um assistente especializado em classificar intenções de mensagens.
-Analise a mensagem ATUAL do usuário considerando o CONTEXTO da conversa anterior.
+        return f"""Classifique a intenção da mensagem do usuário.
 
-HISTÓRICO DA CONVERSA (últimas mensagens):
-{conversation_history if conversation_history else "Sem histórico anterior"}
+HISTÓRICO: {conversation_history if conversation_history else "Sem histórico"}
 
-MENSAGEM ATUAL DO USUÁRIO: "{message[:1000]}"
+MENSAGEM: "{message[:1000]}"
 {audio_hint}
 
-REGRAS DE CLASSIFICAÇÃO:
-1. Se o usuário menciona VALORES em reais (R$, reais), PREÇOS, GASTOS, ou quer DELETAR/EDITAR gastos → finance
-2. Se menciona HORÁRIO, DATA, AGENDAR, LEMBRAR, MARCAR, compromisso, ou quer DELETAR/EDITAR lembretes → reminder
-3. Se o usuário ENVIOU UMA TRANSCRIÇÃO de reunião para resumir/analisar → meeting
-4. Se menciona CONTATO, SALVAR NÚMERO, ADICIONAR PESSOA, ou quer DELETAR/EDITAR contatos → contact
-5. Se é uma CONTINUAÇÃO de uma conversa anterior (ex: "sim", "prossiga", "ok"), 
-   MANTENHA a mesma intenção do histórico
-6. Apenas classifique como "general" se REALMENTE for conversa casual
+## REGRAS DE CLASSIFICAÇÃO:
 
-⚠️ ATENÇÃO CRÍTICA:
-- "Agendar reunião às 17h" → É REMINDER (agendamento futuro)
-- "Marcar compromisso" → É REMINDER
-- "Me lembre da reunião" → É REMINDER
-- MEETING é APENAS para transcrições de reuniões que já aconteceram!
+### 🔴 TAREFA vs LEMBRETE (CRÍTICO!):
+- "Anota/cria/adiciona uma TAREFA" → general (usa Todoist)
+- "Coloca no Todoist" → general (usa Todoist)
+- "Me LEMBRA de algo" / "LEMBRETE" → reminder (banco local)
+- "Agenda/marca um COMPROMISSO" → reminder (banco local)
 
-🗑️ DELEÇÃO E EDIÇÃO (muito importante!):
-- "Delete o uber" / "Remove a fralda" / "Apaga o gasto" → finance (deletar)
-- "Na verdade eram 400 reais" / "Corrija o valor" → finance (editar)
-- "Delete o lembrete" / "Cancela o compromisso" → reminder (deletar)
-- "Mude o horário para 18h" → reminder (editar)
-- "Remove o contato do João" → contact (deletar)
+### 📌 INTENÇÕES:
 
-Intenções:
-- reminder: QUALQUER agendamento futuro (reuniões, compromissos, lembretes, horários)
-- finance: Gastos, receitas, valores, dinheiro, preços
-- meeting: APENAS transcrições/resumos de reuniões JÁ realizadas (textos longos com diálogos)
-- contact: Adicionar contatos, salvar números, gerenciar pessoas/grupos
-- general: Conversas gerais, perguntas, pesquisas
+**finance** - Dinheiro e gastos:
+- Valores em R$, gastos, receitas, preços
+- "Gastei 50 no uber", "Recebi 1000"
+- Delete/edite gastos
 
-Retorne APENAS JSON válido:
-{{
-    "intent": "reminder|finance|meeting|contact|general",
-    "confidence": 0.0-1.0,
-    "entities": {{}},
-    "reasoning": "breve explicação da classificação"
-}}
+**reminder** - Lembretes e compromissos:
+- "Me lembra às 10h", "Marca uma reunião"
+- Agendamentos com horário específico
+- Delete/edite lembretes
+
+**meeting** - APENAS transcrições longas:
+- Textos longos com diálogos de reuniões
+- "Resuma essa reunião", "Analise a transcrição"
+- NÃO é para agendar reuniões!
+
+**contact** - Contatos e mensagens:
+- Salvar/buscar contatos, números
+- Agendar envio de mensagens
+
+**general** - TODO O RESTO:
+- Perguntas gerais, conversas
+- Pesquisas na web
+- "Anota uma tarefa" (usa Todoist)
+- Qualquer dúvida ou pedido de informação
+
+⚠️ NA DÚVIDA → general (a IA é inteligente e resolve)
+
+JSON:
+{{"intent": "finance|reminder|meeting|contact|general", "confidence": 0.0-1.0, "entities": {{}}, "reasoning": "..."}}
 """
 
     @staticmethod

@@ -65,17 +65,31 @@ class GoogleCalendarTools:
         adicionar_meet: bool = True
     ) -> str:
         """
-        Cria um evento no Google Calendar do usuário.
-        O usuário precisa ter conectado seu Google Calendar no dashboard.
+        Cria um evento/reunião no Google Calendar do usuário COM convites por e-mail.
+        
+        IMPORTANTE - FLUXO DE CRIAÇÃO:
+        1. Se o usuário NÃO informou participantes, PERGUNTE os e-mails antes de criar
+        2. Participantes recebem convite por e-mail automaticamente
+        3. Se adicionar_meet=True, um link do Google Meet é gerado
+        
+        O usuário precisa ter conectado seu Google Calendar nas Configurações.
 
         Args:
-            titulo: Título do evento/reunião
-            data_hora: Data e hora (formato: YYYY-MM-DD HH:MM)
+            titulo: Título do evento/reunião (obrigatório)
+            data_hora: Data e hora no formato YYYY-MM-DD HH:MM (obrigatório)
             duracao_minutos: Duração em minutos (padrão: 60)
-            descricao: Descrição do evento (opcional)
-            participantes: Emails dos participantes separados por vírgula (opcional)
-            adicionar_meet: Se True, cria link do Google Meet (padrão: True)
+            descricao: Descrição ou pauta da reunião (opcional mas recomendado)
+            participantes: E-MAILS dos participantes separados por vírgula (ex: "joao@email.com, maria@email.com")
+            adicionar_meet: Se True, cria link do Google Meet automaticamente (padrão: True)
+        
+        Returns:
+            Dict com status da ação e dados do evento
         """
+        participantes_list = [e.strip() for e in participantes.split(',') if e.strip() and '@' in e] if participantes else []
+        
+        # Se não tem participantes, sinalizar para pedir
+        needs_participants = len(participantes_list) == 0
+        
         return {
             "status": "pending_calendar_action",
             "action": "create_event",
@@ -84,10 +98,11 @@ class GoogleCalendarTools:
                 "data_hora": data_hora,
                 "duracao_minutos": duracao_minutos,
                 "descricao": descricao,
-                "participantes": [e.strip() for e in participantes.split(',') if e.strip()] if participantes else [],
+                "participantes": participantes_list,
                 "adicionar_meet": adicionar_meet
             },
-            "message": f"Evento '{titulo}' será criado quando o calendário estiver conectado."
+            "needs_participants": needs_participants,
+            "message": f"Evento '{titulo}' agendado para {data_hora}." if participantes_list else f"Para enviar convites, preciso dos e-mails dos participantes."
         }
 
     @tool

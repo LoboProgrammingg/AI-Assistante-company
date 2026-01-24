@@ -29,6 +29,19 @@ class ListarReunioesSchema(BaseModel):
     periodo: str = Field(description="Período: hoje, amanha, semana, mes", default="semana")
 
 
+class ResumirTranscricaoSchema(BaseModel):
+    """Schema para resumir transcrição de reunião."""
+
+    transcricao: str = Field(
+        description="Texto da transcrição da reunião a ser resumida",
+        min_length=50,
+    )
+    formato: str = Field(
+        description="Formato do resumo: 'completo' (com ata detalhada), 'executivo' (pontos principais), 'acoes' (apenas ações e responsáveis)",
+        default="completo",
+    )
+
+
 @tool(args_schema=CriarReuniaoSchema)
 def criar_reuniao(
     titulo: str, data_hora: str, participantes: str = "", duracao_minutos: int = 60, local: Optional[str] = None
@@ -62,12 +75,31 @@ def listar_reunioes(periodo: str = "semana") -> dict:
     return {"action": "list_meetings", "filters": {"periodo": periodo}, "status": "pending_execution"}
 
 
+@tool(args_schema=ResumirTranscricaoSchema)
+def resumir_transcricao(transcricao: str, formato: str = "completo") -> dict:
+    """
+    Resume e analisa a transcrição de uma reunião.
+    Use quando o usuário enviar uma transcrição de reunião para análise.
+    
+    Formatos disponíveis:
+    - completo: Ata detalhada com todos os pontos discutidos
+    - executivo: Resumo executivo com pontos principais
+    - acoes: Lista apenas ações definidas e responsáveis
+    """
+    return {
+        "action": "summarize_transcription",
+        "transcription": transcricao,
+        "format": formato,
+        "status": "pending_execution",
+    }
+
+
 class MeetingTools:
     """Agregador de tools de reuniões."""
 
     @staticmethod
     def get_all_tools() -> List:
-        return [criar_reuniao, listar_reunioes]
+        return [criar_reuniao, listar_reunioes, resumir_transcricao]
 
     @staticmethod
     def execute_tool_result(result: dict, db, user_id: int) -> dict:

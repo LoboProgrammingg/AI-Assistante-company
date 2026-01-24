@@ -67,9 +67,12 @@ class RouterNode:
         user_ctx = state.get("user_context") or {}
         is_audio = user_ctx.is_audio if isinstance(user_ctx, UserContext) else False
 
+        # Limitar mensagem para classificação rápida
+        message_for_classification = last_message.content[:500]
+        
         classification_prompt = ClassifierPrompts.get_classification_prompt(
             conversation_history=self._format_conversation(state),
-            message=last_message.content,
+            message=message_for_classification,
             audio_hint=ClassifierPrompts.get_audio_hint(len(last_message.content)) if is_audio else "",
         )
 

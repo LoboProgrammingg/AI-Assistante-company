@@ -37,6 +37,8 @@ class ResponseFormatterNode:
         Formata resposta final para o usuário.
         
         IMPORTANTE: Retorna dict com atualizações (estado imutável - padrão LangGraph)
+        
+        OTIMIZAÇÃO: Evita chamadas LLM desnecessárias quando já temos resposta válida.
         """
         user_ctx = state.get("user_context")
         user_name = user_ctx.user_name if user_ctx else ""
@@ -45,14 +47,20 @@ class ResponseFormatterNode:
 
         logger.info(f"[FORMATTER] 🔍 Tool results pendentes: {len(tool_results)}")
 
-        # Se já tem resposta do agente E não há tool_results para processar, retornar vazio
+        # OTIMIZAÇÃO: Se já tem resposta do agente E não há tool_results, retornar a resposta existente
         if state["messages"] and isinstance(state["messages"][-1], AIMessage) and not tool_results:
-            logger.info("[FORMATTER] ⏭️ Resposta já existe e sem tool_results, pulando")
-            return {}
+            last_msg = state["messages"][-1]
+            # Se a resposta já existe e tem conteúdo válido, não precisa gerar outra
+            if last_msg.content and len(last_msg.content) > 10:
+                logger.info("[FORMATTER] ⚡ Resposta já existe, pulando LLM call")
+                return {}
 
         if tool_results:
             return self._process_tool_results(state, tool_results, user_name)
         else:
+            # OTIMIZAÇÃO: Para general, se já tem resposta, não gerar outra
+            if state["messages"] and isinstance(state["messages"][-1], AIMessage):
+                return {}
             return self._generate_general_response(state, user_name)
 
     def _process_tool_results(
@@ -545,6 +553,172 @@ class ResponseFormatterNode:
                         "success": False,
                         "error": str(e),
                     }
+            
+            # ========== TRANSCRIÇÃO DE REUNIÕES ==========
+            elif action == "summarize_transcription":
+                transcription = result_data.get("transcription", "")
+                format_type = result_data.get("format", "completo")
+                
+                if not transcription or len(transcription) < 50:
+                    return {
+                        "action": "summarize_transcription",
+                        "success": False,
+                        "error": "Transcrição muito curta ou vazia",
+                    }
+                
+                # Gerar resumo usando LLM
+                summary = self._generate_meeting_summary(transcription, format_type)
+                logger.info(f"[EXECUTE] 📝 Transcrição resumida: {len(summary)} chars")
+                
+                return {
+                    "action": "summarize_transcription",
+                    "success": True,
+                    "data": {
+                        "summary": summary,
+                        "format": format_type,
+                        "original_length": len(transcription),
+                    },
+                }
+            
+            # ========== GOOGLE CALENDAR ==========
+            elif action == "create_event":
+                from datetime import datetime, timedelta
+                from app.services.google_calendar_service import GoogleCalendarService
+                
+                params = result_data.get("params", {})
+                titulo = params.get("titulo", "Reunião")
+                data_hora_str = params.get("data_hora", "")
+                duracao = params.get("duracao_minutos", 60)
+                descricao = params.get("descricao", "")
+                participantes = params.get("participantes", [])
+                adicionar_meet = params.get("adicionar_meet", True)
+                
+                try:
+                    # Parse data/hora
+                    start_time = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M")
+                    end_time = start_time + timedelta(minutes=duracao)
+                    
+                    service = GoogleCalendarService(db)
+                    
+                    # Verificar se usuário tem Calendar conectado
+                    if not service.is_user_connected(user_id):
+                        return {
+                            "action": "create_event",
+                            "success": False,
+                            "error": "Google Calendar não conectado. Conecte nas Configurações.",
+                            "needs_connection": True,
+                        }
+                    
+                    result = service.create_event(
+                        user_id=user_id,
+                        title=titulo,
+                        start_time=start_time,
+                        end_time=end_time,
+                        description=descricao,
+                        attendees=participantes,
+                        add_meet=adicionar_meet,
+                    )
+                    
+                    if result.get("success"):
+                        logger.info(f"[EXECUTE] 📅 Evento criado: {titulo}")
+                        return {
+                            "action": "create_event",
+                            "success": True,
+                            "data": result.get("event"),
+                        }
+                    else:
+                        return {
+                            "action": "create_event",
+                            "success": False,
+                            "error": result.get("error", "Erro ao criar evento"),
+                        }
+                except ValueError as e:
+                    return {
+                        "action": "create_event",
+                        "success": False,
+                        "error": f"Formato de data inválido: {data_hora_str}. Use YYYY-MM-DD HH:MM",
+                    }
+            
+            elif action == "list_events":
+                from datetime import datetime, timedelta, timezone
+                from app.services.google_calendar_service import GoogleCalendarService
+                
+                params = result_data.get("params", {})
+                dias = params.get("dias", 7)
+                
+                service = GoogleCalendarService(db)
+                
+                if not service.is_user_connected(user_id):
+                    return {
+                        "action": "list_events",
+                        "success": False,
+                        "error": "Google Calendar não conectado. Conecte nas Configurações.",
+                        "needs_connection": True,
+                    }
+                
+                time_max = datetime.now(timezone.utc) + timedelta(days=dias)
+                result = service.list_events(user_id=user_id, max_results=20, time_max=time_max)
+                
+                if result.get("success"):
+                    logger.info(f"[EXECUTE] 📅 {len(result.get('events', []))} eventos listados")
+                    return {
+                        "action": "list_events",
+                        "success": True,
+                        "data": {"events": result.get("events", [])},
+                    }
+                else:
+                    return {
+                        "action": "list_events",
+                        "success": False,
+                        "error": result.get("error"),
+                    }
+            
+            elif action == "check_availability":
+                from datetime import datetime, timezone
+                from app.services.google_calendar_service import GoogleCalendarService
+                
+                params = result_data.get("params", {})
+                data = params.get("data", "")
+                hora_inicio = params.get("hora_inicio", "08:00")
+                hora_fim = params.get("hora_fim", "18:00")
+                
+                service = GoogleCalendarService(db)
+                
+                if not service.is_user_connected(user_id):
+                    return {
+                        "action": "check_availability",
+                        "success": False,
+                        "error": "Google Calendar não conectado. Conecte nas Configurações.",
+                        "needs_connection": True,
+                    }
+                
+                try:
+                    start_time = datetime.strptime(f"{data} {hora_inicio}", "%Y-%m-%d %H:%M")
+                    end_time = datetime.strptime(f"{data} {hora_fim}", "%Y-%m-%d %H:%M")
+                    
+                    result = service.check_availability(user_id, start_time, end_time)
+                    
+                    if result.get("success"):
+                        return {
+                            "action": "check_availability",
+                            "success": True,
+                            "data": {
+                                "is_free": result.get("is_free"),
+                                "busy_times": result.get("busy_times", []),
+                            },
+                        }
+                    else:
+                        return {
+                            "action": "check_availability",
+                            "success": False,
+                            "error": result.get("error"),
+                        }
+                except ValueError:
+                    return {
+                        "action": "check_availability",
+                        "success": False,
+                        "error": "Formato de data/hora inválido",
+                    }
                 
         except Exception as e:
             logger.error(f"[EXECUTE] ❌ Erro ao executar {action}: {e}")
@@ -758,3 +932,60 @@ Responda de forma natural e amigável, usando os dados acima. Seja conciso."""
         )
         response = self.llm.invoke(response_prompt)
         return {"messages": [AIMessage(content=response.content)]}
+
+    def _generate_meeting_summary(self, transcription: str, format_type: str) -> str:
+        """
+        Gera resumo de transcrição de reunião usando LLM.
+        
+        Args:
+            transcription: Texto da transcrição
+            format_type: Tipo de resumo (completo, executivo, acoes)
+            
+        Returns:
+            Resumo formatado
+        """
+        format_instructions = {
+            "completo": """Gere uma ATA COMPLETA da reunião com:
+1. *Título/Tema da Reunião*
+2. *Participantes identificados* (se mencionados)
+3. *Pontos Discutidos* - Lista detalhada de todos os tópicos
+4. *Decisões Tomadas* - O que foi acordado
+5. *Ações Definidas* - Tarefas, responsáveis e prazos
+6. *Próximos Passos* - O que acontece depois""",
+            
+            "executivo": """Gere um RESUMO EXECUTIVO conciso com:
+1. *Objetivo da Reunião*
+2. *Principais Pontos* (máximo 5 bullets)
+3. *Decisões-Chave*
+4. *Ações Críticas*""",
+            
+            "acoes": """Liste APENAS as AÇÕES definidas na reunião:
+Para cada ação, inclua:
+- *O quê*: Descrição da tarefa
+- *Quem*: Responsável (se mencionado)
+- *Quando*: Prazo (se mencionado)
+
+Se não houver ações claras, indique isso.""",
+        }
+        
+        instructions = format_instructions.get(format_type, format_instructions["completo"])
+        
+        prompt = f"""Você é um especialista em análise de reuniões.
+Analise a transcrição abaixo e gere o resumo solicitado.
+
+FORMATO SOLICITADO:
+{instructions}
+
+TRANSCRIÇÃO DA REUNIÃO:
+{transcription[:15000]}
+
+REGRAS:
+- Use formatação WhatsApp: *negrito* para títulos, _itálico_ para destaques
+- Seja objetivo e claro
+- Extraia informações mesmo que a transcrição não esteja perfeita
+- Se algo não estiver claro, indique com [não especificado]
+
+Gere o resumo:"""
+
+        response = self.llm.invoke(prompt)
+        return response.content

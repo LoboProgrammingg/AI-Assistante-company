@@ -82,15 +82,15 @@ class IRISGraphV2:
             model=self.model,
             google_api_key=self.api_key,
             temperature=0.7,
-            max_output_tokens=20000,
+            max_output_tokens=8000,
         )
 
         # LLM rápido para classificação (flash é 10x mais rápido)
         self.llm_fast = ChatGoogleGenerativeAI(
-            model="gemini-2.5-pro",
+            model="gemini-2.5-flash",
             google_api_key=self.api_key,
-            temperature=0.7,
-            max_output_tokens=2000,
+            temperature=0.3,
+            max_output_tokens=500,
         )
 
     def _collect_tools(self) -> list:
