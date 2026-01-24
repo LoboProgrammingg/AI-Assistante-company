@@ -143,6 +143,13 @@ class ResponseFormatterNode:
                 self._aggregate_by_action(aggregated, action, result_data)
                 
             elif result_data.get("status") == "pending_calendar_action":
+                # Executar ação do Google Calendar
+                if db and user_id:
+                    action = result_data.get("action", "")
+                    executed = self._execute_pending_action(db, user_id, action, result_data)
+                    if executed:
+                        aggregated["calendar_actions"].append(executed)
+                        continue
                 aggregated["calendar_actions"].append(result_data)
 
         return aggregated
