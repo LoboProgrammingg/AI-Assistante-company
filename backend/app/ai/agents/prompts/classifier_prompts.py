@@ -39,12 +39,19 @@ MENSAGEM: "{message[:1000]}"
 - "Gastei 50 no uber", "Recebi 1000"
 - Delete/edite gastos
 
-**reminder** - Lembretes e compromissos:
-- "Me lembra às 10h", "Marca uma reunião"
-- Agendamentos com horário específico
+**reminder** - Lembretes e compromissos LOCAIS:
+- "Me lembra às 10h", "Lembrete de tomar remédio"
+- Compromissos pessoais simples
 - Delete/edite lembretes
 
-**meeting** - APENAS transcrições longas:
+**meeting** - Reuniões e eventos no Google Calendar:
+- "Agenda uma reunião", "Marca evento", "Cria compromisso"
+- "Agende no Google Calendar", "Reunião com clientes"
+- Pedidos de agendamento que envolvem outras pessoas
+- Eventos que precisam de convites ou links
+- "Aula de violão", "Consulta médica", "Reunião de trabalho"
+
+**transcription** - APENAS transcrições longas:
 - Textos longos com diálogos de reuniões
 - "Resuma essa reunião", "Analise a transcrição"
 - NÃO é para agendar reuniões!

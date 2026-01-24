@@ -508,6 +508,43 @@ export const todoistApi = {
   getTodaySummary: () => api.get<TodoistSummary>("/todoist/tasks/today/summary"),
 }
 
+// ==================== Integrações (Google Calendar, etc) ====================
+
+export interface IntegrationStatus {
+  provider: string
+  connected: boolean
+  account_email?: string
+  account_name?: string
+}
+
+export interface ConnectResponse {
+  authorization_url: string
+}
+
+export interface AvailableIntegration {
+  provider: string
+  name: string
+  description: string
+  configured: boolean
+  icon: string
+}
+
+export const integrationsApi = {
+  // Google Calendar
+  getGoogleCalendarStatus: () =>
+    api.get<IntegrationStatus>("/integrations/google-calendar/status"),
+
+  connectGoogleCalendar: () =>
+    api.get<ConnectResponse>("/integrations/google-calendar/connect"),
+
+  disconnectGoogleCalendar: () =>
+    api.delete<{ success: boolean; message: string }>("/integrations/google-calendar/disconnect"),
+
+  // Listar integrações disponíveis
+  getAvailable: () =>
+    api.get<{ integrations: AvailableIntegration[] }>("/integrations/available"),
+}
+
 export const documentsApi = {
   list: (params?: { category?: string; send_to_ai?: boolean; search?: string; page?: number; limit?: number }) =>
     api.get<DocumentListResponse>("/documents/", { params }),

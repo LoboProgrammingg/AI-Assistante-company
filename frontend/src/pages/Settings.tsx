@@ -1,13 +1,14 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
-import { User, Palette, Bell, Shield, Lock, MapPin } from "lucide-react"
+import { User, Palette, Bell, Shield, Lock, MapPin, Calendar, Loader2, CheckCircle, XCircle, ExternalLink } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { useAuthStore } from "@/stores/auth"
 import { useThemeStore } from "@/stores/theme"
-import { authApi } from "@/lib/api"
+import { authApi, integrationsApi } from "@/lib/api"
 import toast from "react-hot-toast"
+import { useSearchParams } from "react-router-dom"
 
 const BRAZILIAN_STATES = [
   { value: "AC", label: "Acre" },
@@ -56,6 +57,7 @@ export function Settings() {
   const { user, updateUser } = useAuthStore()
   const { theme, setTheme } = useThemeStore()
   const queryClient = useQueryClient()
+  const [searchParams, setSearchParams] = useSearchParams()
 
   const [name, setName] = useState(user?.name || "")
   const [timezone, setTimezone] = useState(user?.timezone || "America/Sao_Paulo")
@@ -65,6 +67,62 @@ export function Settings() {
   const [newPassword, setNewPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
   const [isChangingPassword, setIsChangingPassword] = useState(false)
+
+  // Google Calendar Integration
+  const { data: calendarStatus, isLoading: isLoadingCalendar, refetch: refetchCalendar } = useQuery({
+    queryKey: ["google-calendar-status"],
+    queryFn: async () => {
+      const res = await integrationsApi.getGoogleCalendarStatus()
+      return res.data
+    },
+  })
+
+  const connectCalendarMutation = useMutation({
+    mutationFn: async () => {
+      const res = await integrationsApi.connectGoogleCalendar()
+      return res.data
+    },
+    onSuccess: (data) => {
+      // Redirecionar para página de autorização do Google
+      window.location.href = data.authorization_url
+    },
+    onError: () => {
+      toast.error("Erro ao conectar Google Calendar")
+    },
+  })
+
+  const disconnectCalendarMutation = useMutation({
+    mutationFn: async () => {
+      const res = await integrationsApi.disconnectGoogleCalendar()
+      return res.data
+    },
+    onSuccess: () => {
+      toast.success("Google Calendar desconectado")
+      refetchCalendar()
+    },
+    onError: () => {
+      toast.error("Erro ao desconectar")
+    },
+  })
+
+  // Processar callback do OAuth
+  useEffect(() => {
+    const integration = searchParams.get("integration")
+    const status = searchParams.get("status")
+    const email = searchParams.get("email")
+    const message = searchParams.get("message")
+
+    if (integration === "google_calendar") {
+      if (status === "success") {
+        toast.success(`Google Calendar conectado: ${email}`)
+        refetchCalendar()
+      } else if (status === "error") {
+        toast.error(`Erro: ${message || "Falha na conexão"}`)
+      }
+      // Limpar params da URL
+      setSearchParams({})
+    }
+  }, [searchParams, setSearchParams, refetchCalendar])
 
   const handleSaveProfile = async () => {
     try {
@@ -335,6 +393,93 @@ export function Settings() {
               <Button variant="outline" size="sm">
                 Exportar
               </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Integrações */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Calendar className="h-5 w-5" />
+            Integrações
+          </CardTitle>
+          <CardDescription>
+            Conecte suas contas para sincronizar eventos e criar reuniões automaticamente.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Google Calendar */}
+            <div className="flex items-center justify-between p-4 border rounded-lg">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+                  <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <p className="font-medium flex items-center gap-2">
+                    Google Calendar
+                    {calendarStatus?.connected && (
+                      <CheckCircle className="h-4 w-4 text-green-500" />
+                    )}
+                  </p>
+                  {calendarStatus?.connected ? (
+                    <p className="text-sm text-muted-foreground">
+                      Conectado: {calendarStatus.account_email}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Sincronize eventos e crie reuniões com Google Meet
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                {isLoadingCalendar ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : calendarStatus?.connected ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => disconnectCalendarMutation.mutate()}
+                    disabled={disconnectCalendarMutation.isPending}
+                  >
+                    {disconnectCalendarMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <XCircle className="h-4 w-4 mr-2" />
+                    )}
+                    Desconectar
+                  </Button>
+                ) : (
+                  <Button
+                    size="sm"
+                    onClick={() => connectCalendarMutation.mutate()}
+                    disabled={connectCalendarMutation.isPending}
+                  >
+                    {connectCalendarMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                    )}
+                    Conectar
+                  </Button>
+                )}
+              </div>
+            </div>
+
+            {/* Info sobre integrações */}
+            <div className="bg-muted/50 p-4 rounded-lg">
+              <p className="text-sm text-muted-foreground">
+                <strong>Dica:</strong> Ao conectar o Google Calendar, a IRIS poderá:
+              </p>
+              <ul className="text-sm text-muted-foreground mt-2 space-y-1 list-disc list-inside">
+                <li>Criar eventos e reuniões automaticamente</li>
+                <li>Enviar convites para participantes via e-mail</li>
+                <li>Gerar links do Google Meet</li>
+                <li>Verificar sua disponibilidade</li>
+              </ul>
             </div>
           </div>
         </CardContent>
