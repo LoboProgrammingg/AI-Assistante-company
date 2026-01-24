@@ -590,6 +590,7 @@ class ResponseFormatterNode:
             # ========== GOOGLE CALENDAR ==========
             elif action == "create_event":
                 from datetime import datetime, timedelta
+                from zoneinfo import ZoneInfo
                 from app.services.google_calendar_service import GoogleCalendarService
                 
                 params = result_data.get("params", {})
@@ -601,8 +602,9 @@ class ResponseFormatterNode:
                 adicionar_meet = params.get("adicionar_meet", True)
                 
                 try:
-                    # Parse data/hora
-                    start_time = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M")
+                    # Parse data/hora com timezone do Brasil
+                    tz = ZoneInfo("America/Sao_Paulo")
+                    start_time = datetime.strptime(data_hora_str, "%Y-%m-%d %H:%M").replace(tzinfo=tz)
                     end_time = start_time + timedelta(minutes=duracao)
                     
                     service = GoogleCalendarService(db)
@@ -647,7 +649,8 @@ class ResponseFormatterNode:
                     }
             
             elif action == "list_events":
-                from datetime import datetime, timedelta, timezone
+                from datetime import datetime, timedelta
+                from zoneinfo import ZoneInfo
                 from app.services.google_calendar_service import GoogleCalendarService
                 
                 params = result_data.get("params", {})
@@ -663,7 +666,8 @@ class ResponseFormatterNode:
                         "needs_connection": True,
                     }
                 
-                time_max = datetime.now(timezone.utc) + timedelta(days=dias)
+                tz = ZoneInfo("America/Sao_Paulo")
+                time_max = datetime.now(tz) + timedelta(days=dias)
                 result = service.list_events(user_id=user_id, max_results=20, time_max=time_max)
                 
                 if result.get("success"):
@@ -681,7 +685,8 @@ class ResponseFormatterNode:
                     }
             
             elif action == "check_availability":
-                from datetime import datetime, timezone
+                from datetime import datetime
+                from zoneinfo import ZoneInfo
                 from app.services.google_calendar_service import GoogleCalendarService
                 
                 params = result_data.get("params", {})
@@ -700,8 +705,9 @@ class ResponseFormatterNode:
                     }
                 
                 try:
-                    start_time = datetime.strptime(f"{data} {hora_inicio}", "%Y-%m-%d %H:%M")
-                    end_time = datetime.strptime(f"{data} {hora_fim}", "%Y-%m-%d %H:%M")
+                    tz = ZoneInfo("America/Sao_Paulo")
+                    start_time = datetime.strptime(f"{data} {hora_inicio}", "%Y-%m-%d %H:%M").replace(tzinfo=tz)
+                    end_time = datetime.strptime(f"{data} {hora_fim}", "%Y-%m-%d %H:%M").replace(tzinfo=tz)
                     
                     result = service.check_availability(user_id, start_time, end_time)
                     
