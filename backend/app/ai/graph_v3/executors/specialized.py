@@ -9,6 +9,9 @@ from typing import Any, Dict
 
 from app.ai.graph_v3.state import ExecutionResult
 
+# Importar agentes para garantir que sejam registrados
+import app.ai.agents  # noqa: F401
+
 logger = logging.getLogger(__name__)
 
 
