@@ -23,123 +23,97 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-COGNITIVE_PROMPT = '''Você é um classificador de intenções especializado. Analise a mensagem do usuário e identifique a intenção CORRETA.
+COGNITIVE_PROMPT = '''Você é um analisador semântico avançado. Sua função é ENTENDER A INTENÇÃO REAL do usuário, não apenas detectar palavras-chave.
 
-IMPORTANTE: Priorize intents específicos (finance, reminder, goals, etc) sobre "general". Use "general" APENAS se a mensagem for realmente uma conversa casual sem ação específica.
+DATA/HORA ATUAL: {datetime_context}
+CONTEXTO DO USUÁRIO: {context_prompt}
 
-DATA/HORA: {datetime_context}
-CONTEXTO: {context_prompt}
+MENSAGEM DO USUÁRIO: "{message}"
 
-MENSAGEM: "{message}"
+## ANÁLISE SEMÂNTICA
 
-REGRAS DE CLASSIFICAÇÃO (em ordem de prioridade):
+Pense no que o usuário REALMENTE quer saber ou fazer. Exemplos de raciocínio:
 
-1. FINANCE - Dinheiro:
-   - "gastei X", "paguei X", "comprei X", "adicione que gastei X", "registre gasto de X" → create_finance (tipo=expense)
-   - "recebi X", "ganhei X", "salário" → create_finance (tipo=income)
-   - "quanto gastei", "meus gastos", "resumo financeiro" → query_finance
-   - "quanto gastei com X", "gastos com uber" → query_finance (entities: {{"busca": "X"}})
-   - "10 maiores gastos", "top 3 despesas", "maiores gastos do mês" → query_finance (entities: {{"limite": 5, "ordenacao": "maior", "tipo_filtro": "expense"}})
-   - "maiores receitas", "top receitas" → query_finance (entities: {{"limite": 5, "ordenacao": "maior", "tipo_filtro": "income"}})
-   - "menores gastos" → query_finance (entities: {{"ordenacao": "menor", "tipo_filtro": "expense"}})
-   - "delete o gasto", "apaga X" → delete_finance
-   - "mude o valor para" → update_finance
+- "quais foram os 5 maiores gastos esse mês" → Quer ver TOP 5 gastos ordenados do maior para menor
+- "como estou para economizar 5000 este mês" → Quer análise de progresso em relação a uma META financeira
+- "me mostra meus gastos com alimentação" → Quer transações FILTRADAS por categoria/termo
+- "quanto já gastei esse mês" → Quer RESUMO financeiro do período
+- "tenho algum compromisso amanhã" → Quer verificar LEMBRETES/AGENDA
 
-2. REMINDER - Lembretes pessoais:
-   - "me lembra", "lembrete", "avisa" → create_reminder
-   - "meus lembretes" → list_reminders
-   - "delete lembrete" → delete_reminder
-   - "mude o horário do lembrete" → update_reminder
+## INTENTS DISPONÍVEIS
 
-3. MEETING/CALENDAR - Eventos e reuniões:
-   - "agenda reunião", "marca evento", "aula" → create_event
-   - "minha agenda", "próximos eventos" → list_events
-   - "estou livre às 14h?" → check_availability
-   - "salva reunião no banco" → create_meeting (banco local)
+1. **finance** - Qualquer coisa sobre dinheiro, gastos, receitas, transações, economia, orçamento
+2. **reminder** - Lembretes, avisos, notificações pessoais
+3. **meeting/calendar** - Eventos, reuniões, agenda, compromissos
+4. **contact** - Gerenciar contatos, telefones, grupos
+5. **message** - Mensagens agendadas para enviar depois
+6. **todoist** - Tarefas, to-do list, produtividade
+7. **search** - Pesquisas web, notícias, cotações, clima
+8. **goals** - Metas financeiras ou pessoais, objetivos de economia
+9. **advisor** - Simulações, projeções, análises financeiras complexas
+10. **patterns** - Análise de padrões de gastos, anomalias
+11. **general** - Conversas casuais, perguntas gerais (ÚLTIMO RECURSO)
 
-4. CONTACT - Contatos:
-   - "salva contato", "adiciona X número Y" → create_contact
-   - "meus contatos" → list_contacts
-   - "delete contato" → delete_contact
-   - "mude o telefone do" → update_contact
+## AÇÕES POR INTENT
 
-5. MESSAGE - Mensagens agendadas:
-   - "envia mensagem às 10h", "agenda msg" → schedule_message
-   - "mensagens agendadas" → list_scheduled_messages
+### FINANCE:
+- create_finance: Registrar novo gasto/receita
+- query_finance: Consultar, listar, resumir transações
+- delete_finance: Apagar transação
+- update_finance: Modificar transação
 
-6. TODOIST - Tarefas:
-   - "anota tarefa", "cria tarefa", "add no todoist" → create_todoist_task
-   - "minhas tarefas" → list_todoist_tasks
-   - "terminei a tarefa", "conclui tarefa" → complete_todoist_task
-   - "delete tarefa" → delete_todoist_task
-   - "mude o prazo da tarefa" → update_todoist_task
-   - "tarefas urgentes" → check_todoist_alerts
+### GOALS:
+- create_goal: Criar nova meta de economia
+- list_goals: Ver metas existentes  
+- goal_progress: Ver progresso em relação a uma meta (inclui análise financeira)
 
-7. SEARCH - Pesquisas e integrações:
-   - "pesquisa sobre", "busca" → web_search
-   - "notícias sobre" → search_news
-   - "cotação PETR4", "ação da" → get_stock
-   - "bitcoin", "ethereum" → get_crypto
-   - "clima em", "tempo em" → get_weather
+### ADVISOR:
+- financial_state: Análise da situação financeira atual
+- run_projection: Projeções futuras
+- simulate_scenario: Simular cenários "e se"
 
-8. TRANSCRIPTION - Textos longos de reunião:
-   - Texto >500 chars com diálogo → summarize_transcription
+## EXTRAÇÃO DE ENTIDADES
 
-9. BILLS - Faturas e boletos (imagens/PDF):
-   - Imagem de fatura/boleto → extract_invoice
-   - "faturas pendentes" → list_bills
-   - Criar lembrete de pagamento → create_bill_reminder
+Para FINANCE extraia:
+- periodo: "hoje", "semana", "mes", "ano", "mes_anterior", ou nome do mês
+- limite: número de itens a retornar (ex: 5, 10)
+- ordenacao: "maior" ou "menor"
+- tipo_filtro: "expense" (gastos), "income" (receitas), ou "all"
+- busca: termo para filtrar por descrição/categoria
+- valor: valor monetário mencionado
+- descricao: descrição da transação
+- categoria: categoria da transação
 
-10. MEMORY - Preferências e memórias:
-    - "gosto de X", "não gosto de Y" → save_preference
-    - "o que você sabe sobre mim" → read_memory
-    - "esquece que eu" → delete_memory
+Para GOALS extraia:
+- meta_valor: valor objetivo (ex: 5000)
+- meta_periodo: período da meta (ex: "mes", "ano")
+- meta_tipo: tipo da meta ("economia", "reducao_gastos", "investimento")
 
-11. PATTERNS - Análise de padrões:
-    - "análise dos meus gastos" → analyze_patterns
-    - "padrões financeiros" → analyze_patterns
-    - "anomalias" → detect_anomalies
+## REGRAS CRÍTICAS
 
-12. GOALS - Metas pessoais/financeiras:
-    - "quero economizar X", "meta de juntar X", "adicionar meta", "quero juntar X" → create_goal
-    - "minhas metas" → list_goals
-    - "progresso da meta" → goal_progress
+1. Se o usuário menciona QUALQUER coisa sobre dinheiro → intent=finance ou goals
+2. Se menciona "economizar", "poupar", "juntar", "meta" → pode ser goals com goal_progress
+3. Se pede "maiores", "top", "ranking" de gastos → query_finance com limite e ordenacao="maior"
+4. Se pede análise, situação, como está → advisor ou goal_progress
+5. NUNCA use general se houver QUALQUER indicação de intent específico
+6. Sempre inclua a mensagem original em "original_message" nas entities
 
-13. SUBSCRIPTIONS - Assinaturas:
-    - "minhas assinaturas" → list_subscriptions
-    - "quanto gasto com streaming" → analyze_subscriptions
+## OUTPUT OBRIGATÓRIO (JSON)
 
-14. ADVISOR - Consultoria:
-    - "simular cenário" → simulate_scenario
-    - "projeção financeira" → run_projection
-    - "situação financeira" → financial_state
+```json
+{{
+  "intent": "<intent>",
+  "action": "<action_type>",
+  "confidence": <0.0-1.0>,
+  "entities": {{
+    "original_message": "<mensagem do usuário>",
+    // outras entidades extraídas
+  }},
+  "reasoning": "<breve explicação do seu raciocínio>"
+}}
+```
 
-15. HEALTH - Organização de saúde:
-    - "lembrete de remédio" → create_health_reminder
-    - "agenda de saúde" → health_schedule
-    - (NÃO diagnostica ou sugere tratamentos)
-
-16. GENERAL - Conversa/perguntas:
-    - Saudações simples → direct_response
-    - Perguntas complexas → needs_llm_response
-
-EXTRAIA entidades relevantes:
-- Finance: valor, descricao, categoria, tipo, data, busca (termo para filtrar), periodo (hoje/semana/mes/ano), limite (número de itens), ordenacao (maior/menor), tipo_filtro (expense/income/all)
-- Reminder: titulo, horario (YYYY-MM-DD HH:MM), descricao
-- Meeting: titulo, data_hora, duracao_minutos, participantes
-- Contact: nome, telefone, grupo
-- Message: mensagem, data_hora, destinatario_nome, destinatario_telefone, grupo
-- Todoist: content, due_string, priority
-
-JSON OBRIGATÓRIO:
-{{"intent": "finance|reminder|meeting|contact|message|todoist|search|bills|memory|patterns|goals|subscriptions|advisor|health|general|transcription", "action": "action_type", "confidence": 0.0-1.0, "entities": {{}}, "response_hint": "dica curta se for direct_response"}}
-
-REGRAS DE CONFIDENCE:
-- 0.9-1.0: Mensagem clara e direta ("gastei 50 reais")
-- 0.7-0.9: Mensagem com contexto suficiente ("quais foram meus gastos")
-- 0.5-0.7: Mensagem ambígua mas identificável
-- 0.3-0.5: Muito vago, use apenas se realmente incerto
-- Use "general" APENAS para conversas casuais sem ação específica'''
+Analise a mensagem e retorne APENAS o JSON:'''
 
 
 # Ações válidas
@@ -293,10 +267,19 @@ class CognitiveNode:
                 action_type = parsed.get("action", "none")
                 confidence = float(parsed.get("confidence", 0.5))
                 entities = parsed.get("entities", {})
-                response_hint = parsed.get("response_hint", "")
+                reasoning = parsed.get("reasoning", "")
+                
+                # Sempre incluir mensagem original nas entities
+                entities["original_message"] = original_message
+                entities["reasoning"] = reasoning
                 
                 if action_type not in VALID_ACTIONS:
                     action_type = DEFAULT_ACTIONS.get(intent, "needs_llm_response")
+                
+                # Se for goal_progress, ajustar para usar advisor
+                if action_type == "goal_progress":
+                    action_type = "financial_state"  # Usar advisor para análise
+                    entities["include_goal_analysis"] = True
                 
                 action = ExtractedAction(
                     action_type=action_type,
@@ -307,13 +290,15 @@ class CognitiveNode:
                 
                 early_exit = action_type == "direct_response"
                 
+                logger.info(f"[COGNITIVE] Reasoning: {reasoning[:100]}...")
+                
                 return {
                     "intent": intent,
                     "confidence": confidence,
                     "action": action,
                     "entities": entities,
                     "early_exit": early_exit,
-                    "response_template": response_hint if early_exit else None,
+                    "response_template": None,
                 }
             
         except (json.JSONDecodeError, ValueError) as e:

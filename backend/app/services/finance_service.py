@@ -83,6 +83,18 @@ def parse_period_to_dates(periodo: str, ano: Optional[int] = None) -> Tuple[date
         start = date(2020, 1, 1)
         end = date(2099, 12, 31)
         return start, end
+    elif periodo_lower in ["mes_anterior", "mês_anterior", "mes passado", "mês passado"]:
+        # Mês anterior
+        if today.month == 1:
+            prev_month = 12
+            prev_year = today.year - 1
+        else:
+            prev_month = today.month - 1
+            prev_year = today.year
+        start = date(prev_year, prev_month, 1)
+        _, last_day = monthrange(prev_year, prev_month)
+        end = date(prev_year, prev_month, last_day)
+        return start, end
     else:
         # Fallback: mês atual
         start = date(today.year, today.month, 1)

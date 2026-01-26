@@ -137,15 +137,15 @@ class IRISGraphV3:
     @staticmethod
     def _route_after_memory_writer(state: IRISStateV3) -> str:
         """Roteamento após memory writer."""
-        # Se já tem template de resposta, vai direto para finalize
-        if state.get("response_template"):
-            return "end"
-        
+        # Sempre passa pelo responder para gerar respostas inteligentes
+        # O ResponderNode usará os dados da execução para gerar respostas contextualizadas
         result = state.get("execution_result")
-        if result and result.response_template:
+        
+        # Só pula o responder para templates muito simples (saudações, etc)
+        if state.get("early_exit") and state.get("response_template"):
             return "end"
         
-        # Caso contrário, precisa do responder
+        # Para ações com dados, SEMPRE usar o responder para análise inteligente
         return "responder"
     
     def _finalize(self, state: IRISStateV3) -> dict:
@@ -183,6 +183,17 @@ class IRISGraphV3:
         
         if db:
             enriched_context["db"] = db
+            
+            # Carregar contexto rico do usuário
+            try:
+                from app.ai.context import ContextBuilder
+                context_builder = ContextBuilder(db, user_id, user_name)
+                enriched_context["full_user_context"] = context_builder.build_full_context()
+                enriched_context["raw_user_data"] = context_builder.get_raw_data()
+            except Exception as e:
+                logger.warning(f"[IRIS v3] Erro ao carregar contexto: {e}")
+            
+            # Manter compatibilidade com MemoryManager
             memory_manager = MemoryManager(db, user_id)
             memory_context = memory_manager.get_full_context()
             enriched_context["memory"] = memory_context

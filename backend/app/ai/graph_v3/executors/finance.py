@@ -49,7 +49,12 @@ class FinanceExecutor:
     
     @staticmethod
     def query(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
-        """Consulta finanças."""
+        """
+        Consulta finanças e retorna dados completos para o ResponderNode.
+        
+        Não gera template fixo - deixa o LLM gerar resposta inteligente
+        baseada nos dados reais e na pergunta do usuário.
+        """
         from app.services.finance_service import FinanceService
         
         try:
@@ -62,47 +67,60 @@ class FinanceExecutor:
             ordenacao = params.get("ordenacao")
             tipo_filtro = params.get("tipo_filtro")
             
+            # Sempre buscar resumo do período atual
+            summary = service.get_summary_by_period(user_id, periodo, ano, busca)
+            
             # Query de top N transações
             if limite or ordenacao:
-                data = service.get_top_transactions(
+                top_data = service.get_top_transactions(
                     user_id=user_id,
                     limit=int(limite) if limite else 5,
                     tipo=tipo_filtro or "expense",
                     periodo=periodo,
                     ordenacao=ordenacao or "maior",
                 )
-                template = FinanceExecutor._format_top_transactions(data)
+                # Combinar dados para contexto rico
+                combined_data = {
+                    "transactions": top_data.get("transactions", []),
+                    "total": top_data.get("total", 0),
+                    "query": top_data.get("query", {}),
+                    "summary": summary.get("summary", {}),
+                    "by_category": summary.get("by_category", []),
+                    "period": top_data.get("period", {}),
+                }
+                
+                logger.info(f"[FINANCE] Top {limite or 5} transações encontradas")
+                
+                # Não usar template - deixar ResponderNode gerar resposta inteligente
                 return ExecutionResult(
                     success=True,
                     action_type="query_finance",
-                    data=data,
-                    response_template=template,
+                    data=combined_data,
+                    response_template=None,  # IMPORTANTE: deixar LLM gerar
                 )
             
             # Query de busca por termo
             if busca:
-                summary = service.get_summary_by_period(user_id, periodo, ano, busca)
-                if summary.get("transactions"):
-                    template = FinanceExecutor._format_filtered_transactions(summary, busca)
-                else:
-                    template = FinanceExecutor._format_summary(summary, periodo)
+                search_data = service.get_summary_by_period(user_id, periodo, ano, busca)
+                logger.info(f"[FINANCE] Busca por '{busca}': {len(search_data.get('transactions', []))} resultados")
+                
                 return ExecutionResult(
                     success=True,
                     action_type="query_finance",
-                    data=summary,
-                    response_template=template,
+                    data=search_data,
+                    response_template=None,
                 )
             
             # Query de resumo geral
-            summary = service.get_summary_by_period(user_id, periodo, ano, busca)
-            template = FinanceExecutor._format_summary(summary, periodo)
+            logger.info(f"[FINANCE] Resumo do período '{periodo}'")
             
             return ExecutionResult(
                 success=True,
                 action_type="query_finance",
                 data=summary,
-                response_template=template,
+                response_template=None,  # Deixar LLM analisar e responder
             )
+            
         except Exception as e:
             logger.error(f"Erro ao consultar finanças: {e}")
             return ExecutionResult(success=False, action_type="query_finance", error=str(e))
