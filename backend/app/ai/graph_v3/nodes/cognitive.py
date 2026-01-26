@@ -33,9 +33,9 @@ MENSAGEM: "{message}"
 REGRAS DE CLASSIFICAÇÃO:
 
 1. FINANCE - Dinheiro:
-   - "gastei X", "paguei X", "comprei X" → create_finance (tipo=expense)
+   - "gastei X", "paguei X", "comprei X", "adicione que gastei X", "registre gasto de X", "gasto de X com Y" → create_finance (tipo=expense)
    - "recebi X", "ganhei X", "salário" → create_finance (tipo=income)
-   - "quanto gastei", "meus gastos" → query_finance
+   - "quanto gastei", "meus gastos", "quais foram os gastos", "gastos esse mês", "despesas do mês" → query_finance
    - "delete o gasto", "apaga X" → delete_finance
    - "mude o valor para" → update_finance
 
@@ -95,7 +95,7 @@ REGRAS DE CLASSIFICAÇÃO:
     - "anomalias" → detect_anomalies
 
 12. GOALS - Metas pessoais/financeiras:
-    - "quero economizar X" → create_goal
+    - "quero economizar X", "meta de juntar X", "adicionar meta", "quero juntar X" → create_goal
     - "minhas metas" → list_goals
     - "progresso da meta" → goal_progress
 
