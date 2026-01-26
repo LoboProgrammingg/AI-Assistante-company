@@ -191,6 +191,8 @@ class IRISGraphV3:
         memory_manager = None
         user_name = enriched_context.get("user_name", "")
         
+        full_user_context = ""
+        
         if db:
             enriched_context["db"] = db
             
@@ -198,8 +200,10 @@ class IRISGraphV3:
             try:
                 from app.ai.context import ContextBuilder
                 context_builder = ContextBuilder(db, user_id, user_name)
-                enriched_context["full_user_context"] = context_builder.build_full_context()
+                full_user_context = context_builder.build_full_context()
+                enriched_context["full_user_context"] = full_user_context
                 enriched_context["raw_user_data"] = context_builder.get_raw_data()
+                logger.info(f"[IRIS v3] Contexto carregado: {len(full_user_context)} chars")
             except Exception as e:
                 logger.warning(f"[IRIS v3] Erro ao carregar contexto: {e}")
             
@@ -208,6 +212,10 @@ class IRISGraphV3:
             memory_context = memory_manager.get_full_context()
             enriched_context["memory"] = memory_context
             enriched_context["context_prompt"] = memory_manager.build_context_prompt(user_name=user_name)
+        
+        # Incluir contexto completo no rag_context para garantir que esteja disponível
+        if full_user_context:
+            enriched_context["rag_context"] = full_user_context
         
         initial_state = create_initial_state_v3(
             user_id=user_id,
