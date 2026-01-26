@@ -53,19 +53,27 @@ class GoalsAgent(SpecializedAgent):
         
         logger.info(f"[GOALS] Meta valor extraído: {meta_valor}, Período: {periodo}")
         
-        # Se tem valor de meta, fazer análise de progresso
-        if meta_valor and meta_valor > 0:
-            return await self._analyze_goal_progress(message, meta_valor, periodo)
-        
         # Detectar ação baseada nas entities do CognitiveNode
         action = entities.get("action", "")
         
         if action == "create_goal":
             return await self._handle_create_goal(message, entities)
         elif action == "goal_progress":
-            return await self._analyze_goal_progress(message, 0, periodo)
+            # Se não tem valor de meta na mensagem, buscar meta salva
+            if not meta_valor or meta_valor <= 0:
+                meta_valor = self._get_saved_goal_amount()
+            return await self._analyze_goal_progress(message, meta_valor, periodo)
         
-        # Fallback: análise geral do estado financeiro
+        # Se tem valor de meta na mensagem, fazer análise de progresso
+        if meta_valor and meta_valor > 0:
+            return await self._analyze_goal_progress(message, meta_valor, periodo)
+        
+        # Fallback: buscar meta salva e analisar
+        saved_goal = self._get_saved_goal_amount()
+        if saved_goal > 0:
+            return await self._analyze_goal_progress(message, saved_goal, periodo)
+        
+        # Sem meta, análise geral
         return await self._analyze_financial_state(message)
     
     def _extract_amount(self, message: str) -> float:
@@ -314,3 +322,32 @@ class GoalsAgent(SpecializedAgent):
         except Exception as e:
             logger.error(f"[GOALS] Erro ao listar metas: {e}")
             return {"success": False, "goals": []}
+    
+    def _get_saved_goal_amount(self) -> float:
+        """Busca o valor da meta salva mais recente no banco."""
+        if not self.db or not self.user_id:
+            return 0.0
+        
+        try:
+            from app.models import UserMemory
+            
+            goal = (
+                self.db.query(UserMemory)
+                .filter(
+                    UserMemory.user_id == self.user_id,
+                    UserMemory.memory_type == "goal",
+                    UserMemory.is_active == True,
+                )
+                .order_by(UserMemory.created_at.desc())
+                .first()
+            )
+            
+            if goal and goal.metadata:
+                amount = goal.metadata.get("target_amount", 0)
+                logger.info(f"[GOALS] Meta salva encontrada: R$ {amount:,.2f}")
+                return float(amount)
+            
+            return 0.0
+        except Exception as e:
+            logger.error(f"[GOALS] Erro ao buscar meta salva: {e}")
+            return 0.0
