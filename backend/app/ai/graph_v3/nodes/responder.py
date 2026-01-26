@@ -143,9 +143,16 @@ class ResponderNode:
         """Gera resposta para conversas gerais com contexto completo."""
         user_message = state["messages"][-1].content if state["messages"] else ""
         user_name = state.get("user_name", "")
+        db = state.get("db")
+        user_id = state.get("user_id")
+        
+        logger.info(f"[RESPONDER] _respond_general: db={db is not None}, user_id={user_id}")
+        logger.info(f"[RESPONDER] Message: {user_message[:100]}")
         
         # Construir contexto completo
         full_context = self._build_full_context(state)
+        
+        logger.info(f"[RESPONDER] Context length: {len(full_context)} chars")
         
         prompt = GENERAL_PROMPT.format(
             datetime_context=get_datetime_context(),
@@ -241,13 +248,17 @@ class ResponderNode:
         db = state.get("db")
         user_id = state.get("user_id")
         
+        logger.info(f"[RESPONDER] _build_full_context: db={db is not None}, user_id={user_id}")
+        
         if db and user_id:
             try:
                 from app.ai.context import ContextBuilder
                 builder = ContextBuilder(db, user_id, state.get("user_name", ""))
-                return builder.build_full_context()
+                context = builder.build_full_context()
+                logger.info(f"[RESPONDER] Contexto construído: {len(context)} chars")
+                return context
             except Exception as e:
-                logger.warning(f"[RESPONDER] Erro ao construir contexto: {e}")
+                logger.error(f"[RESPONDER] Erro ao construir contexto: {e}", exc_info=True)
         
         # Fallback: usar contexto do state
         context_prompt = state.get("context_prompt", "")
