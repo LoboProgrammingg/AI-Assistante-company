@@ -60,7 +60,12 @@ class FinanceExecutor:
             busca = params.get("busca")
             
             summary = service.get_summary_by_period(user_id, periodo, ano, busca)
-            template = FinanceExecutor._format_summary(summary, periodo)
+            
+            # Usar formatação diferente se for busca filtrada
+            if busca and summary.get("transactions"):
+                template = FinanceExecutor._format_filtered_transactions(summary, busca)
+            else:
+                template = FinanceExecutor._format_summary(summary, periodo)
             
             return ExecutionResult(
                 success=True,
@@ -108,6 +113,40 @@ class FinanceExecutor:
 {emoji} Saldo: R$ {balance:,.2f}
 
 _{count} transação(ões)_"""
+    
+    @staticmethod
+    def _format_filtered_transactions(data: Dict, busca: str) -> str:
+        """Formata transações filtradas por busca."""
+        transactions = data.get("transactions", [])
+        s = data.get("summary", {})
+        
+        count = len(transactions)
+        total_expenses = s.get("total_expenses", 0)
+        total_income = s.get("total_income", 0)
+        
+        if count == 0:
+            return f"🔍 Nenhuma transação encontrada com *{busca}*."
+        
+        # Listar até 5 transações
+        lines = [f"🔍 *Transações com '{busca}':*\n"]
+        
+        for t in transactions[:5]:
+            emoji = "🟢" if t.get("type") == "income" else "🔴"
+            amount = t.get("amount", 0)
+            desc = t.get("description", "")[:30]
+            date_str = t.get("date", "")[:10]
+            lines.append(f"{emoji} R$ {amount:.2f} - {desc} ({date_str})")
+        
+        if count > 5:
+            lines.append(f"\n_... e mais {count - 5} transação(ões)_")
+        
+        # Totais
+        if total_expenses > 0 or total_income > 0:
+            lines.append(f"\n💸 *Total gastos:* R$ {total_expenses:,.2f}")
+            if total_income > 0:
+                lines.append(f"💰 *Total receitas:* R$ {total_income:,.2f}")
+        
+        return "\n".join(lines)
     
     @staticmethod
     def delete(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:

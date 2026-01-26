@@ -38,6 +38,7 @@ REGRAS DE CLASSIFICAÇÃO (em ordem de prioridade):
    - "gastei X", "paguei X", "comprei X", "adicione que gastei X", "registre gasto de X", "gasto de X com Y" → create_finance (tipo=expense)
    - "recebi X", "ganhei X", "salário" → create_finance (tipo=income)
    - "quanto gastei", "meus gastos", "quais foram os gastos", "gastos esse mês", "despesas do mês" → query_finance
+   - "quanto gastei com X", "gastos com uber", "despesas de alimentação" → query_finance (entities: {{"busca": "X"}})
    - "delete o gasto", "apaga X" → delete_finance
    - "mude o valor para" → update_finance
 
@@ -120,7 +121,7 @@ REGRAS DE CLASSIFICAÇÃO (em ordem de prioridade):
     - Perguntas complexas → needs_llm_response
 
 EXTRAIA entidades relevantes:
-- Finance: valor, descricao, categoria, tipo, data
+- Finance: valor, descricao, categoria, tipo, data, busca (termo para filtrar transações), periodo (hoje/semana/mes/ano)
 - Reminder: titulo, horario (YYYY-MM-DD HH:MM), descricao
 - Meeting: titulo, data_hora, duracao_minutos, participantes
 - Contact: nome, telefone, grupo

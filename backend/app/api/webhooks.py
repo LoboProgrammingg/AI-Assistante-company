@@ -10,8 +10,7 @@ from fastapi.responses import Response
 from sqlalchemy.orm import Session
 from twilio.rest import Client
 
-from app.ai.graph import WhatsAppAIAgent
-from app.ai.graph_v2 import IRISGraphV2, get_iris_graph
+from app.ai.graph_v3.core import IRISGraphV3
 from app.ai.graph_v3.migration import process_message as process_message_v3, GRAPH_VERSION
 from app.config import settings
 from app.core.input_sanitizer import InputSanitizer
@@ -107,28 +106,16 @@ router = APIRouter(prefix="/webhook", tags=["webhooks"])
 # Twilio client (singleton)
 twilio_client = Client(settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
 
-# AI Agent (singleton para melhor performance)
-_ai_agent: WhatsAppAIAgent = None
-_ai_agent_v2: IRISGraphV2 = None
-
-# Graph v2 ativo em todos os ambientes (melhores práticas LangGraph)
-USE_GRAPH_V2 = True
+# AI Agent v3 (singleton para melhor performance)
+_ai_agent_v3: IRISGraphV3 = None
 
 
-def get_ai_agent() -> WhatsAppAIAgent:
-    """Retorna instância singleton do agente de IA (v1 legado)."""
-    global _ai_agent
-    if _ai_agent is None:
-        _ai_agent = WhatsAppAIAgent(api_key=settings.GOOGLE_API_KEY, model=settings.GEMINI_MODEL)
-    return _ai_agent
-
-
-def get_ai_agent_v2() -> IRISGraphV2:
-    """Retorna instância singleton do agente v2 (melhores práticas)."""
-    global _ai_agent_v2
-    if _ai_agent_v2 is None:
-        _ai_agent_v2 = get_iris_graph()
-    return _ai_agent_v2
+def get_ai_agent() -> IRISGraphV3:
+    """Retorna instância singleton do agente de IA (Graph v3)."""
+    global _ai_agent_v3
+    if _ai_agent_v3 is None:
+        _ai_agent_v3 = IRISGraphV3(api_key=settings.GOOGLE_API_KEY)
+    return _ai_agent_v3
 
 
 def normalize_phone_number(phone: str) -> str:

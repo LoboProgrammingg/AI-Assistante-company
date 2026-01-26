@@ -11,8 +11,8 @@ Fluxo no LangGraph:
 Input → Cognitive → MemoryReader → ContextBuilder → Executor → MemoryWriter → Response
 """
 
-# Compatibilidade: importar MemoryManager legado
-from app.ai.memory_legacy import MemoryManager
+# MemoryManager
+from app.ai.memory.manager import MemoryManager
 
 from app.ai.memory.types import (
     MemoryItem,
