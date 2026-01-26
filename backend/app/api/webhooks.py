@@ -482,9 +482,7 @@ async def whatsapp_webhook(
             
             # Tentar enviar mensagem de fallback via Twilio
             if 'From' in dir() and From:
-                from app.services.whatsapp_service import WhatsAppService
-                whatsapp_service = WhatsAppService()
-                whatsapp_service.send_message(From, fallback_message)
+                send_whatsapp_message(From, fallback_message)
                 logger.info(f"[WEBHOOK] Mensagem de fallback enviada para {From}")
         except Exception as fallback_error:
             logger.error(f"[WEBHOOK] Falha ao enviar fallback: {fallback_error}")
