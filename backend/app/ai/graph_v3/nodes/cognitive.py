@@ -35,10 +35,13 @@ MENSAGEM: "{message}"
 REGRAS DE CLASSIFICAÇÃO (em ordem de prioridade):
 
 1. FINANCE - Dinheiro:
-   - "gastei X", "paguei X", "comprei X", "adicione que gastei X", "registre gasto de X", "gasto de X com Y" → create_finance (tipo=expense)
+   - "gastei X", "paguei X", "comprei X", "adicione que gastei X", "registre gasto de X" → create_finance (tipo=expense)
    - "recebi X", "ganhei X", "salário" → create_finance (tipo=income)
-   - "quanto gastei", "meus gastos", "quais foram os gastos", "gastos esse mês", "despesas do mês" → query_finance
-   - "quanto gastei com X", "gastos com uber", "despesas de alimentação" → query_finance (entities: {{"busca": "X"}})
+   - "quanto gastei", "meus gastos", "resumo financeiro" → query_finance
+   - "quanto gastei com X", "gastos com uber" → query_finance (entities: {{"busca": "X"}})
+   - "10 maiores gastos", "top 3 despesas", "maiores gastos do mês" → query_finance (entities: {{"limite": 5, "ordenacao": "maior", "tipo_filtro": "expense"}})
+   - "maiores receitas", "top receitas" → query_finance (entities: {{"limite": 5, "ordenacao": "maior", "tipo_filtro": "income"}})
+   - "menores gastos" → query_finance (entities: {{"ordenacao": "menor", "tipo_filtro": "expense"}})
    - "delete o gasto", "apaga X" → delete_finance
    - "mude o valor para" → update_finance
 
@@ -121,7 +124,7 @@ REGRAS DE CLASSIFICAÇÃO (em ordem de prioridade):
     - Perguntas complexas → needs_llm_response
 
 EXTRAIA entidades relevantes:
-- Finance: valor, descricao, categoria, tipo, data, busca (termo para filtrar transações), periodo (hoje/semana/mes/ano)
+- Finance: valor, descricao, categoria, tipo, data, busca (termo para filtrar), periodo (hoje/semana/mes/ano), limite (número de itens), ordenacao (maior/menor), tipo_filtro (expense/income/all)
 - Reminder: titulo, horario (YYYY-MM-DD HH:MM), descricao
 - Meeting: titulo, data_hora, duracao_minutos, participantes
 - Contact: nome, telefone, grupo

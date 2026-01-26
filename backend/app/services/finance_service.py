@@ -604,6 +604,78 @@ class FinanceService:
             },
         }
 
+    def get_top_transactions(
+        self,
+        user_id: int,
+        limit: int = 10,
+        tipo: str = "expense",
+        periodo: str = "mes",
+        ordenacao: str = "maior",
+    ) -> Dict[str, Any]:
+        """
+        Retorna as N maiores/menores transações.
+        
+        Args:
+            user_id: ID do usuário
+            limit: Quantidade de transações
+            tipo: 'expense', 'income' ou 'all'
+            periodo: 'hoje', 'semana', 'mes', 'ano'
+            ordenacao: 'maior' ou 'menor'
+        
+        Returns:
+            Dict com transações ordenadas
+        """
+        start_date, end_date = parse_period_to_dates(periodo)
+        
+        query = self.db.query(Finance).filter(
+            and_(
+                Finance.user_id == user_id,
+                Finance.transaction_date >= start_date,
+                Finance.transaction_date <= end_date,
+            )
+        )
+        
+        # Filtrar por tipo
+        if tipo == "expense":
+            query = query.filter(Finance.type == FinanceType.EXPENSE)
+        elif tipo == "income":
+            query = query.filter(Finance.type == FinanceType.INCOME)
+        
+        # Ordenar
+        if ordenacao == "maior":
+            query = query.order_by(Finance.amount.desc())
+        else:
+            query = query.order_by(Finance.amount.asc())
+        
+        transactions = query.limit(limit).all()
+        
+        total = sum(t.amount for t in transactions)
+        
+        return {
+            "period": {
+                "start": start_date.isoformat(),
+                "end": end_date.isoformat(),
+            },
+            "query": {
+                "limit": limit,
+                "tipo": tipo,
+                "ordenacao": ordenacao,
+            },
+            "transactions": [
+                {
+                    "id": t.id,
+                    "description": t.description,
+                    "amount": float(t.amount),
+                    "type": t.type.value,
+                    "category": t.category.value if t.category else "outros",
+                    "date": t.transaction_date.isoformat(),
+                }
+                for t in transactions
+            ],
+            "total": float(total),
+            "count": len(transactions),
+        }
+
     def get_monthly_trend(self, user_id: int, months: int = 6) -> List[Dict[str, Any]]:
         """
         Retorna tendência mensal.

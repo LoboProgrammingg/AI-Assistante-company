@@ -58,14 +58,44 @@ class FinanceExecutor:
             periodo = params.get("periodo", "mes")
             ano = params.get("ano")
             busca = params.get("busca")
+            limite = params.get("limite")
+            ordenacao = params.get("ordenacao")
+            tipo_filtro = params.get("tipo_filtro")
             
+            # Query de top N transações
+            if limite or ordenacao:
+                data = service.get_top_transactions(
+                    user_id=user_id,
+                    limit=int(limite) if limite else 5,
+                    tipo=tipo_filtro or "expense",
+                    periodo=periodo,
+                    ordenacao=ordenacao or "maior",
+                )
+                template = FinanceExecutor._format_top_transactions(data)
+                return ExecutionResult(
+                    success=True,
+                    action_type="query_finance",
+                    data=data,
+                    response_template=template,
+                )
+            
+            # Query de busca por termo
+            if busca:
+                summary = service.get_summary_by_period(user_id, periodo, ano, busca)
+                if summary.get("transactions"):
+                    template = FinanceExecutor._format_filtered_transactions(summary, busca)
+                else:
+                    template = FinanceExecutor._format_summary(summary, periodo)
+                return ExecutionResult(
+                    success=True,
+                    action_type="query_finance",
+                    data=summary,
+                    response_template=template,
+                )
+            
+            # Query de resumo geral
             summary = service.get_summary_by_period(user_id, periodo, ano, busca)
-            
-            # Usar formatação diferente se for busca filtrada
-            if busca and summary.get("transactions"):
-                template = FinanceExecutor._format_filtered_transactions(summary, busca)
-            else:
-                template = FinanceExecutor._format_summary(summary, periodo)
+            template = FinanceExecutor._format_summary(summary, periodo)
             
             return ExecutionResult(
                 success=True,
@@ -113,6 +143,46 @@ class FinanceExecutor:
 {emoji} Saldo: R$ {balance:,.2f}
 
 _{count} transação(ões)_"""
+    
+    @staticmethod
+    def _format_top_transactions(data: Dict) -> str:
+        """Formata top N transações."""
+        transactions = data.get("transactions", [])
+        query = data.get("query", {})
+        total = data.get("total", 0)
+        
+        limite = query.get("limit", 5)
+        tipo = query.get("tipo", "expense")
+        ordenacao = query.get("ordenacao", "maior")
+        
+        if not transactions:
+            tipo_text = "gastos" if tipo == "expense" else "receitas" if tipo == "income" else "transações"
+            return f"📊 Nenhum(a) {tipo_text} encontrado(a) no período."
+        
+        # Título
+        tipo_text = "gastos" if tipo == "expense" else "receitas" if tipo == "income" else "transações"
+        ord_text = "maiores" if ordenacao == "maior" else "menores"
+        lines = [f"📊 *Top {len(transactions)} {ord_text} {tipo_text}:*\n"]
+        
+        # Listar transações
+        for i, t in enumerate(transactions, 1):
+            emoji = "🔴" if t.get("type") == "expense" else "🟢"
+            amount = t.get("amount", 0)
+            desc = t.get("description", "Sem descrição")[:35]
+            cat = t.get("category", "")
+            date_str = t.get("date", "")[:10]
+            
+            lines.append(f"{i}. {emoji} *R$ {amount:,.2f}*")
+            lines.append(f"   _{desc}_")
+            if cat:
+                lines.append(f"   📁 {cat} | 📅 {date_str}")
+            else:
+                lines.append(f"   📅 {date_str}")
+        
+        # Total
+        lines.append(f"\n💰 *Total:* R$ {total:,.2f}")
+        
+        return "\n".join(lines)
     
     @staticmethod
     def _format_filtered_transactions(data: Dict, busca: str) -> str:
