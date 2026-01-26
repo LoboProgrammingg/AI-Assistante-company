@@ -125,13 +125,23 @@ class IRISGraphV3:
         """Roteamento após cognitive node."""
         action = state.get("action")
         
+        logger.info(f"[ROUTE] Action: {action.action_type if action else 'None'}")
+        
         # Se resposta direta (saudação, etc), vai direto para responder
         if action and action.action_type in ["direct_response", "none"]:
             if state.get("response_template"):
+                logger.info("[ROUTE] → end (template pronto)")
                 return "end"
+            logger.info("[ROUTE] → responder (direct_response)")
             return "responder"
         
-        # Caso contrário, passa pela memória
+        # Se não tem ação ou é needs_llm_response, também vai para responder
+        if not action or action.action_type == "needs_llm_response":
+            logger.info("[ROUTE] → responder (needs_llm_response)")
+            return "responder"
+        
+        # Caso contrário, passa pela memória e executor
+        logger.info(f"[ROUTE] → memory_reader (action: {action.action_type})")
         return "memory_reader"
     
     @staticmethod
