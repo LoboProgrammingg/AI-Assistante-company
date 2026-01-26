@@ -102,7 +102,7 @@ Para GOALS extraia:
 
 Retorne APENAS um JSON válido, SEM markdown, SEM explicações:
 
-{"intent":"<intent>","action":"<action>","confidence":<0.0-1.0>,"entities":{...}}
+{{"intent":"<intent>","action":"<action>","confidence":<0.0-1.0>,"entities":{{...}}}}
 
 IMPORTANTE: NÃO use ```json, NÃO adicione reasoning longo. Seja CONCISO.'''
 
