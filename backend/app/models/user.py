@@ -45,6 +45,7 @@ class User(Base):
     verification_tokens = relationship("VerificationToken", back_populates="user", cascade="all, delete-orphan")
     subscription = relationship("Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
+    memories = relationship("UserMemory", back_populates="user", cascade="all, delete-orphan")
 
 
 class VerificationTokenType(enum.Enum):

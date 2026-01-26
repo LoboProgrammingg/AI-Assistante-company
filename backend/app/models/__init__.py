@@ -32,6 +32,20 @@ from app.models.document import Document, DocumentCategory, DocumentEmbedding
 # Cache e métricas da IA
 from app.models.ai_cache import AgentMetrics, ClassificationCache, ConversationMemory
 
+# Memória estruturada v3
+from app.models.user_memory import (
+    UserMemory,
+    MemoryAuditLog,
+    MemoryTypeEnum,
+    MemoryLayerEnum,
+    ImportanceEnum,
+    MemorySourceEnum,
+    SOURCE_CONFIDENCE,
+    MEMORY_LIMITS,
+    TYPE_IMPORTANCE,
+    DECAY_CONFIG,
+)
+
 # Integrações externas
 from app.models.integration import UserIntegration
 
@@ -63,4 +77,15 @@ __all__ = [
     "DocumentEmbedding",
     "ClassificationCache",
     "AgentMetrics",
+    # Memory v3
+    "UserMemory",
+    "MemoryAuditLog",
+    "MemoryTypeEnum",
+    "MemoryLayerEnum",
+    "ImportanceEnum",
+    "MemorySourceEnum",
+    "SOURCE_CONFIDENCE",
+    "MEMORY_LIMITS",
+    "TYPE_IMPORTANCE",
+    "DECAY_CONFIG",
 ]

@@ -12,6 +12,7 @@ from twilio.rest import Client
 
 from app.ai.graph import WhatsAppAIAgent
 from app.ai.graph_v2 import IRISGraphV2, get_iris_graph
+from app.ai.graph_v3.migration import process_message as process_message_v3, GRAPH_VERSION
 from app.config import settings
 from app.core.input_sanitizer import InputSanitizer
 from app.core.rate_limiter import RateLimiter
@@ -431,15 +432,10 @@ async def whatsapp_webhook(
             )
             whatsapp_service.send_typing_indicator(MessageSid)
 
-        # Processar com a IA (usando singleton para melhor performance)
-        # USE_GRAPH_V2: ativo em DEBUG para testar melhores práticas LangGraph
-        if USE_GRAPH_V2:
-            logger.info("Usando Graph v2 (melhores práticas LangGraph)")
-            agent = get_ai_agent_v2()
-        else:
-            agent = get_ai_agent()
-
-        result = await agent.process_message(
+        # Processar com a IA (usando camada de migração v2/v3)
+        # Env: IRIS_GRAPH_VERSION = "v2" | "v3"
+        logger.info(f"[WEBHOOK] Processando com Graph {GRAPH_VERSION}")
+        result = await process_message_v3(
             user_id=user.id,
             session_id=user.session_id,
             message=message_text,

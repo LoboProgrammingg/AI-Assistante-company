@@ -13,7 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.ai import MeetingAgent
-from app.ai.graph_v2 import get_iris_graph
+from app.ai.graph_v3.migration import process_message as process_message_v3, GRAPH_VERSION
 from app.api.deps import get_current_user, get_db
 from app.config import settings
 from app.models import (
@@ -243,9 +243,9 @@ async def send_message(
     try:
         save_message(db=db, user_id=current_user.id, content=data.message, direction="incoming")
 
-        agent = get_iris_graph()
-
-        result = await agent.process_message(
+        # Usa camada de migração (v2 ou v3 via env IRIS_GRAPH_VERSION)
+        logger.info(f"[CHAT] Processando com Graph {GRAPH_VERSION}")
+        result = await process_message_v3(
             user_id=current_user.id,
             session_id=current_user.session_id or str(current_user.id),
             message=data.message,
@@ -265,9 +265,9 @@ async def send_message(
 
         return ChatResponse(
             response=result["response"],
-            intent=result["intent"],
-            entities=result["entities"],
-            next_action=result["next_action"],
+            intent=result.get("intent", "general"),
+            entities=result.get("entities", {}),
+            next_action=result.get("next_action", ""),
         )
     except Exception as e:
         logger.error(f"Erro ao processar mensagem: {str(e)}")
@@ -451,10 +451,8 @@ async def send_audio(
                     meeting_id=meeting_id,
                 )
             else:
-                # Processar como comando normal
-                agent = get_iris_graph()
-
-                result = await agent.process_message(
+                # Processar como comando normal (usa camada de migração v2/v3)
+                result = await process_message_v3(
                     user_id=current_user.id,
                     session_id=current_user.session_id or str(current_user.id),
                     message=transcription,
