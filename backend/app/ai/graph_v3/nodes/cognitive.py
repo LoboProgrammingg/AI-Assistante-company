@@ -98,22 +98,13 @@ Para GOALS extraia:
 5. NUNCA use general se houver QUALQUER indicação de intent específico
 6. Sempre inclua a mensagem original em "original_message" nas entities
 
-## OUTPUT OBRIGATÓRIO (JSON)
+## OUTPUT OBRIGATÓRIO (JSON COMPACTO)
 
-```json
-{{
-  "intent": "<intent>",
-  "action": "<action_type>",
-  "confidence": <0.0-1.0>,
-  "entities": {{
-    "original_message": "<mensagem do usuário>",
-    // outras entidades extraídas
-  }},
-  "reasoning": "<breve explicação do seu raciocínio>"
-}}
-```
+Retorne APENAS um JSON válido, SEM markdown, SEM explicações:
 
-Analise a mensagem e retorne APENAS o JSON:'''
+{"intent":"<intent>","action":"<action>","confidence":<0.0-1.0>,"entities":{...}}
+
+IMPORTANTE: NÃO use ```json, NÃO adicione reasoning longo. Seja CONCISO.'''
 
 
 # Ações válidas

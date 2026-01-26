@@ -160,10 +160,10 @@ class TodoistMonitorService:
             from langchain_google_genai import ChatGoogleGenerativeAI
             
             llm = ChatGoogleGenerativeAI(
-                model="gemini-2.0-flash",
+                model="gemini-2.5-flash",
                 google_api_key=settings.GOOGLE_API_KEY,
                 temperature=0.8,
-                max_output_tokens=150,
+                max_output_tokens=10000,
             )
             
             prompt = f"""Gere uma mensagem curta e motivacional (máx 2 linhas) para lembrar {name} 

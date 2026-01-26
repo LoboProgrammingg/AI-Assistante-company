@@ -48,15 +48,15 @@ class IRISGraphV3:
         self.llm_flash = ChatGoogleGenerativeAI(
             model="gemini-2.5-flash",
             google_api_key=self.api_key,
-            temperature=0.2,
-            max_output_tokens=500,
+            temperature=0.1,
+            max_output_tokens=10000,
         )
         
         self.llm_pro = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL,
             google_api_key=self.api_key,
             temperature=0.7,
-            max_output_tokens=4000,
+            max_output_tokens=10000,
         )
     
     def _init_nodes(self) -> None:
