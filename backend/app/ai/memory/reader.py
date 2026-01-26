@@ -200,6 +200,10 @@ class MemoryReaderNode:
     
     def _fetch_from_memory_manager(self, user_id: int, strategy: Dict) -> List[MemoryItem]:
         """Fallback: busca do MemoryManager existente."""
+        if not self.db:
+            logger.warning("[MEMORY_READER] db não disponível para MemoryManager")
+            return []
+        
         try:
             from app.ai.memory import MemoryManager
             

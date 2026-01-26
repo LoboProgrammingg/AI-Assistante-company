@@ -103,3 +103,33 @@ class MemoryManager:
     def clear_cache(self) -> None:
         """Limpa cache interno."""
         self._cache.clear()
+    
+    def learn_from_message(
+        self,
+        message: str,
+        intent: str = "",
+        entities: Dict[str, Any] = None,
+        response: str = "",
+    ) -> None:
+        """
+        Aprende com a mensagem processada.
+        
+        Extrai informações relevantes e armazena para contexto futuro.
+        """
+        if not message:
+            return
+        
+        # Atualizar contexto de conversação
+        try:
+            conv_context = self.get_conversation_context()
+            conv_context["last_intent"] = intent
+            conv_context["last_entities"] = entities or {}
+            
+            self.service.set_memory(
+                self.user_id,
+                "conversation_context",
+                conv_context
+            )
+            self._cache.pop("full_context", None)
+        except Exception as e:
+            logger.warning(f"Erro ao aprender da mensagem: {e}")
