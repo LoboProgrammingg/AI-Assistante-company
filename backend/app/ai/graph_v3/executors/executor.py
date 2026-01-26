@@ -82,6 +82,9 @@ class ExecutorNode:
         user_id = state.get("user_id")
         user_name = state.get("user_name", "")
         
+        logger.info(f"[EXECUTOR] Action: {action.action_type if action else 'None'}")
+        logger.info(f"[EXECUTOR] db={db is not None}, user_id={user_id}")
+        
         if not action:
             return {
                 "execution_result": ExecutionResult(
@@ -117,6 +120,9 @@ class ExecutorNode:
     
     def _dispatch(self, action: ExtractedAction, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Despacha para o executor correto."""
+        logger.info(f"[EXECUTOR] Dispatching: {action.action_type}")
+        logger.info(f"[EXECUTOR] Is specialized: {is_specialized_action(action.action_type)}")
+        
         # 1. Verificar se é ação de agente especializado
         if is_specialized_action(action.action_type):
             import asyncio

@@ -202,13 +202,21 @@ class CognitiveNode:
         # 3. Chamar LLM Flash
         try:
             response = self.llm_fast.invoke(prompt)
+            
+            logger.info(f"[COGNITIVE] Raw LLM response: {response.content[:500]}")
+            
             result = self._parse_response(response.content, message_content)
+            
+            action = result.get('action')
+            action_type = action.action_type if action else 'none'
             
             logger.info(
                 f"[COGNITIVE] 🧠 Intent: {result['intent']} | "
-                f"Action: {result.get('action', {}).action_type if result.get('action') else 'none'} | "
+                f"Action: {action_type} | "
                 f"Confidence: {result.get('confidence', 0):.0%}"
             )
+            logger.info(f"[COGNITIVE] Entities: {result.get('entities', {})}")
+            
             return result
             
         except Exception as e:
@@ -276,10 +284,8 @@ class CognitiveNode:
                 if action_type not in VALID_ACTIONS:
                     action_type = DEFAULT_ACTIONS.get(intent, "needs_llm_response")
                 
-                # Se for goal_progress, ajustar para usar advisor
-                if action_type == "goal_progress":
-                    action_type = "financial_state"  # Usar advisor para análise
-                    entities["include_goal_analysis"] = True
+                # goal_progress deve ir para GoalsAgent (não converter para financial_state)
+                # O GoalsAgent já busca dados financeiros e gera análise completa
                 
                 action = ExtractedAction(
                     action_type=action_type,

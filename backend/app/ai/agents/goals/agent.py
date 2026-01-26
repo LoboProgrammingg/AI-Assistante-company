@@ -44,9 +44,14 @@ class GoalsAgent(SpecializedAgent):
         """Processa solicitação de metas com análise inteligente."""
         entities = entities or {}
         
+        logger.info(f"[GOALS] Processando: {message[:100]}")
+        logger.info(f"[GOALS] Entities: {entities}")
+        
         # Extrair valor da meta se mencionado
         meta_valor = entities.get("meta_valor") or self._extract_amount(message)
         periodo = entities.get("meta_periodo", "mes")
+        
+        logger.info(f"[GOALS] Meta valor extraído: {meta_valor}, Período: {periodo}")
         
         # Se tem valor de meta, fazer análise de progresso
         if meta_valor and meta_valor > 0:
@@ -89,13 +94,17 @@ class GoalsAgent(SpecializedAgent):
     
     async def _analyze_goal_progress(self, message: str, meta_valor: float, periodo: str = "mes") -> AgentResult:
         """Analisa progresso em relação a uma meta de economia."""
+        logger.info(f"[GOALS] Analisando progresso: meta={meta_valor}, periodo={periodo}")
+        
         if not self.db or not self.user_id:
+            logger.error(f"[GOALS] Sem acesso ao banco! db={self.db}, user_id={self.user_id}")
             return AgentResult(success=False, action="error", error="Sem acesso ao banco de dados")
         
         try:
             from app.services.finance_service import FinanceService
             
             service = FinanceService(self.db)
+            logger.info(f"[GOALS] Buscando dados financeiros para user_id={self.user_id}")
             
             # Buscar dados do mês atual
             current = service.get_summary_by_period(self.user_id, "mes")

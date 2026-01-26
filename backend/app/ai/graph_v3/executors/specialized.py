@@ -84,6 +84,9 @@ class SpecializedExecutor:
         
         intent = action_to_intent.get(action_type)
         
+        logger.info(f"[SPECIALIZED] Action: {action_type} -> Intent: {intent}")
+        logger.info(f"[SPECIALIZED] Params: {list(params.keys())}")
+        
         if not intent:
             return ExecutionResult(
                 success=False,
@@ -96,6 +99,8 @@ class SpecializedExecutor:
             message = params.get("original_message", "")
             if not message and params.get("ocr_text"):
                 message = params["ocr_text"]
+            
+            logger.info(f"[SPECIALIZED] Message: {message[:100]}..." if len(message) > 100 else f"[SPECIALIZED] Message: {message}")
             
             # Despachar para agente
             result = await dispatch_to_agent(
@@ -112,6 +117,9 @@ class SpecializedExecutor:
                     action_type=action_type,
                     error=f"Agente '{intent}' não encontrado",
                 )
+            
+            logger.info(f"[SPECIALIZED] Result: success={result.success}, action={result.action}")
+            logger.info(f"[SPECIALIZED] Response: {result.message[:200] if result.message else 'None'}...")
             
             return ExecutionResult(
                 success=result.success,
