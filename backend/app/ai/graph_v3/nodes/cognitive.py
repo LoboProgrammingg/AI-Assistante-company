@@ -23,14 +23,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-COGNITIVE_PROMPT = '''Analise a mensagem e retorne JSON.
+COGNITIVE_PROMPT = '''Você é um classificador de intenções especializado. Analise a mensagem do usuário e identifique a intenção CORRETA.
+
+IMPORTANTE: Priorize intents específicos (finance, reminder, goals, etc) sobre "general". Use "general" APENAS se a mensagem for realmente uma conversa casual sem ação específica.
 
 DATA/HORA: {datetime_context}
 CONTEXTO: {context_prompt}
 
 MENSAGEM: "{message}"
 
-REGRAS DE CLASSIFICAÇÃO:
+REGRAS DE CLASSIFICAÇÃO (em ordem de prioridade):
 
 1. FINANCE - Dinheiro:
    - "gastei X", "paguei X", "comprei X", "adicione que gastei X", "registre gasto de X", "gasto de X com Y" → create_finance (tipo=expense)
@@ -126,7 +128,14 @@ EXTRAIA entidades relevantes:
 - Todoist: content, due_string, priority
 
 JSON OBRIGATÓRIO:
-{{"intent": "finance|reminder|meeting|contact|message|todoist|search|bills|memory|patterns|goals|subscriptions|advisor|health|general|transcription", "action": "action_type", "confidence": 0.0-1.0, "entities": {{}}, "response_hint": "dica curta se for direct_response"}}'''
+{{"intent": "finance|reminder|meeting|contact|message|todoist|search|bills|memory|patterns|goals|subscriptions|advisor|health|general|transcription", "action": "action_type", "confidence": 0.0-1.0, "entities": {{}}, "response_hint": "dica curta se for direct_response"}}
+
+REGRAS DE CONFIDENCE:
+- 0.9-1.0: Mensagem clara e direta ("gastei 50 reais")
+- 0.7-0.9: Mensagem com contexto suficiente ("quais foram meus gastos")
+- 0.5-0.7: Mensagem ambígua mas identificável
+- 0.3-0.5: Muito vago, use apenas se realmente incerto
+- Use "general" APENAS para conversas casuais sem ação específica'''
 
 
 # Ações válidas
