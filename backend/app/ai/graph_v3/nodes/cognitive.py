@@ -265,11 +265,26 @@ class CognitiveNode:
     def _parse_response(self, response_content: str, original_message: str) -> Dict[str, Any]:
         """Parseia resposta JSON do LLM."""
         try:
-            json_start = response_content.find("{")
-            json_end = response_content.rfind("}") + 1
+            # Remover markdown code blocks se presentes
+            content = response_content.strip()
+            if content.startswith("```json"):
+                content = content[7:]  # Remove ```json
+            elif content.startswith("```"):
+                content = content[3:]  # Remove ```
+            if content.endswith("```"):
+                content = content[:-3]  # Remove ``` final
+            content = content.strip()
+            
+            json_start = content.find("{")
+            json_end = content.rfind("}") + 1
+            
+            logger.info(f"[COGNITIVE] Parsing JSON: start={json_start}, end={json_end}")
             
             if json_start >= 0 and json_end > json_start:
-                parsed = json.loads(response_content[json_start:json_end])
+                json_str = content[json_start:json_end]
+                logger.info(f"[COGNITIVE] JSON string: {json_str[:200]}...")
+                
+                parsed = json.loads(json_str)
                 
                 intent = parsed.get("intent", "general")
                 action_type = parsed.get("action", "none")
@@ -277,11 +292,14 @@ class CognitiveNode:
                 entities = parsed.get("entities", {})
                 reasoning = parsed.get("reasoning", "")
                 
+                logger.info(f"[COGNITIVE] Parsed: intent={intent}, action={action_type}, conf={confidence}")
+                
                 # Sempre incluir mensagem original nas entities
                 entities["original_message"] = original_message
                 entities["reasoning"] = reasoning
                 
                 if action_type not in VALID_ACTIONS:
+                    logger.warning(f"[COGNITIVE] Action '{action_type}' not in VALID_ACTIONS, using default for intent '{intent}'")
                     action_type = DEFAULT_ACTIONS.get(intent, "needs_llm_response")
                 
                 # goal_progress deve ir para GoalsAgent (não converter para financial_state)
