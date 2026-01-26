@@ -67,7 +67,19 @@ class UserDataLoader:
         context["summary"] = self._build_summary(context)
         
         self._cache["full_context"] = context
-        logger.info(f"[DATA_LOADER] Contexto carregado para user {self.user_id}")
+        
+        # Log detalhado
+        finance = context.get("finance", {})
+        current = finance.get("current_month", {})
+        summary = current.get("summary", {})
+        
+        logger.info(
+            f"[DATA_LOADER] Contexto carregado para user {self.user_id}: "
+            f"Receitas=R${summary.get('total_income', 0):,.2f}, "
+            f"Gastos=R${summary.get('total_expenses', 0):,.2f}, "
+            f"Saldo=R${summary.get('balance', 0):,.2f}, "
+            f"Transações={summary.get('count', 0)}"
+        )
         
         return context
     
@@ -128,6 +140,8 @@ class UserDataLoader:
     
     def _get_transactions(self, start_date: date, end_date: date) -> List[Dict[str, Any]]:
         """Busca transações em um período."""
+        logger.info(f"[DATA_LOADER] Buscando transações de {start_date} a {end_date} para user {self.user_id}")
+        
         transactions = (
             self.db.query(Finance)
             .filter(
@@ -140,6 +154,8 @@ class UserDataLoader:
             .order_by(Finance.transaction_date.desc())
             .all()
         )
+        
+        logger.info(f"[DATA_LOADER] Encontradas {len(transactions)} transações")
         
         return [
             {
