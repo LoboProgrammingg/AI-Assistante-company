@@ -465,6 +465,20 @@ class FinanceService:
             .all()
         )
 
+        # Contar total de transações no período
+        total_count = (
+            self.db.query(func.count(Finance.id))
+            .filter(
+                and_(
+                    Finance.user_id == user_id,
+                    Finance.transaction_date >= start_date,
+                    Finance.transaction_date <= end_date,
+                )
+            )
+            .scalar()
+            or 0
+        )
+        
         return {
             "period": {
                 "start": start_date.isoformat(),
@@ -475,6 +489,7 @@ class FinanceService:
                 "total_expenses": float(expenses),
                 "balance": float(income - expenses),
                 "savings_rate": round((income - expenses) / income * 100, 2) if income > 0 else 0,
+                "count": total_count,
             },
             "by_category": [
                 {

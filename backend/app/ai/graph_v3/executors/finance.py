@@ -77,10 +77,20 @@ class FinanceExecutor:
         """Formata resumo financeiro."""
         s = summary.get("summary", {})
         
-        total_expense = s.get("total_expense", 0)
+        # Compatibilidade: service retorna 'total_expenses' (plural)
+        total_expense = s.get("total_expenses", s.get("total_expense", 0))
         total_income = s.get("total_income", 0)
         balance = s.get("balance", 0)
         count = s.get("count", 0)
+        
+        # Calcular count a partir de by_category se não vier direto
+        if count == 0:
+            by_category = summary.get("by_category", [])
+            count = sum(cat.get("transactions_count", 0) for cat in by_category)
+        
+        # Se ainda não tem count mas tem valores, inferir que há transações
+        if count == 0 and (total_expense > 0 or total_income > 0):
+            count = 1  # Pelo menos 1
         
         periodo_text = {
             "hoje": "de hoje", "semana": "da semana", 
