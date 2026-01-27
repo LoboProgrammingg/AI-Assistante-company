@@ -4,10 +4,11 @@ Responder Node - Geração de respostas inteligentes via LLM Pro.
 Responsabilidade:
 - Gerar respostas INTELIGENTES baseadas nos dados REAIS do usuário
 - Responder EXATAMENTE o que o usuário perguntou
-- Usar contexto financeiro completo para análises
-- Nunca dar respostas genéricas quando tem dados disponíveis
+- Usar contexto financeiro quando necessário
+- Agir como ASSESSOR FINANCEIRO SÊNIOR quando aplicável
+- NÃO forçar uso de dados quando não forem relevantes
 
-Usa Gemini Pro com contexto completo do banco de dados.
+Usa Gemini Pro com orquestração cognitiva.
 """
 
 import logging
@@ -33,13 +34,11 @@ class ResponderNode:
 
     def respond(self, state: IRISStateV3) -> Dict[str, Any]:
         """Gera resposta usando LLM Pro."""
-        # Se já tem template, usar direto
         template = state.get("response_template")
         if template:
             logger.info("[RESPONDER] ⚡ Usando template existente")
             return {"messages": [AIMessage(content=template)]}
 
-        # Verificar se é resposta geral ou com contexto de execução
         execution_result = state.get("execution_result")
 
         if execution_result and not execution_result.response_template:
@@ -47,192 +46,174 @@ class ResponderNode:
 
         return self._respond_general(state)
 
+    # ------------------------------------------------------------------
+    # RESPONDER COM CONTEXTO DE EXECUÇÃO
+    # ------------------------------------------------------------------
+
     def _respond_with_context(self, state: IRISStateV3) -> Dict[str, Any]:
-        """Gera resposta com contexto de execução e dados completos."""
         user_message = state["messages"][-1].content if state["messages"] else ""
         user_name = state.get("user_name", "")
 
-        # Construir contexto de dados completo
-        data_context = self._build_data_context(state)
+        # Flags cognitivas (vindas do CognitiveNode)
+        needs_user_data = state.get("needs_user_data", False)
+        needs_analysis = state.get("needs_analysis", False)
 
-        prompt = RESPONSE_PROMPT.format(
-            datetime_context=get_datetime_context(),
-            user_context=f"👤 Usuário: {user_name}" if user_name else "",
-            user_message=user_message,
-            data_context=data_context,
+        logger.info(
+            f"[RESPONDER] Contextual | needs_user_data={needs_user_data} "
+            f"| needs_analysis={needs_analysis}"
+        )
+
+        # Construir contexto SOMENTE se necessário
+        if needs_user_data:
+            data_context = self._build_data_context(state)
+        else:
+            data_context = (
+                "Nenhum dado financeiro pessoal é necessário para responder esta pergunta. "
+                "Você pode responder com conhecimento financeiro geral, análise conceitual "
+                "ou orientação estratégica."
+            )
+
+        advisor_mode = (
+            "\n⚠️ MODO ASSESSOR FINANCEIRO SÊNIOR ATIVO\n"
+            "Você deve priorizar análise, trade-offs, riscos e contexto de mercado.\n"
+            if needs_analysis
+            else ""
+        )
+
+        prompt = (
+            RESPONSE_PROMPT.format(
+                datetime_context=get_datetime_context(),
+                user_context=f"👤 Usuário: {user_name}" if user_name else "",
+                user_message=user_message,
+                data_context=data_context,
+            )
+            + advisor_mode
         )
 
         try:
             response = self.llm.invoke(prompt)
-            logger.info(f"[RESPONDER] 💬 Resposta inteligente: {len(response.content)} chars")
+            logger.info(f"[RESPONDER] 💬 Resposta gerada ({len(response.content)} chars)")
             return {"messages": [AIMessage(content=response.content)]}
         except Exception as e:
-            logger.error(f"[RESPONDER] ❌ Erro: {e}")
-            return {"messages": [AIMessage(content="Desculpe, tive um problema. Pode tentar novamente?")]}
+            logger.error(f"[RESPONDER] ❌ Erro ao gerar resposta: {e}", exc_info=True)
+            return {
+                "messages": [
+                    AIMessage(content="Desculpe, tive um problema ao processar isso. Pode tentar novamente?")
+                ]
+            }
+
+    # ------------------------------------------------------------------
+    # RESPONDER GERAL (CONVERSA / EDUCAÇÃO / ORIENTAÇÃO)
+    # ------------------------------------------------------------------
 
     def _respond_general(self, state: IRISStateV3) -> Dict[str, Any]:
-        """Gera resposta para conversas gerais com contexto completo."""
         user_message = state["messages"][-1].content if state["messages"] else ""
         user_name = state.get("user_name", "")
-        db = state.get("db")
-        user_id = state.get("user_id")
 
-        logger.info(f"[RESPONDER] _respond_general: db={db is not None}, user_id={user_id}")
-        logger.info(f"[RESPONDER] Message: {user_message[:100]}")
+        needs_analysis = state.get("needs_analysis", False)
 
-        # Construir contexto completo
+        logger.info(f"[RESPONDER] General | needs_analysis={needs_analysis}")
+        logger.info(f"[RESPONDER] Message: {user_message[:120]}")
+
         full_context = self._build_full_context(state)
 
-        logger.info(f"[RESPONDER] Context length: {len(full_context)} chars")
+        advisor_mode = (
+            "\n⚠️ MODO ASSESSOR FINANCEIRO SÊNIOR ATIVO\n"
+            "Você está autorizado a explicar conceitos, analisar cenários e dar orientação estratégica.\n"
+            if needs_analysis
+            else ""
+        )
 
-        prompt = GENERAL_PROMPT.format(
-            datetime_context=get_datetime_context(),
-            user_context=f"👤 Usuário: {user_name}" if user_name else "",
-            full_context=full_context,
-            user_message=user_message,
+        prompt = (
+            GENERAL_PROMPT.format(
+                datetime_context=get_datetime_context(),
+                user_context=f"👤 Usuário: {user_name}" if user_name else "",
+                full_context=full_context,
+                user_message=user_message,
+            )
+            + advisor_mode
         )
 
         try:
             response = self.llm.invoke(prompt)
             return {"messages": [AIMessage(content=response.content)]}
         except Exception as e:
-            logger.error(f"[RESPONDER] ❌ Erro: {e}")
+            logger.error(f"[RESPONDER] ❌ Erro na resposta geral: {e}", exc_info=True)
             return {"messages": [AIMessage(content="Tive um problema, pode repetir?")]}
 
+    # ------------------------------------------------------------------
+    # CONTEXTO DE DADOS (FINANCEIRO / EXECUÇÃO)
+    # ------------------------------------------------------------------
+
     def _build_data_context(self, state: IRISStateV3) -> str:
-        """Constrói contexto de dados completo para o LLM."""
         result = state.get("execution_result")
         entities = state.get("entities", {})
-
         lines = []
 
-        # Adicionar dados da execução
         if result and result.success and result.data:
             data = result.data
 
-            # Processar transações financeiras
             if "transactions" in data:
-                transactions = data["transactions"]
-                lines.append(f"### TRANSAÇÕES ENCONTRADAS ({len(transactions)}):")
-                for i, t in enumerate(transactions[:20], 1):
-                    tipo = "🔴" if t.get("type") == "expense" else "🟢"
+                txs = data["transactions"]
+                lines.append(f"### TRANSAÇÕES ({len(txs)}):")
+                for i, t in enumerate(txs[:20], 1):
+                    emoji = "🔴" if t.get("type") == "expense" else "🟢"
                     lines.append(
-                        f"{i}. {tipo} R$ {t.get('amount', 0):,.2f} - "
+                        f"{i}. {emoji} R$ {t.get('amount', 0):,.2f} - "
                         f"{t.get('description', 'Sem descrição')} "
                         f"({t.get('category', 'Outros')}) - {t.get('date', '')}"
                     )
 
-                if len(transactions) > 20:
-                    lines.append(f"... e mais {len(transactions) - 20} transações")
+                if len(txs) > 20:
+                    lines.append(f"... e mais {len(txs) - 20} transações")
 
-            # Processar resumo financeiro
             if "summary" in data:
                 s = data["summary"]
-                lines.append("")
-                lines.append("### RESUMO FINANCEIRO:")
-                lines.append(f"💵 Receitas: R$ {s.get('total_income', 0):,.2f}")
-                lines.append(f"💸 Gastos: R$ {s.get('total_expenses', s.get('total_expense', 0)):,.2f}")
                 balance = s.get("balance", 0)
                 emoji = "🟢" if balance >= 0 else "🔴"
-                lines.append(f"{emoji} Saldo: R$ {balance:,.2f}")
-                lines.append(f"📊 Total de transações: {s.get('count', 0)}")
+                lines.extend(
+                    [
+                        "",
+                        "### RESUMO FINANCEIRO:",
+                        f"💵 Receitas: R$ {s.get('total_income', 0):,.2f}",
+                        f"💸 Gastos: R$ {s.get('total_expenses', 0):,.2f}",
+                        f"{emoji} Saldo: R$ {balance:,.2f}",
+                        f"📊 Transações: {s.get('count', 0)}",
+                    ]
+                )
 
-            # Processar categorias
-            if "by_category" in data:
-                cats = data["by_category"]
-                if cats:
-                    lines.append("")
-                    lines.append("### GASTOS POR CATEGORIA:")
-                    for cat in cats[:5]:
-                        lines.append(f"  • {cat.get('category', 'Outros')}: R$ {cat.get('total', 0):,.2f}")
+            if "web_search" in data and data["web_search"].get("answer"):
+                lines.extend(
+                    [
+                        "",
+                        "### CONTEXTO DA WEB:",
+                        data["web_search"]["answer"],
+                    ]
+                )
 
-            # Processar top gastos (do intelligent_advice)
-            if "top_expenses" in data:
-                top = data["top_expenses"]
-                if top:
-                    lines.append("")
-                    lines.append("### MAIORES GASTOS DO MÊS:")
-                    for i, t in enumerate(top[:10], 1):
-                        lines.append(
-                            f"{i}. R$ {t.get('amount', 0):,.2f} - {t.get('description', 'Sem descrição')} "
-                            f"({t.get('category', 'Outros')})"
-                        )
-
-            # Processar pergunta original (do intelligent_advice)
-            if "original_question" in data:
-                lines.insert(0, f'### PERGUNTA DO USUÁRIO: "{data["original_question"]}"\n')
-
-            # Processar dados de web search
-            if "web_search" in data:
-                ws = data["web_search"]
-                if ws.get("answer"):
-                    lines.append("")
-                    lines.append("### INFORMAÇÃO DA WEB:")
-                    lines.append(ws["answer"])
-                if ws.get("results"):
-                    lines.append("")
-                    lines.append("### FONTES:")
-                    for r in ws["results"][:3]:
-                        lines.append(f"• {r.get('title', '')}")
-                        if r.get("content"):
-                            lines.append(f"  {r['content'][:200]}...")
-
-            # Processar user_summary (do web_search_advice)
-            if "user_summary" in data:
-                us = data["user_summary"]
-                lines.append("")
-                lines.append("### SITUAÇÃO FINANCEIRA DO USUÁRIO:")
-                lines.append(f"💵 Receitas: R$ {us.get('total_income', 0):,.2f}")
-                lines.append(f"💸 Gastos: R$ {us.get('total_expenses', 0):,.2f}")
-                lines.append(f"💰 Disponível para investir: R$ {us.get('available_to_invest', 0):,.2f}")
-
-            # Processar total (para top N)
-            if "total" in data:
-                lines.append(f"")
-                lines.append(f"💰 TOTAL: R$ {data['total']:,.2f}")
-
-            # Processar lembretes
-            if "reminders" in data or "active" in data:
-                reminders = data.get("reminders", data.get("active", []))
-                if reminders:
-                    lines.append("")
-                    lines.append("### LEMBRETES:")
-                    for r in reminders[:10]:
-                        lines.append(f"  • {r.get('title', '')} - {r.get('scheduled_time', '')}")
-
-        # Se não teve dados da execução, buscar do contexto
-        if not lines:
-            context = state.get("context", {})
-            if context:
-                lines.append("### CONTEXTO DISPONÍVEL:")
-                lines.append(str(context)[:2000])
-
-        # Adicionar a pergunta original para contexto
-        original_msg = entities.get("original_message", "")
+        original_msg = entities.get("original_message")
         if original_msg:
             lines.insert(0, f'### PERGUNTA ORIGINAL: "{original_msg}"\n')
 
-        return "\n".join(lines) if lines else "Nenhum dado específico encontrado."
+        return "\n".join(lines) if lines else "Nenhum dado financeiro relevante foi necessário."
+
+    # ------------------------------------------------------------------
+    # CONTEXTO GERAL (MEMÓRIA / PERFIL)
+    # ------------------------------------------------------------------
 
     def _build_full_context(self, state: IRISStateV3) -> str:
-        """Constrói contexto completo para respostas gerais."""
         db = state.get("db")
         user_id = state.get("user_id")
-
-        logger.info(f"[RESPONDER] _build_full_context: db={db is not None}, user_id={user_id}")
 
         if db and user_id:
             try:
                 from app.ai.context import ContextBuilder
 
                 builder = ContextBuilder(db, user_id, state.get("user_name", ""))
-                context = builder.build_full_context()
-                logger.info(f"[RESPONDER] Contexto construído: {len(context)} chars")
-                return context
+                return builder.build_full_context()
             except Exception as e:
-                logger.error(f"[RESPONDER] Erro ao construir contexto: {e}", exc_info=True)
+                logger.error("[RESPONDER] Erro ao construir contexto completo", exc_info=True)
 
-        # Fallback: usar contexto do state
         context_prompt = state.get("context_prompt", "")
         rag_context = state.get("rag_context", "")
 
@@ -241,22 +222,3 @@ class ResponderNode:
             if context_prompt or rag_context
             else "Nenhum contexto adicional disponível."
         )
-
-    def _summarize_execution(self, state: IRISStateV3) -> str:
-        """Resume resultado da execução para log."""
-        result = state.get("execution_result")
-        if not result:
-            return "Nenhuma ação executada"
-
-        if result.success:
-            data = result.data
-            if isinstance(data, dict):
-                if "transactions" in data:
-                    return f"Sucesso - {len(data['transactions'])} transações"
-                if "summary" in data:
-                    s = data["summary"]
-                    return f"Sucesso - Saldo: R$ {s.get('balance', 0):,.2f}"
-                return f"Sucesso - {list(data.keys())[:3]}"
-            return f"Sucesso"
-
-        return f"Erro - {result.error or 'desconhecido'}"
