@@ -55,7 +55,7 @@ class Meeting(Base):
 
     # Recording settings
     record_enabled = Column(Boolean, default=False)
-    status = Column(Enum(MeetingStatus), default=MeetingStatus.NOT_RECORDED)
+    status = Column(Enum(MeetingStatus, values_callable=lambda x: [e.value for e in x]), default=MeetingStatus.NOT_RECORDED)
     error_message = Column(Text, nullable=True)
 
     # Legacy fields (mantidos para compatibilidade)
@@ -87,8 +87,8 @@ class MeetingSession(Base):
     meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
 
     # Session info
-    source_type = Column(Enum(SessionSourceType), default=SessionSourceType.REALTIME)
-    status = Column(Enum(SessionStatus), default=SessionStatus.RECORDING)
+    source_type = Column(Enum(SessionSourceType, values_callable=lambda x: [e.value for e in x]), default=SessionSourceType.REALTIME)
+    status = Column(Enum(SessionStatus, values_callable=lambda x: [e.value for e in x]), default=SessionStatus.RECORDING)
     
     # Timestamps
     started_at = Column(DateTime, default=utc_now)
