@@ -33,9 +33,16 @@ def init_database():
             logger.warning(f"Não foi possível criar extensão pgvector: {e}")
             conn.rollback()
 
-    # Criar tabelas
+    # Criar tabelas novas (não altera existentes)
     Base.metadata.create_all(bind=engine)
     logger.info("Tabelas do banco de dados criadas/verificadas")
+
+    # Executar migrations para atualizar tabelas existentes
+    try:
+        from app.db_migrations import run_migrations
+        run_migrations(engine)
+    except Exception as e:
+        logger.warning(f"Erro ao executar migrations: {e}")
 
 
 init_database()
