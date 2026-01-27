@@ -21,6 +21,54 @@ class FinanceExecutor:
         try:
             service = FinanceService(db)
 
+            # Verificar se é uma lista de transações (do CognitiveNode)
+            if "items" in params:
+                items = params["items"]
+                if not isinstance(items, list):
+                    items = [items]
+                
+                created = []
+                for item in items:
+                    # Normalizar campos PT/EN
+                    finance_data = {
+                        "amount": item.get("valor", item.get("amount", 0)),
+                        "description": item.get("descricao", item.get("description", "")),
+                        "category": item.get("categoria", item.get("category", "Outros")),
+                        "type": item.get("tipo", item.get("type", "expense")),
+                        "date": item.get("data", item.get("date")),
+                    }
+                    
+                    # Validar amount > 0
+                    if finance_data["amount"] <= 0:
+                        logger.warning(f"[FINANCE] Valor inválido: {finance_data['amount']}")
+                        continue
+                    
+                    service.create_from_entities(user_id, finance_data)
+                    created.append(finance_data)
+                
+                if not created:
+                    return ExecutionResult(
+                        success=False,
+                        action_type="create_finance",
+                        error="Nenhuma transação válida para criar (valor deve ser > 0)"
+                    )
+                
+                # Template para múltiplas transações
+                if len(created) == 1:
+                    data = created[0]
+                    template = f"✅ {'Gasto' if data['type'] == 'expense' else 'Receita'} registrado: *{data['description']}* - R$ {data['amount']:.2f}"
+                else:
+                    total = sum(t["amount"] for t in created)
+                    template = f"✅ {len(created)} transações criadas - Total: R$ {total:.2f}"
+                
+                return ExecutionResult(
+                    success=True,
+                    action_type="create_finance",
+                    data={"finances": created},
+                    response_template=template,
+                )
+            
+            # Single transaction (fallback)
             finance_data = {
                 "amount": params.get("valor", params.get("amount", 0)),
                 "description": params.get("descricao", params.get("description", "")),
@@ -28,6 +76,14 @@ class FinanceExecutor:
                 "type": params.get("tipo", params.get("type", "expense")),
                 "date": params.get("data", params.get("date")),
             }
+            
+            # Validar amount > 0
+            if finance_data["amount"] <= 0:
+                return ExecutionResult(
+                    success=False,
+                    action_type="create_finance",
+                    error="Valor deve ser maior que 0"
+                )
 
             service.create_from_entities(user_id, finance_data)
 
