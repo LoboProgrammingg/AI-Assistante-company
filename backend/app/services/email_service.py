@@ -69,7 +69,7 @@ class EmailService:
         # Tentar primeiro com a configuração atual, depois fallback
         attempts = [
             (self.port, self.use_ssl),
-            (465, True),   # Fallback SSL
+            (465, True),  # Fallback SSL
             (587, False),  # Fallback STARTTLS
         ]
 

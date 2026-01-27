@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 class SanitizationMiddleware(BaseHTTPMiddleware):
     """
     Middleware que sanitiza automaticamente o body de requisições.
-    
+
     Aplica em:
     - POST, PUT, PATCH requests
     - Content-Type: application/json
-    
+
     Exclui:
     - Uploads de arquivos (multipart/form-data)
     - Webhooks externos
@@ -59,7 +59,7 @@ class SanitizationMiddleware(BaseHTTPMiddleware):
             body = await request.body()
             if body:
                 sanitized_body = await self._sanitize_body(body)
-                
+
                 # Substituir request com body sanitizado
                 request._body = sanitized_body
 
@@ -74,13 +74,12 @@ class SanitizationMiddleware(BaseHTTPMiddleware):
         try:
             data = json.loads(body.decode("utf-8"))
             sanitizer = get_sanitizer()
-            
+
             if isinstance(data, dict):
                 sanitized_data = self._sanitize_dict(data, sanitizer)
             elif isinstance(data, list):
                 sanitized_data = [
-                    self._sanitize_dict(item, sanitizer) if isinstance(item, dict) else item
-                    for item in data
+                    self._sanitize_dict(item, sanitizer) if isinstance(item, dict) else item for item in data
                 ]
             else:
                 sanitized_data = data
@@ -93,7 +92,7 @@ class SanitizationMiddleware(BaseHTTPMiddleware):
     def _sanitize_dict(self, data: dict, sanitizer) -> dict:
         """Sanitiza dicionário recursivamente."""
         sanitized = {}
-        
+
         for key, value in data.items():
             # Campos sensíveis que NÃO devem ser sanitizados (senhas, tokens)
             if key in ("password", "password_confirm", "current_password", "new_password", "token"):
@@ -108,9 +107,11 @@ class SanitizationMiddleware(BaseHTTPMiddleware):
                 sanitized[key] = self._sanitize_dict(value, sanitizer)
             elif isinstance(value, list):
                 sanitized[key] = [
-                    self._sanitize_dict(item, sanitizer) if isinstance(item, dict)
-                    else sanitizer.sanitize_field(item) if isinstance(item, str)
-                    else item
+                    (
+                        self._sanitize_dict(item, sanitizer)
+                        if isinstance(item, dict)
+                        else sanitizer.sanitize_field(item) if isinstance(item, str) else item
+                    )
                     for item in value
                 ]
             else:

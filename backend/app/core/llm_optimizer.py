@@ -9,7 +9,6 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, Tuple
 
-
 logger = logging.getLogger(__name__)
 
 # Cache em memória para respostas recentes
@@ -138,23 +137,25 @@ class LLMOptimizer:
         message_lower = message.lower().strip()
 
         # Padrões óbvios de intenção
-        # IMPORTANTE: 
-        # - "agendar reunião" é REMINDER, não MEETING
-        # - "anota uma tarefa" é GENERAL (usa Todoist)
+        # IMPORTANTE:
+        # - "agendar reunião" é CALENDAR (Google Calendar)
+        # - "anota uma tarefa" é TASK (gerenciador interno)
         # - MEETING é apenas para transcrições de reuniões já realizadas
         fast_patterns = {
-            # GENERAL tem prioridade para tarefas do Todoist
-            "general": [
+            # TASK para gerenciador de tarefas interno
+            "task": [
                 "anota uma tarefa",
                 "anote uma tarefa",
                 "cria uma tarefa",
                 "criar tarefa",
                 "adiciona tarefa",
                 "adicione tarefa",
-                "coloca no todoist",
-                "add no todoist",
-                "tarefa no todoist",
                 "nova tarefa",
+                "minhas tarefas",
+                "lista de tarefas",
+                "pendencias",
+            ],
+            "general": [
                 "pesquisa sobre",
                 "busca sobre",
                 "o que é",
@@ -164,25 +165,37 @@ class LLMOptimizer:
                 "me conta",
             ],
             "meeting": [
-                "agenda", 
-                "agende", 
-                "agend", 
-                "marcar", 
-                "marc", 
-                "compromisso", 
-                "reunião", 
-                "reuniao", 
-                "meeting", 
-                "aula", 
-                "consulta", 
+                "agenda",
+                "agende",
+                "agend",
+                "marcar",
+                "marc",
+                "compromisso",
+                "reunião",
+                "reuniao",
+                "meeting",
+                "aula",
+                "consulta",
                 "evento",
-                "google calendar", 
+                "google calendar",
                 "calendário",
             ],
             "reminder": [
-                "lembra", "lembre", "lembrar", "lembrete", "me lembra",
-                "me lembre", "me lembrar", "avisar", "avise", "avisar",
-                "alerta", "alertar", "notificar", "notifique", "notificar",
+                "lembra",
+                "lembre",
+                "lembrar",
+                "lembrete",
+                "me lembra",
+                "me lembre",
+                "me lembrar",
+                "avisar",
+                "avise",
+                "avisar",
+                "alerta",
+                "alertar",
+                "notificar",
+                "notifique",
+                "notificar",
                 "delete o lembrete",
                 "deletar lembrete",
                 "remover lembrete",
@@ -218,13 +231,17 @@ class LLMOptimizer:
                 "resuma a reunião",
                 "analise essa reunião",
                 "o que foi discutido na reunião",
-                "transcrição", "transcricao", "resuma", "resumir", 
-                "analise", "analisar"
+                "transcrição",
+                "transcricao",
+                "resuma",
+                "resumir",
+                "analise",
+                "analisar",
             ],
-            "contact": [
-                "salvar contato",
-                "novo contato",
-                "adicionar contato",
+            "task": [
+                "criar tarefa",
+                "nova tarefa",
+                "adicionar tarefa",
                 "enviar mensagem para",
                 "manda mensagem para",
                 "broadcast",
@@ -292,14 +309,14 @@ Classifique a intenção como UMA das seguintes:
 - "reminder": lembretes, compromissos, avisos
 - "finance": gastos, receitas, consultas financeiras
 - "meeting": reuniões, transcrições, agendamentos de call
-- "contact": salvar/buscar contatos, enviar mensagens
+- "task": criar/listar/completar tarefas
 - "general": conversas gerais, perguntas, saudações
 
 Extraia entidades relevantes baseado na intenção:
 - Para reminder: title, scheduled_time, description
 - Para finance: amount, category, description, type (expense/income)
 - Para meeting: title, scheduled_time, participants, location
-- Para contact: name, phone, email, action
+- Para task: title, description, priority, due_date
 
 Responda APENAS com JSON válido:
 {{

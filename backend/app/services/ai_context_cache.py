@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class AIContextCache:
     """
     Cache especializado para contexto da IA IRIS.
-    
+
     Cacheia:
     - Contexto completo do usuário (finanças, lembretes, etc)
     - Histórico de conversa
@@ -30,12 +30,12 @@ class AIContextCache:
     """
 
     # TTLs em segundos
-    TTL_USER_CONTEXT = 120      # 2 minutos - dados mudam frequentemente
-    TTL_CONVERSATION = 60      # 1 minuto - conversa ativa
-    TTL_FACTS = 3600           # 1 hora - fatos aprendidos mudam pouco
-    TTL_PREFERENCES = 1800     # 30 minutos
-    TTL_CLASSIFICATION = 300   # 5 minutos - cache de classificação de intenção
-    TTL_EMBEDDING = 3600       # 1 hora - embeddings de busca
+    TTL_USER_CONTEXT = 120  # 2 minutos - dados mudam frequentemente
+    TTL_CONVERSATION = 60  # 1 minuto - conversa ativa
+    TTL_FACTS = 3600  # 1 hora - fatos aprendidos mudam pouco
+    TTL_PREFERENCES = 1800  # 30 minutos
+    TTL_CLASSIFICATION = 300  # 5 minutos - cache de classificação de intenção
+    TTL_EMBEDDING = 3600  # 1 hora - embeddings de busca
     TTL_FINANCE_SUMMARY = 300  # 5 minutos - resumo financeiro
 
     def __init__(self):
@@ -109,13 +109,7 @@ class AIContextCache:
         """Busca classificação de intenção cacheada."""
         return self._cache.get("ai_classification", message_hash)
 
-    def set_classification(
-        self, 
-        message: str, 
-        intent: str, 
-        confidence: float, 
-        entities: Dict = None
-    ) -> None:
+    def set_classification(self, message: str, intent: str, confidence: float, entities: Dict = None) -> None:
         """Cacheia classificação de intenção."""
         message_hash = hashlib.md5(message.lower().strip().encode()).hexdigest()
         data = {
@@ -138,13 +132,7 @@ class AIContextCache:
         """Busca resumo financeiro cacheado."""
         return self._cache.get("ai_finance", f"{user_id}:{year}:{month}")
 
-    def set_finance_summary(
-        self, 
-        user_id: int, 
-        year: int, 
-        month: int, 
-        summary: Dict
-    ) -> None:
+    def set_finance_summary(self, user_id: int, year: int, month: int, summary: Dict) -> None:
         """Cacheia resumo financeiro."""
         self._cache.set("ai_finance", f"{user_id}:{year}:{month}", summary, self.TTL_FINANCE_SUMMARY)
 
@@ -164,12 +152,7 @@ class AIContextCache:
         """Busca resultado de busca semântica cacheado."""
         return self._cache.get("ai_embedding", f"{user_id}:{query_hash}")
 
-    def set_embedding_search(
-        self, 
-        user_id: int, 
-        query: str, 
-        results: List[Dict]
-    ) -> None:
+    def set_embedding_search(self, user_id: int, query: str, results: List[Dict]) -> None:
         """Cacheia resultado de busca semântica."""
         query_hash = hashlib.md5(query.lower().strip().encode()).hexdigest()
         self._cache.set("ai_embedding", f"{user_id}:{query_hash}", results, self.TTL_EMBEDDING)
@@ -232,7 +215,7 @@ class AIContextCache:
     def invalidate_after_action(self, user_id: int, action: str) -> None:
         """
         Invalida cache apropriado após uma ação.
-        
+
         Args:
             user_id: ID do usuário
             action: Tipo de ação executada
@@ -244,10 +227,10 @@ class AIContextCache:
         # Invalidações específicas por tipo de ação
         if action in ("create_finance", "delete_finance", "update_finance", "query_finance"):
             self.invalidate_finance(user_id)
-        
+
         if action in ("create_reminder", "delete_reminder", "update_reminder", "list_reminders"):
             pass  # Já invalidou contexto
-        
+
         if action in ("create_contact", "delete_contact", "update_contact"):
             pass  # Já invalidou contexto
 

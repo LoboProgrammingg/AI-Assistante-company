@@ -71,7 +71,7 @@ class SecurityConfig:
         "Permissions-Policy": "geolocation=(), microphone=(), camera=()",
         "X-Permitted-Cross-Domain-Policies": "none",
     }
-    
+
     # CSP para desenvolvimento (com unsafe-inline)
     SECURITY_HEADERS_DEV = {
         **SECURITY_HEADERS,

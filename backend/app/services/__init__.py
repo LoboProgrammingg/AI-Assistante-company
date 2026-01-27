@@ -5,12 +5,14 @@ from app.services.finance_service import FinanceService
 from app.services.meeting_service import MeetingService
 from app.services.memory_service import MemoryService
 from app.services.reminder_service import ReminderService
+from app.services.task_service import TaskService
 
 __all__ = [
     "ReminderService",
     "FinanceService",
     "MeetingService",
     "MemoryService",
+    "TaskService",
     "CacheService",
     "cache_service",
     "EmailService",

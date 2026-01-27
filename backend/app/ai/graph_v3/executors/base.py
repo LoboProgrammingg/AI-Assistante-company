@@ -9,6 +9,7 @@ from typing import Any, Dict, Optional
 @dataclass
 class ExecutionResult:
     """Resultado da execução de uma ação."""
+
     success: bool
     action_type: str
     data: Dict[str, Any] = field(default_factory=dict)

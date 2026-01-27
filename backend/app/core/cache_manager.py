@@ -10,7 +10,6 @@ from dataclasses import dataclass
 from threading import Lock
 from typing import Any, Dict, Generic, Optional, TypeVar
 
-
 logger = logging.getLogger(__name__)
 
 T = TypeVar("T")

@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 from twilio.rest import Client
 
 from app.ai.graph_v3.core import IRISGraphV3
-from app.ai.graph_v3.migration import process_message as process_message_v3, GRAPH_VERSION
+from app.ai.graph_v3.migration import GRAPH_VERSION
+from app.ai.graph_v3.migration import process_message as process_message_v3
 from app.config import settings
 from app.core.input_sanitizer import InputSanitizer
 from app.core.rate_limiter import RateLimiter
@@ -343,7 +344,7 @@ async def whatsapp_webhook(
         num_media = int(NumMedia) if NumMedia else 0
         is_image = False
         image_analysis = None
-        
+
         if num_media > 0 and MediaContentType0:
             # ÁUDIO
             if MediaContentType0.startswith("audio/"):
@@ -357,45 +358,43 @@ async def whatsapp_webhook(
                         From, "Desculpe, não consegui entender o áudio. Pode repetir ou enviar por texto?"
                     )
                     return Response(
-                        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
+                        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+                        media_type="application/xml",
                     )
                 # Sanitizar transcrição de áudio também
                 message_text = input_sanitizer.sanitize_message(message_text)
                 logger.info(f"Áudio transcrito: {message_text}")
-            
+
             # IMAGEM
             elif MediaContentType0.startswith("image/"):
                 is_image = True
                 logger.info(f"📸 Imagem recebida de {ProfileName or From}: {MediaUrl0}")
-                
+
                 from app.services.vision_service import get_vision_service
+
                 vision_service = get_vision_service()
-                
+
                 # Baixar imagem do Twilio (requer autenticação)
                 auth = (settings.TWILIO_ACCOUNT_SID, settings.TWILIO_AUTH_TOKEN)
                 image_data = await vision_service.download_image(MediaUrl0, auth)
-                
+
                 if not image_data:
-                    send_whatsapp_message(
-                        From, "Desculpe, não consegui baixar a imagem. Pode enviar novamente?"
-                    )
+                    send_whatsapp_message(From, "Desculpe, não consegui baixar a imagem. Pode enviar novamente?")
                     return Response(
-                        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
+                        content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>',
+                        media_type="application/xml",
                     )
-                
+
                 # Analisar imagem e registrar transações automaticamente
                 response_text = await vision_service.analyze_financial_image(
-                    image_data, 
-                    user_name=user.name,
-                    db=db,
-                    user_id=user.id
+                    image_data, user_name=user.name, db=db, user_id=user.id
                 )
-                
+
                 # Salvar e enviar resposta da imagem
                 save_whatsapp_message(db, user.id, f"[IMAGEM: {MediaContentType0}]", "incoming")
                 save_whatsapp_message(db, user.id, response_text, "outgoing", ai_response=response_text)
                 send_whatsapp_message(From, response_text)
-                
+
                 return Response(
                     content='<?xml version="1.0" encoding="UTF-8"?><Response></Response>', media_type="application/xml"
                 )
@@ -440,7 +439,7 @@ async def whatsapp_webhook(
         next_action = result.get("next_action", "")
         entities = result.get("entities", {})
 
-        # NOTA: O salvamento de entidades (finanças, lembretes, contatos, etc.) 
+        # NOTA: O salvamento de entidades (finanças, lembretes, contatos, etc.)
         # é feito diretamente no graph_v2.py no _response_formatter_node.
         # NÃO duplicar salvamento aqui para evitar registros duplicados.
 
@@ -458,6 +457,7 @@ async def whatsapp_webhook(
     except Exception as e:
         logger.error(f"[WEBHOOK] ❌ Erro crítico: {e}")
         import traceback
+
         logger.error(traceback.format_exc())
 
         # Enviar resposta de fallback para o usuário (nunca deixar sem resposta)
@@ -466,9 +466,9 @@ async def whatsapp_webhook(
                 "Desculpe, tive um probleminha técnico agora. 😅\n"
                 "Pode repetir o que você disse? Já estou me recuperando!"
             )
-            
+
             # Tentar enviar mensagem de fallback via Twilio
-            if 'From' in dir() and From:
+            if "From" in dir() and From:
                 send_whatsapp_message(From, fallback_message)
                 logger.info(f"[WEBHOOK] Mensagem de fallback enviada para {From}")
         except Exception as fallback_error:

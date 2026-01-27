@@ -15,7 +15,17 @@ import enum
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
 from sqlalchemy.orm import relationship
 
 from app.models.base import Base, RecurrenceType, utc_now
@@ -23,6 +33,7 @@ from app.models.base import Base, RecurrenceType, utc_now
 
 class TaskPriority(enum.Enum):
     """Prioridade da tarefa."""
+
     LOW = "low"
     MEDIUM = "medium"
     HIGH = "high"
@@ -31,6 +42,7 @@ class TaskPriority(enum.Enum):
 
 class TaskStatus(enum.Enum):
     """Status Kanban da tarefa."""
+
     BACKLOG = "backlog"
     TODO = "todo"
     IN_PROGRESS = "in_progress"
@@ -40,6 +52,7 @@ class TaskStatus(enum.Enum):
 
 class Project(Base):
     """Modelo de Projeto para organizar tarefas."""
+
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -49,10 +62,10 @@ class Project(Base):
     description = Column(Text, nullable=True)
     color = Column(String(7), default="#3B82F6")  # Hex color
     icon = Column(String(50), nullable=True)
-    
+
     is_active = Column(Boolean, default=True)
     is_favorite = Column(Boolean, default=False)
-    
+
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
@@ -66,6 +79,7 @@ class Project(Base):
 
 class TaskLabel(Base):
     """Modelo de Etiquetas para tarefas."""
+
     __tablename__ = "task_labels"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -85,11 +99,12 @@ class TaskLabel(Base):
 
 class Task(Base):
     """Modelo de Tarefa com funcionalidades avançadas."""
+
     __tablename__ = "tasks"
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    
+
     # Hierarquia
     project_id = Column(Integer, ForeignKey("projects.id", ondelete="SET NULL"), nullable=True, index=True)
     parent_id = Column(Integer, ForeignKey("tasks.id", ondelete="CASCADE"), nullable=True, index=True)
@@ -97,28 +112,28 @@ class Task(Base):
     # Conteúdo
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
-    
+
     # Status e Prioridade
     status = Column(Enum(TaskStatus), default=TaskStatus.TODO, nullable=False, index=True)
     priority = Column(Enum(TaskPriority), default=TaskPriority.MEDIUM, nullable=False, index=True)
-    
+
     # Datas
     due_date = Column(DateTime, nullable=True, index=True)
     remind_before_minutes = Column(Integer, default=60)
-    
+
     # Recorrência
     recurrence_type = Column(Enum(RecurrenceType), default=RecurrenceType.ONCE)
-    
+
     # Metadados
     labels = Column(JSON, default=[])  # Lista de label IDs
     estimated_minutes = Column(Integer, nullable=True)
     actual_minutes = Column(Integer, nullable=True)
-    
+
     # Controle
     is_active = Column(Boolean, default=True)
     notified = Column(Boolean, default=False)
     completed_at = Column(DateTime, nullable=True)
-    
+
     # Timestamps
     created_at = Column(DateTime, default=utc_now)
     updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
@@ -131,19 +146,19 @@ class Task(Base):
 
     def __repr__(self):
         return f"<Task(id={self.id}, title='{self.title[:30]}', status={self.status.value})>"
-    
+
     @property
     def is_overdue(self) -> bool:
         """Verifica se a tarefa está atrasada."""
         if self.due_date and self.status not in [TaskStatus.DONE, TaskStatus.CANCELLED]:
             return datetime.utcnow() > self.due_date
         return False
-    
+
     @property
     def subtask_count(self) -> int:
         """Conta subtarefas."""
         return len(self.subtasks) if self.subtasks else 0
-    
+
     @property
     def completed_subtask_count(self) -> int:
         """Conta subtarefas completas."""

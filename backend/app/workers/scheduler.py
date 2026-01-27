@@ -13,9 +13,9 @@ from app.models import (
     Reminder,
     ScheduledMessage,
     ScheduledMessageStatus,
-    User,
     Task,
     TaskStatus,
+    User,
 )
 from app.services.whatsapp_service import WhatsAppService
 
@@ -267,7 +267,7 @@ class ReminderScheduler:
     def get_pending_task_notifications(self, db: Session) -> list[Task]:
         """Busca tarefas que precisam de notificação."""
         now = datetime.now(timezone.utc)
-        
+
         tasks = (
             db.query(Task)
             .filter(
@@ -280,63 +280,60 @@ class ReminderScheduler:
             )
             .all()
         )
-        
+
         # Filtrar apenas as que estão dentro do tempo de notificação
-        return [
-            t for t in tasks
-            if t.due_date and (t.due_date - timedelta(minutes=t.remind_before_minutes)) <= now
-        ]
+        return [t for t in tasks if t.due_date and (t.due_date - timedelta(minutes=t.remind_before_minutes)) <= now]
 
     def format_task_message(self, task: Task, user: User) -> str:
         """Formata a mensagem de notificação da tarefa."""
         user_tz = pytz.timezone(user.timezone)
-        
+
         priority_emoji = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}
         emoji = priority_emoji.get(task.priority.value, "📋")
-        
+
         message = f"{emoji} *Lembrete de Tarefa*\n\n"
         message += f"📌 {task.title}\n"
-        
+
         if task.description:
             message += f"\n{task.description[:200]}\n"
-        
+
         if task.due_date:
             due_local = task.due_date.replace(tzinfo=pytz.utc).astimezone(user_tz)
             message += f"\n⏰ Vencimento: {due_local.strftime('%d/%m/%Y às %H:%M')}"
-        
+
         return message
 
     async def send_task_notification(self, task: Task, user: User, db: Session):
         """Envia notificação de tarefa para o usuário."""
         try:
             message = self.format_task_message(task, user)
-            
+
             result = self.whatsapp_service.send_message(to_number=user.phone_number, message=message)
-            
+
             if result["success"]:
                 task.notified = True
                 db.commit()
                 logger.info(f"Notificação de tarefa {task.id} enviada para usuário {user.id}")
             else:
                 logger.error(f"Erro ao enviar notificação de tarefa {task.id}: {result.get('error')}")
-        
+
         except Exception as e:
             logger.error(f"Erro ao processar notificação de tarefa {task.id}: {e}")
 
     async def process_task_notifications(self):
         """Processa notificações de tarefas pendentes."""
         db = SessionLocal()
-        
+
         try:
             tasks = self.get_pending_task_notifications(db)
             if tasks:
                 logger.info(f"📋 Processando {len(tasks)} notificações de tarefas")
-            
+
             for task in tasks:
                 user = db.query(User).filter(User.id == task.user_id).first()
                 if user:
                     await self.send_task_notification(task, user, db)
-        
+
         finally:
             db.close()
 

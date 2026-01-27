@@ -42,11 +42,11 @@ class GoogleCalendarService:
         """Carrega configuração OAuth do Google."""
         client_id = getattr(settings, "GOOGLE_OAUTH_CLIENT_ID", None)
         client_secret = getattr(settings, "GOOGLE_OAUTH_CLIENT_SECRET", None)
-        
+
         if not client_id or not client_secret:
             logger.warning("Google OAuth não configurado (GOOGLE_OAUTH_CLIENT_ID/SECRET)")
             return None
-        
+
         return {
             "web": {
                 "client_id": client_id,
@@ -199,8 +199,9 @@ class GoogleCalendarService:
         if integration.token_expiry and integration.token_expiry < datetime.now(timezone.utc):
             try:
                 from google.auth.transport.requests import Request
+
                 credentials.refresh(Request())
-                
+
                 # Atualizar tokens no banco
                 integration.access_token = credentials.token
                 integration.token_expiry = credentials.expiry

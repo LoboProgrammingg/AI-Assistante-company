@@ -13,6 +13,7 @@ from app.models.base import Base, utc_now
 
 class ScheduledMessageStatus(enum.Enum):
     """Status das mensagens agendadas."""
+
     PENDING = "pending"
     SENT = "sent"
     FAILED = "failed"
@@ -21,6 +22,7 @@ class ScheduledMessageStatus(enum.Enum):
 
 class ScheduledMessage(Base):
     """Modelo para mensagens agendadas."""
+
     __tablename__ = "scheduled_messages"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -48,4 +50,6 @@ class ScheduledMessage(Base):
     user = relationship("User", back_populates="scheduled_messages")
 
     def __repr__(self):
-        return f"<ScheduledMessage(id={self.id}, to={self.recipient_name or self.group_name}, status={self.status.value})>"
+        return (
+            f"<ScheduledMessage(id={self.id}, to={self.recipient_name or self.group_name}, status={self.status.value})>"
+        )

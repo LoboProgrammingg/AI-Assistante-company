@@ -194,7 +194,7 @@ class MemoryService:
 
         from sqlalchemy import and_
 
-        from app.models import Contact, Document, Finance, Meeting, Reminder
+        from app.models import Document, Finance, Meeting, Reminder, Task, TaskStatus
 
         today = utc_now().date()
         month_start = today.replace(day=1)
@@ -264,26 +264,31 @@ class MemoryService:
             for m in recent_meetings
         ]
 
-        # Contatos do usuário
-        contacts = (
-            self.db.query(Contact)
-            .filter(and_(Contact.user_id == user_id, Contact.is_active == True))
-            .order_by(Contact.group_name.asc(), Contact.name.asc())
+        # Tarefas pendentes
+        pending_tasks = (
+            self.db.query(Task)
+            .filter(
+                and_(
+                    Task.user_id == user_id,
+                    Task.is_active == True,
+                    Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED]),
+                )
+            )
+            .order_by(Task.due_date.asc().nullslast())
+            .limit(10)
             .all()
         )
 
-        # Agrupar contatos por grupo
-        contacts_by_group = {}
-        for c in contacts:
-            group = c.group_name or "outros"
-            if group not in contacts_by_group:
-                contacts_by_group[group] = []
-            contacts_by_group[group].append({"name": c.name, "phone": c.phone_number})
-
-        contacts_summary = {
-            "total": len(contacts),
-            "by_group": contacts_by_group,
-            "groups": list(contacts_by_group.keys()),
+        tasks_summary = {
+            "total": len(pending_tasks),
+            "tasks": [
+                {
+                    "title": t.title,
+                    "priority": t.priority.value if t.priority else "medium",
+                    "due_date": t.due_date.strftime("%d/%m/%Y") if t.due_date else None,
+                }
+                for t in pending_tasks[:5]
+            ],
         }
 
         return {
@@ -299,7 +304,7 @@ class MemoryService:
             },
             "reminders": {"active_count": len(active_reminders), "upcoming": upcoming_reminders},
             "meetings": {"recent": meetings_summary},
-            "contacts": contacts_summary,
+            "tasks": tasks_summary,
             "documents": self._get_documents_summary(user_id, Document),
         }
 

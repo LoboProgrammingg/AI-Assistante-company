@@ -209,10 +209,7 @@ async def bypass_verify_email(request: Request, db: Session = Depends(get_db)):
 
     # SEGURANÇA: Bloquear em produção
     if not settings.DEBUG:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Este endpoint está desabilitado em produção"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Este endpoint está desabilitado em produção")
 
     from app.models import User
 
@@ -251,10 +248,7 @@ async def check_email_config(current_user: User = Depends(get_current_user)):
 
     # SEGURANÇA: Bloquear em produção
     if not settings.DEBUG:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Este endpoint está desabilitado em produção"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Este endpoint está desabilitado em produção")
 
     return {
         "smtp_host": settings.SMTP_HOST,
@@ -278,10 +272,7 @@ async def test_email_send(request: Request, current_user: User = Depends(get_cur
 
     # SEGURANÇA: Bloquear em produção
     if not settings.DEBUG:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Este endpoint está desabilitado em produção"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Este endpoint está desabilitado em produção")
 
     try:
         # SEGURANÇA: Enviar apenas para o email do usuário autenticado

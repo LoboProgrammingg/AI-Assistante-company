@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 class IntegrationsExecutor:
     """Executor de pesquisas e integrações externas."""
-    
+
     @staticmethod
     def web_search(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Pesquisa na web - retorna para LLM processar."""
@@ -24,7 +24,7 @@ class IntegrationsExecutor:
             data={"query": params.get("query", ""), "needs_llm": True},
             response_template=None,
         )
-    
+
     @staticmethod
     def search_news(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Busca notícias - retorna para LLM processar."""
@@ -34,7 +34,7 @@ class IntegrationsExecutor:
             data={"query": params.get("query", ""), "needs_llm": True},
             response_template=None,
         )
-    
+
     @staticmethod
     def get_stock(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Consulta cotação de ação."""
@@ -44,7 +44,7 @@ class IntegrationsExecutor:
             data={"symbol": params.get("symbol", ""), "needs_llm": True},
             response_template=None,
         )
-    
+
     @staticmethod
     def get_crypto(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Consulta cotação de crypto."""
@@ -54,7 +54,7 @@ class IntegrationsExecutor:
             data={"symbol": params.get("symbol", ""), "needs_llm": True},
             response_template=None,
         )
-    
+
     @staticmethod
     def get_weather(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Consulta clima."""

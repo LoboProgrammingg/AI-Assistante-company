@@ -20,41 +20,54 @@ logger = logging.getLogger(__name__)
 
 
 MONTH_NAMES = {
-    "janeiro": 1, "jan": 1,
-    "fevereiro": 2, "fev": 2,
-    "março": 3, "marco": 3, "mar": 3,
-    "abril": 4, "abr": 4,
-    "maio": 5, "mai": 5,
-    "junho": 6, "jun": 6,
-    "julho": 7, "jul": 7,
-    "agosto": 8, "ago": 8,
-    "setembro": 9, "set": 9,
-    "outubro": 10, "out": 10,
-    "novembro": 11, "nov": 11,
-    "dezembro": 12, "dez": 12,
+    "janeiro": 1,
+    "jan": 1,
+    "fevereiro": 2,
+    "fev": 2,
+    "março": 3,
+    "marco": 3,
+    "mar": 3,
+    "abril": 4,
+    "abr": 4,
+    "maio": 5,
+    "mai": 5,
+    "junho": 6,
+    "jun": 6,
+    "julho": 7,
+    "jul": 7,
+    "agosto": 8,
+    "ago": 8,
+    "setembro": 9,
+    "set": 9,
+    "outubro": 10,
+    "out": 10,
+    "novembro": 11,
+    "nov": 11,
+    "dezembro": 12,
+    "dez": 12,
 }
 
 
 def parse_period_to_dates(periodo: str, ano: Optional[int] = None) -> Tuple[date, date]:
     """
     Converte período em datas de início e fim.
-    
+
     Suporta:
     - 'hoje', 'semana', 'mes', 'ano', 'tudo'
     - Nomes de meses: 'janeiro', 'fevereiro', etc.
-    
+
     Args:
         periodo: Nome do período
         ano: Ano específico (opcional, padrão = ano atual)
-    
+
     Returns:
         Tuple[date, date]: (data_inicio, data_fim)
     """
     today = date.today()
     current_year = ano or today.year
-    
+
     periodo_lower = periodo.lower().strip()
-    
+
     # Verificar se é um nome de mês
     if periodo_lower in MONTH_NAMES:
         month = MONTH_NAMES[periodo_lower]
@@ -62,7 +75,7 @@ def parse_period_to_dates(periodo: str, ano: Optional[int] = None) -> Tuple[date
         _, last_day = monthrange(current_year, month)
         end = date(current_year, month, last_day)
         return start, end
-    
+
     # Períodos padrão
     if periodo_lower == "hoje":
         return today, today
@@ -159,12 +172,14 @@ class FinanceService:
         if not transaction_date_str:
             # Usar timezone de Cuiabá para data padrão
             from zoneinfo import ZoneInfo
+
             transaction_date = datetime.now(ZoneInfo("America/Cuiaba")).date()
         else:
             try:
                 transaction_date = date.fromisoformat(transaction_date_str)
             except:
                 from zoneinfo import ZoneInfo
+
                 transaction_date = datetime.now(ZoneInfo("America/Cuiaba")).date()
 
         data = FinanceCreate(
@@ -282,17 +297,17 @@ class FinanceService:
     def delete_by_filters(self, user_id: int, filters: dict) -> dict:
         """
         Deleta transações baseado em filtros flexíveis.
-        
+
         Args:
             user_id: ID do usuário
             filters: Dict com filtros (id, descricao, ultima, data, tipo)
-        
+
         Returns:
             Dict com resultado da operação
         """
         deleted_count = 0
         deleted_items = []
-        
+
         # Deletar por ID específico
         if filters.get("id"):
             finance = self.get_by_id(filters["id"], user_id)
@@ -301,49 +316,46 @@ class FinanceService:
                 self.db.delete(finance)
                 deleted_count += 1
                 deleted_items.append(desc)
-        
+
         # Deletar última transação
         elif filters.get("ultima"):
             finance = (
-                self.db.query(Finance)
-                .filter(Finance.user_id == user_id)
-                .order_by(Finance.created_at.desc())
-                .first()
+                self.db.query(Finance).filter(Finance.user_id == user_id).order_by(Finance.created_at.desc()).first()
             )
             if finance:
                 desc = finance.description
                 self.db.delete(finance)
                 deleted_count += 1
                 deleted_items.append(desc)
-        
+
         # Deletar por descrição (busca parcial)
         elif filters.get("descricao"):
             descricao = filters["descricao"].lower().strip()
             data_filtro = filters.get("data")  # Data específica (ex: "hoje")
-            
+
             query = self.db.query(Finance).filter(
                 and_(
                     Finance.user_id == user_id,
                     Finance.description.ilike(f"%{descricao}%"),
                 )
             )
-            
+
             # Filtrar por data se especificado
             if data_filtro == "hoje":
                 query = query.filter(Finance.transaction_date == date.today())
-            
+
             transactions = query.all()
             for finance in transactions:
                 deleted_items.append(finance.description)
                 self.db.delete(finance)
                 deleted_count += 1
-        
+
         if deleted_count > 0:
             self.db.commit()
             # Invalidar cache após remoção
             get_ai_cache().invalidate_finance(user_id)
             logger.info(f"[FINANCE] Deletadas {deleted_count} transações: {deleted_items}")
-        
+
         return {
             "deleted_count": deleted_count,
             "deleted_items": deleted_items,
@@ -352,21 +364,21 @@ class FinanceService:
     def update_by_filters(self, user_id: int, filters: dict, updates: dict) -> dict:
         """
         Atualiza transações baseado em filtros.
-        
+
         Args:
             user_id: ID do usuário
             filters: Dict com filtros para encontrar a transação
             updates: Dict com campos a atualizar
-        
+
         Returns:
             Dict com resultado da operação
         """
         finance = None
-        
+
         # Encontrar por ID
         if filters.get("id"):
             finance = self.get_by_id(filters["id"], user_id)
-        
+
         # Encontrar por descrição (última que bate)
         elif filters.get("descricao"):
             descricao = filters["descricao"].lower().strip()
@@ -381,22 +393,19 @@ class FinanceService:
                 .order_by(Finance.created_at.desc())
                 .first()
             )
-        
+
         # Encontrar última transação
         elif filters.get("ultima"):
             finance = (
-                self.db.query(Finance)
-                .filter(Finance.user_id == user_id)
-                .order_by(Finance.created_at.desc())
-                .first()
+                self.db.query(Finance).filter(Finance.user_id == user_id).order_by(Finance.created_at.desc()).first()
             )
-        
+
         if not finance:
             return {"success": False, "error": "Transação não encontrada"}
-        
+
         old_desc = finance.description
         old_amount = finance.amount
-        
+
         # Aplicar atualizações
         if "amount" in updates:
             finance.amount = float(updates["amount"])
@@ -407,13 +416,13 @@ class FinanceService:
             finance.category_id = category.id if category else finance.category_id
         if "type" in updates:
             finance.type = FinanceType(updates["type"])
-        
+
         finance.updated_at = utc_now()
         self.db.commit()
         self.db.refresh(finance)
-        
+
         logger.info(f"[FINANCE] Atualizada: '{old_desc}' R${old_amount} -> '{finance.description}' R${finance.amount}")
-        
+
         return {
             "success": True,
             "old": {"description": old_desc, "amount": float(old_amount)},
@@ -490,7 +499,7 @@ class FinanceService:
             .scalar()
             or 0
         )
-        
+
         return {
             "period": {
                 "start": start_date.isoformat(),
@@ -527,29 +536,29 @@ class FinanceService:
     ) -> Dict[str, Any]:
         """
         Retorna resumo financeiro baseado em período flexível.
-        
+
         Suporta:
         - 'hoje', 'semana', 'mes', 'ano', 'tudo'
         - Nomes de meses: 'janeiro', 'fevereiro', etc.
         - Busca por descrição (ex: 'uber', 'almoço')
-        
+
         Args:
             user_id: ID do usuário
             periodo: Nome do período ou mês
             ano: Ano específico (opcional)
             busca: Filtro por descrição (opcional)
-        
+
         Returns:
             Dict com resumo financeiro
         """
         start_date, end_date = parse_period_to_dates(periodo, ano)
-        
+
         # Se há busca, retornar transações filtradas
         if busca:
             return self.get_filtered_transactions(user_id, start_date, end_date, busca)
-        
+
         summary = self.get_summary(user_id, start_date, end_date)
-        
+
         # Adicionar nome do período na resposta
         periodo_lower = periodo.lower().strip()
         if periodo_lower in MONTH_NAMES:
@@ -558,41 +567,43 @@ class FinanceService:
             summary["period"]["name"] = f"{month_name} de {year}"
         else:
             summary["period"]["name"] = periodo.capitalize()
-        
+
         return summary
 
-    def get_filtered_transactions(
-        self, user_id: int, start_date: date, end_date: date, busca: str
-    ) -> Dict[str, Any]:
+    def get_filtered_transactions(self, user_id: int, start_date: date, end_date: date, busca: str) -> Dict[str, Any]:
         """
         Retorna transações filtradas por descrição.
-        
+
         Args:
             user_id: ID do usuário
             start_date: Data inicial
             end_date: Data final
             busca: Termo de busca na descrição
-        
+
         Returns:
             Dict com transações filtradas e totais
         """
         busca_lower = busca.lower().strip()
-        
+
         # Buscar transações que contenham o termo na descrição
-        query = self.db.query(Finance).filter(
-            and_(
-                Finance.user_id == user_id,
-                Finance.transaction_date >= start_date,
-                Finance.transaction_date <= end_date,
-                Finance.description.ilike(f"%{busca_lower}%"),
+        query = (
+            self.db.query(Finance)
+            .filter(
+                and_(
+                    Finance.user_id == user_id,
+                    Finance.transaction_date >= start_date,
+                    Finance.transaction_date <= end_date,
+                    Finance.description.ilike(f"%{busca_lower}%"),
+                )
             )
-        ).order_by(Finance.transaction_date.desc())
-        
+            .order_by(Finance.transaction_date.desc())
+        )
+
         transactions = query.all()
-        
+
         total_income = sum(t.amount for t in transactions if t.type == FinanceType.INCOME)
         total_expenses = sum(t.amount for t in transactions if t.type == FinanceType.EXPENSE)
-        
+
         return {
             "period": {
                 "start": start_date.isoformat(),
@@ -626,19 +637,19 @@ class FinanceService:
     ) -> Dict[str, Any]:
         """
         Retorna as N maiores/menores transações.
-        
+
         Args:
             user_id: ID do usuário
             limit: Quantidade de transações
             tipo: 'expense', 'income' ou 'all'
             periodo: 'hoje', 'semana', 'mes', 'ano'
             ordenacao: 'maior' ou 'menor'
-        
+
         Returns:
             Dict com transações ordenadas
         """
         start_date, end_date = parse_period_to_dates(periodo)
-        
+
         query = self.db.query(Finance).filter(
             and_(
                 Finance.user_id == user_id,
@@ -646,23 +657,23 @@ class FinanceService:
                 Finance.transaction_date <= end_date,
             )
         )
-        
+
         # Filtrar por tipo
         if tipo == "expense":
             query = query.filter(Finance.type == FinanceType.EXPENSE)
         elif tipo == "income":
             query = query.filter(Finance.type == FinanceType.INCOME)
-        
+
         # Ordenar
         if ordenacao == "maior":
             query = query.order_by(Finance.amount.desc())
         else:
             query = query.order_by(Finance.amount.asc())
-        
+
         transactions = query.limit(limit).all()
-        
+
         total = sum(t.amount for t in transactions)
-        
+
         return {
             "period": {
                 "start": start_date.isoformat(),

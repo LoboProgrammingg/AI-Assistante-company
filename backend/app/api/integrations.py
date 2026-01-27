@@ -98,9 +98,7 @@ async def google_calendar_callback(
 
     if error:
         logger.error(f"OAuth error: {error}")
-        return RedirectResponse(
-            url=f"{frontend_url}/settings?integration=google_calendar&status=error&message={error}"
-        )
+        return RedirectResponse(url=f"{frontend_url}/settings?integration=google_calendar&status=error&message={error}")
 
     try:
         user_id = int(state)

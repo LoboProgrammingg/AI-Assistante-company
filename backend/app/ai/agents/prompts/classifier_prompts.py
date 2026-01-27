@@ -27,10 +27,10 @@ MENSAGEM: "{message[:1000]}"
 ## REGRAS DE CLASSIFICAÇÃO:
 
 ### 🔴 TAREFA vs LEMBRETE (CRÍTICO!):
-- "Anota/cria/adiciona uma TAREFA" → general (usa Todoist)
-- "Coloca no Todoist" → general (usa Todoist)
-- "Me LEMBRA de algo" / "LEMBRETE" → reminder (banco local)
-- "Agenda/marca um COMPROMISSO" → reminder (banco local)
+- "Anota/cria/adiciona uma TAREFA" → task (gerenciador interno)
+- "To-do", "lista de tarefas" → task
+- "Me LEMBRA de algo" / "LEMBRETE" → reminder (notificação com horário)
+- "Agenda/marca um COMPROMISSO" → calendar (Google Calendar)
 
 ### 📌 INTENÇÕES:
 
@@ -39,37 +39,35 @@ MENSAGEM: "{message[:1000]}"
 - "Gastei 50 no uber", "Recebi 1000"
 - Delete/edite gastos
 
-**reminder** - Lembretes e compromissos LOCAIS:
+**reminder** - Lembretes com notificação:
 - "Me lembra às 10h", "Lembrete de tomar remédio"
-- Compromissos pessoais simples
+- Notificações em horários específicos
 - Delete/edite lembretes
 
-**meeting** - Reuniões e eventos no Google Calendar:
-- "Agenda uma reunião", "Marca evento", "Cria compromisso"
+**task** - Tarefas e to-do:
+- "Cria uma tarefa", "Anota pra fazer"
+- "Minhas tarefas", "Lista de pendências"
+- Coisas a fazer sem horário específico
+
+**calendar** - Eventos no Google Calendar:
+- "Agenda uma reunião", "Marca evento"
 - "Agende no Google Calendar", "Reunião com clientes"
-- Pedidos de agendamento que envolvem outras pessoas
 - Eventos que precisam de convites ou links
-- "Aula de violão", "Consulta médica", "Reunião de trabalho"
 
 **transcription** - APENAS transcrições longas:
 - Textos longos com diálogos de reuniões
 - "Resuma essa reunião", "Analise a transcrição"
 - NÃO é para agendar reuniões!
 
-**contact** - Contatos e mensagens:
-- Salvar/buscar contatos, números
-- Agendar envio de mensagens
-
 **general** - TODO O RESTO:
 - Perguntas gerais, conversas
 - Pesquisas na web
-- "Anota uma tarefa" (usa Todoist)
 - Qualquer dúvida ou pedido de informação
 
 ⚠️ NA DÚVIDA → general (a IA é inteligente e resolve)
 
 JSON:
-{{"intent": "finance|reminder|meeting|contact|general", "confidence": 0.0-1.0, "entities": {{}}, "reasoning": "..."}}
+{{"intent": "finance|reminder|task|calendar|general", "confidence": 0.0-1.0, "entities": {{}}, "reasoning": "..."}}
 """
 
     @staticmethod

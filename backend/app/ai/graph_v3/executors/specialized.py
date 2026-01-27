@@ -7,10 +7,9 @@ Despacha ações para BillsAgent, MemoryAgent, etc.
 import logging
 from typing import Any, Dict
 
-from app.ai.graph_v3.state import ExecutionResult
-
 # Importar agentes para garantir que sejam registrados
 import app.ai.agents  # noqa: F401
+from app.ai.graph_v3.state import ExecutionResult
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +21,7 @@ SPECIALIZED_INTENTS = {"bills", "memory", "patterns", "goals", "advisor", "healt
 SPECIALIZED_ACTIONS = {
     # Bills
     "extract_invoice",
-    "list_bills", 
+    "list_bills",
     "create_bill_reminder",
     # Memory
     "save_preference",
@@ -50,12 +49,12 @@ SPECIALIZED_ACTIONS = {
 
 class SpecializedExecutor:
     """Executor para agentes especializados."""
-    
+
     @staticmethod
     async def execute(action_type: str, params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Executa ação via agente especializado."""
         from app.ai.agents.dispatcher import dispatch_to_agent
-        
+
         # Mapear ação para intent
         action_to_intent = {
             # Bills
@@ -84,27 +83,31 @@ class SpecializedExecutor:
             "create_health_reminder": "health",
             "health_schedule": "health",
         }
-        
+
         intent = action_to_intent.get(action_type)
-        
+
         logger.info(f"[SPECIALIZED] Action: {action_type} -> Intent: {intent}")
         logger.info(f"[SPECIALIZED] Params: {list(params.keys())}")
-        
+
         if not intent:
             return ExecutionResult(
                 success=False,
                 action_type=action_type,
                 error=f"Ação '{action_type}' não mapeada para agente",
             )
-        
+
         try:
             # Construir mensagem para o agente
             message = params.get("original_message", "")
             if not message and params.get("ocr_text"):
                 message = params["ocr_text"]
-            
-            logger.info(f"[SPECIALIZED] Message: {message[:100]}..." if len(message) > 100 else f"[SPECIALIZED] Message: {message}")
-            
+
+            logger.info(
+                f"[SPECIALIZED] Message: {message[:100]}..."
+                if len(message) > 100
+                else f"[SPECIALIZED] Message: {message}"
+            )
+
             # Despachar para agente
             result = await dispatch_to_agent(
                 intent=intent,
@@ -113,17 +116,17 @@ class SpecializedExecutor:
                 db=db,
                 user_id=user_id,
             )
-            
+
             if result is None:
                 return ExecutionResult(
                     success=False,
                     action_type=action_type,
                     error=f"Agente '{intent}' não encontrado",
                 )
-            
+
             logger.info(f"[SPECIALIZED] Result: success={result.success}, action={result.action}")
             logger.info(f"[SPECIALIZED] Response: {result.message[:200] if result.message else 'None'}...")
-            
+
             return ExecutionResult(
                 success=result.success,
                 action_type=action_type,
@@ -131,7 +134,7 @@ class SpecializedExecutor:
                 error=result.error,
                 response_template=result.message if result.success else None,
             )
-            
+
         except Exception as e:
             logger.error(f"[SPECIALIZED] Erro: {e}")
             return ExecutionResult(
@@ -139,7 +142,7 @@ class SpecializedExecutor:
                 action_type=action_type,
                 error=str(e),
             )
-    
+
     @staticmethod
     def is_specialized_action(action_type: str) -> bool:
         """Verifica se ação usa agente especializado."""

@@ -5,9 +5,9 @@ Contém jobs agendados para manutenção e processamento.
 """
 
 from app.jobs.memory_decay import (
+    MemoryCleanupJob,
     MemoryDecayJob,
     MemoryExpirationJob,
-    MemoryCleanupJob,
     MemoryReinforcementJob,
     run_all_memory_jobs,
 )

@@ -11,40 +11,36 @@ Fluxo no LangGraph:
 Input → Cognitive → MemoryReader → ContextBuilder → Executor → MemoryWriter → Response
 """
 
-# MemoryManager
-from app.ai.memory.manager import MemoryManager
-
-from app.ai.memory.types import (
-    MemoryItem,
-    MemoryType,
-    MemoryLayer,
-    MemorySource,
-    Importance,
-    MemoryQuery,
-    MemoryWriteResult,
-    SOURCE_CONFIDENCE,
-    MEMORY_LIMITS,
-)
-
-from app.ai.memory.reader import (
-    MemoryReaderNode,
-    read_relevant_memories,
-)
-
-from app.ai.memory.writer import (
-    MemoryWriterNode,
-    write_memory_if_relevant,
-)
-
 from app.ai.memory.context_builder import (
     WorkingContextBuilder,
     build_working_context,
     compress_for_llm,
 )
 
+# MemoryManager
+from app.ai.memory.manager import MemoryManager
+from app.ai.memory.reader import (
+    MemoryReaderNode,
+    read_relevant_memories,
+)
 from app.ai.memory.redis_working import (
     RedisWorkingMemory,
     get_redis_working_memory,
+)
+from app.ai.memory.types import (
+    MEMORY_LIMITS,
+    SOURCE_CONFIDENCE,
+    Importance,
+    MemoryItem,
+    MemoryLayer,
+    MemoryQuery,
+    MemorySource,
+    MemoryType,
+    MemoryWriteResult,
+)
+from app.ai.memory.writer import (
+    MemoryWriterNode,
+    write_memory_if_relevant,
 )
 
 __all__ = [

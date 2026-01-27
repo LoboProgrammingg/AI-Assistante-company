@@ -102,7 +102,7 @@ class Settings(BaseSettings):
     LANGCHAIN_ENDPOINT: str = "https://api.smith.langchain.com"
     LANGCHAIN_API_KEY: str = ""
     LANGCHAIN_PROJECT: str = "iris-whatsapp"
-    
+
     @property
     def langsmith_enabled(self) -> bool:
         """LangSmith só funciona com API key válida."""

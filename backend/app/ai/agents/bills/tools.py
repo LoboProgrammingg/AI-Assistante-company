@@ -16,6 +16,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class InvoiceData:
     """Dados extraídos de uma fatura."""
+
     vendor: str = ""
     amount: float = 0.0
     due_date: Optional[str] = None
@@ -30,16 +31,16 @@ class InvoiceData:
 def extract_invoice_data(text: str, source: str = "ocr") -> Dict[str, Any]:
     """
     Extrai dados de fatura de texto (OCR ou email).
-    
+
     Args:
         text: Texto extraído do documento
         source: Origem do texto ("ocr", "pdf", "email")
-    
+
     Returns:
         Dicionário com dados extraídos
     """
     logger.info(f"[BILLS] Extraindo dados de {source}, {len(text)} chars")
-    
+
     result = {
         "vendor": "",
         "amount": 0.0,
@@ -51,43 +52,43 @@ def extract_invoice_data(text: str, source: str = "ocr") -> Dict[str, Any]:
         "confidence": 0.0,
         "items": [],
     }
-    
+
     text_lower = text.lower()
-    
+
     # 1. Extrair valor total
     result["amount"], amount_confidence = _extract_amount(text)
-    
+
     # 2. Extrair data de vencimento
     result["due_date"], date_confidence = _extract_due_date(text)
-    
+
     # 3. Extrair fornecedor/empresa
     result["vendor"] = _extract_vendor(text)
-    
+
     # 4. Extrair número da fatura
     result["invoice_number"] = _extract_invoice_number(text)
-    
+
     # 5. Extrair parcela
     result["installment"] = _extract_installment(text)
-    
+
     # 6. Extrair código de barras
     result["barcode"] = _extract_barcode(text)
-    
+
     # 7. Detectar categoria
     result["category"] = _detect_category(text_lower, result["vendor"])
-    
+
     # Calcular confidence geral
     confidences = [amount_confidence, date_confidence]
     if result["vendor"]:
         confidences.append(0.8)
     result["confidence"] = sum(confidences) / len(confidences) if confidences else 0.3
-    
+
     logger.info(
         f"[BILLS] Extraído: {result['vendor']} | "
         f"R$ {result['amount']:.2f} | "
         f"Venc: {result['due_date']} | "
         f"Conf: {result['confidence']:.0%}"
     )
-    
+
     return result
 
 
@@ -100,7 +101,7 @@ def _extract_amount(text: str) -> tuple[float, float]:
         r"valor\s+a\s+pagar[:\s]+r?\$?\s*([\d.,]+)",
         r"total\s+geral[:\s]+r?\$?\s*([\d.,]+)",
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, text.lower())
         if match:
@@ -111,7 +112,7 @@ def _extract_amount(text: str) -> tuple[float, float]:
                     return value, 0.9
             except ValueError:
                 continue
-    
+
     # Fallback: procurar qualquer valor monetário
     all_values = re.findall(r"r?\$\s*([\d.,]+)", text.lower())
     if all_values:
@@ -125,7 +126,7 @@ def _extract_amount(text: str) -> tuple[float, float]:
             return max_value, 0.6
         except (ValueError, StopIteration):
             pass
-    
+
     return 0.0, 0.0
 
 
@@ -137,7 +138,7 @@ def _extract_due_date(text: str) -> tuple[Optional[str], float]:
         r"data\s+de\s+vencimento[:\s]+([\d]{1,2}[/.-][\d]{1,2}[/.-][\d]{2,4})",
         r"pagar\s+at[ée][:\s]+([\d]{1,2}[/.-][\d]{1,2}[/.-][\d]{2,4})",
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, text.lower())
         if match:
@@ -145,7 +146,7 @@ def _extract_due_date(text: str) -> tuple[Optional[str], float]:
             normalized = _normalize_date(date_str)
             if normalized:
                 return normalized, 0.9
-    
+
     # Fallback: procurar qualquer data
     date_pattern = r"(\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4})"
     dates = re.findall(date_pattern, text)
@@ -153,7 +154,7 @@ def _extract_due_date(text: str) -> tuple[Optional[str], float]:
         normalized = _normalize_date(dates[0])
         if normalized:
             return normalized, 0.5
-    
+
     return None, 0.0
 
 
@@ -161,22 +162,22 @@ def _normalize_date(date_str: str) -> Optional[str]:
     """Normaliza data para YYYY-MM-DD."""
     date_str = date_str.replace("-", "/").replace(".", "/")
     parts = date_str.split("/")
-    
+
     if len(parts) != 3:
         return None
-    
+
     try:
         day, month, year = parts
         day = int(day)
         month = int(month)
         year = int(year)
-        
+
         if year < 100:
             year += 2000
-        
+
         if not (1 <= day <= 31 and 1 <= month <= 12 and 2020 <= year <= 2030):
             return None
-        
+
         return f"{year:04d}-{month:02d}-{day:02d}"
     except ValueError:
         return None
@@ -209,12 +210,12 @@ def _extract_vendor(text: str) -> str:
         "net": "Net/Claro",
         "sky": "Sky",
     }
-    
+
     text_lower = text.lower()
     for key, name in vendors.items():
         if key in text_lower:
             return name
-    
+
     # Tentar extrair CNPJ e nome da empresa
     cnpj_pattern = r"(\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2})"
     if re.search(cnpj_pattern, text):
@@ -222,10 +223,10 @@ def _extract_vendor(text: str) -> str:
         lines = text.split("\n")
         for i, line in enumerate(lines):
             if re.search(cnpj_pattern, line) and i > 0:
-                prev_line = lines[i-1].strip()
+                prev_line = lines[i - 1].strip()
                 if prev_line and len(prev_line) < 50:
                     return prev_line.title()
-    
+
     return ""
 
 
@@ -238,12 +239,12 @@ def _extract_invoice_number(text: str) -> str:
         r"nf[:\s]*([\d]+)",
         r"n[°o][:\s]*([\d]+)",
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, text.lower())
         if match:
             return match.group(1)
-    
+
     return ""
 
 
@@ -254,7 +255,7 @@ def _extract_installment(text: str) -> Optional[str]:
         r"(\d+)\s*/\s*(\d+)\s*parcela",
         r"(\d+)x",
     ]
-    
+
     for pattern in patterns:
         match = re.search(pattern, text.lower())
         if match:
@@ -263,7 +264,7 @@ def _extract_installment(text: str) -> Optional[str]:
                 return f"{groups[0]}/{groups[1]}"
             elif len(groups) == 1:
                 return f"1/{groups[0]}"
-    
+
     return None
 
 
@@ -274,7 +275,7 @@ def _extract_barcode(text: str) -> Optional[str]:
     match = re.search(barcode_pattern, text)
     if match:
         return match.group(1).replace(" ", "").replace(".", "")
-    
+
     # Código de barras numérico simples
     numeric_pattern = r"(\d{44,48})"
     match = re.search(numeric_pattern, text.replace(" ", ""))
@@ -282,7 +283,7 @@ def _extract_barcode(text: str) -> Optional[str]:
         code = match.group(1)
         if len(code) in [44, 47, 48]:
             return code
-    
+
     return None
 
 
@@ -301,12 +302,12 @@ def _detect_category(text_lower: str, vendor: str) -> str:
         "Moradia": ["aluguel", "condomínio", "iptu", "seguro residencial"],
         "Cartão": ["cartão", "fatura do cartão", "nubank", "inter", "c6"],
     }
-    
+
     for category, keywords in categories.items():
         for keyword in keywords:
             if keyword in text_lower or keyword in vendor.lower():
                 return category
-    
+
     return "Outros"
 
 
@@ -318,40 +319,40 @@ def create_financial_reminder(
 ) -> Dict[str, Any]:
     """
     Cria lembrete financeiro a partir dos dados da fatura.
-    
+
     Args:
         db: Sessão do banco
         user_id: ID do usuário
         invoice_data: Dados extraídos da fatura
         auto_create: Se True, cria automaticamente; se False, apenas sugere
-    
+
     Returns:
         Resultado da operação
     """
     from app.services.reminder_service import ReminderService
-    
+
     vendor = invoice_data.get("vendor", "Fatura")
     amount = invoice_data.get("amount", 0)
     due_date = invoice_data.get("due_date")
     category = invoice_data.get("category", "Contas")
-    
+
     title = f"💰 Pagar {vendor}"
     if amount > 0:
         title += f" - R$ {amount:,.2f}"
-    
+
     description = f"Categoria: {category}"
     if invoice_data.get("installment"):
         description += f"\nParcela: {invoice_data['installment']}"
     if invoice_data.get("barcode"):
         description += f"\nCódigo: {invoice_data['barcode'][:20]}..."
-    
+
     reminder_data = {
         "title": title,
         "description": description,
         "scheduled_time": due_date,
         "category": "financial",
     }
-    
+
     if not auto_create:
         return {
             "action": "suggest_reminder",
@@ -359,11 +360,11 @@ def create_financial_reminder(
             "message": f"Criar lembrete para pagar {vendor} em {due_date}?",
             "requires_confirmation": True,
         }
-    
+
     try:
         service = ReminderService(db)
         service.create_from_entities(user_id, reminder_data)
-        
+
         return {
             "action": "created_reminder",
             "reminder": reminder_data,

@@ -45,11 +45,11 @@ class VisionService:
     async def analyze_image(self, image_data: bytes, user_context: str = "") -> Dict[str, Any]:
         """
         Analisa uma imagem e extrai informações relevantes.
-        
+
         Args:
             image_data: Bytes da imagem
             user_context: Contexto adicional do usuário
-            
+
         Returns:
             Dict com análise estruturada
         """
@@ -125,14 +125,15 @@ Se não for imagem financeira, retorne tipo_imagem="outro".
 RETORNE APENAS O JSON."""
 
             result = self.model.generate_content([prompt, image_file])
-            
+
             # Limpar arquivo temporário
             import os
+
             os.unlink(temp_path)
 
             # Parsear resposta
             response_text = result.text.strip()
-            
+
             # Remover marcadores de código se presentes
             if response_text.startswith("```"):
                 response_text = response_text.split("```")[1]
@@ -141,13 +142,11 @@ RETORNE APENAS O JSON."""
                 response_text = response_text.strip()
 
             import json
+
             try:
                 analysis = json.loads(response_text)
                 logger.info(f"[VISION] Imagem analisada: {analysis.get('tipo_imagem')} ({analysis.get('confianca')})")
-                return {
-                    "success": True,
-                    "analysis": analysis
-                }
+                return {"success": True, "analysis": analysis}
             except json.JSONDecodeError:
                 # Se não conseguiu parsear JSON, retorna descrição textual
                 logger.warning("[VISION] Resposta não é JSON válido, retornando texto")
@@ -157,59 +156,65 @@ RETORNE APENAS O JSON."""
                         "tipo_imagem": "outro",
                         "descricao": response_text,
                         "transacoes": [],
-                        "confianca": "baixa"
-                    }
+                        "confianca": "baixa",
+                    },
                 }
 
         except Exception as e:
             logger.error(f"[VISION] Erro ao analisar imagem: {e}")
-            return {
-                "success": False,
-                "error": str(e)
-            }
+            return {"success": False, "error": str(e)}
 
-    async def analyze_financial_image(self, image_data: bytes, user_name: str = "", db=None, user_id: int = None) -> str:
+    async def analyze_financial_image(
+        self, image_data: bytes, user_name: str = "", db=None, user_id: int = None
+    ) -> str:
         """
         Analisa imagem financeira, registra transações automaticamente e retorna resposta.
-        
+
         Args:
             image_data: Bytes da imagem
             user_name: Nome do usuário para personalização
             db: Sessão do banco para registrar transações
             user_id: ID do usuário para registrar transações
-            
+
         Returns:
             Resposta humanizada sobre a imagem
         """
         user_context = f"O usuário se chama {user_name}." if user_name else ""
         result = await self.analyze_image(image_data, user_context)
-        
+
         if not result.get("success"):
             return "Desculpe, não consegui analisar a imagem. Pode tentar enviar novamente?"
-        
+
         analysis = result.get("analysis", {})
         tipo = analysis.get("tipo_imagem", "outro")
         transacoes = analysis.get("transacoes", [])
-        
+
         # Nome curto do usuário (primeiro nome)
         primeiro_nome = user_name.split()[0] if user_name else ""
-        
+
         if tipo == "outro":
             descricao = analysis.get("descricao", "")
             return f"📷 {descricao}" if descricao else "📷 Imagem analisada!"
-        
+
         # Registrar transações automaticamente se tiver db e user_id
         registradas = []
         if transacoes and db and user_id:
             registradas = await self._registrar_transacoes(db, user_id, transacoes)
-        
+
         # Resposta simplificada
         parts = []
-        
+
         # Emoji e tipo
-        tipo_emoji = {"extrato": "📊", "nota_fiscal": "🧾", "comprovante": "✅", "pix": "💸", "cupom": "🛒", "app_bancario": "📱"}
+        tipo_emoji = {
+            "extrato": "📊",
+            "nota_fiscal": "🧾",
+            "comprovante": "✅",
+            "pix": "💸",
+            "cupom": "🛒",
+            "app_bancario": "📱",
+        }
         emoji = tipo_emoji.get(tipo, "📷")
-        
+
         if registradas:
             # Transações foram registradas automaticamente
             if len(registradas) == 1:
@@ -245,19 +250,20 @@ RETORNE APENAS O JSON."""
                     parts.append(f"• R$ {valor:.2f} - {titulo} ({cat})")
         else:
             parts.append(f"{emoji} Imagem analisada, mas não encontrei transações para registrar.")
-        
+
         return "\n".join(parts)
 
     async def _registrar_transacoes(self, db, user_id: int, transacoes: list) -> list:
         """Registra transações no banco de dados com título, descrição e categoria."""
-        from app.services.finance_service import FinanceService
-        from app.schemas.finance import FinanceCreate, FinanceTypeEnum
-        from app.models import FinanceCategory
         from datetime import date, datetime
-        
+
+        from app.models import FinanceCategory
+        from app.schemas.finance import FinanceCreate, FinanceTypeEnum
+        from app.services.finance_service import FinanceService
+
         registradas = []
         finance_service = FinanceService(db)
-        
+
         for t in transacoes:
             try:
                 # Usar título como descrição principal (mais curto e legível)
@@ -265,12 +271,10 @@ RETORNE APENAS O JSON."""
                 descricao = t.get("descricao", titulo)
                 categoria_nome = t.get("categoria", "Outros")
                 tipo = FinanceTypeEnum.EXPENSE if t.get("tipo") == "saida" else FinanceTypeEnum.INCOME
-                
+
                 # Buscar categoria pelo nome
-                categoria = db.query(FinanceCategory).filter(
-                    FinanceCategory.name.ilike(f"%{categoria_nome}%")
-                ).first()
-                
+                categoria = db.query(FinanceCategory).filter(FinanceCategory.name.ilike(f"%{categoria_nome}%")).first()
+
                 # Tratar data da transação
                 data_str = t.get("data")
                 if data_str:
@@ -280,7 +284,7 @@ RETORNE APENAS O JSON."""
                         transaction_date = date.today()
                 else:
                     transaction_date = date.today()
-                
+
                 # Criar schema de transação
                 finance_data = FinanceCreate(
                     type=tipo,
@@ -289,31 +293,38 @@ RETORNE APENAS O JSON."""
                     transaction_date=transaction_date,
                     category_id=categoria.id if categoria else None,
                 )
-                
+
                 # Registrar transação
                 finance = finance_service.create(user_id=user_id, data=finance_data)
-                
+
                 if finance:
                     cat_name = finance.category.name if finance.category else "Outros"
-                    registradas.append({
-                        "type": finance.type,
-                        "amount": finance.amount,
-                        "description": finance.description,
-                        "category": cat_name,
-                    })
-                    logger.info(f"[VISION] Transação registrada: R${finance.amount} - {finance.description} ({cat_name})")
+                    registradas.append(
+                        {
+                            "type": finance.type,
+                            "amount": finance.amount,
+                            "description": finance.description,
+                            "category": cat_name,
+                        }
+                    )
+                    logger.info(
+                        f"[VISION] Transação registrada: R${finance.amount} - {finance.description} ({cat_name})"
+                    )
             except Exception as e:
                 logger.error(f"[VISION] Erro ao registrar transação: {e}")
-        
+
         return registradas
 
     def _inferir_categoria(self, descricao: str) -> str:
         """Infere categoria baseada na descrição."""
         descricao_lower = descricao.lower()
-        
+
         if any(x in descricao_lower for x in ["uber", "99", "taxi", "combustivel", "gasolina", "posto"]):
             return "Transporte"
-        elif any(x in descricao_lower for x in ["mercado", "supermercado", "açougue", "padaria", "restaurante", "ifood", "comida"]):
+        elif any(
+            x in descricao_lower
+            for x in ["mercado", "supermercado", "açougue", "padaria", "restaurante", "ifood", "comida"]
+        ):
             return "Alimentação"
         elif any(x in descricao_lower for x in ["aluguel", "condominio", "agua", "luz", "energia", "internet"]):
             return "Moradia"
@@ -329,23 +340,25 @@ RETORNE APENAS O JSON."""
     def format_transactions_for_registration(self, analysis: Dict[str, Any]) -> list:
         """
         Formata transações da análise para registro no sistema.
-        
+
         Returns:
             Lista de transações prontas para registrar
         """
         transacoes = analysis.get("transacoes", [])
         formatted = []
-        
+
         for t in transacoes:
-            formatted.append({
-                "type": "expense" if t.get("tipo") == "saida" else "income",
-                "amount": t.get("valor", 0),
-                "title": t.get("titulo", t.get("descricao", "Transação")),
-                "description": t.get("descricao", "Transação da imagem"),
-                "category": t.get("categoria", "Outros"),
-                "date": t.get("data"),
-            })
-        
+            formatted.append(
+                {
+                    "type": "expense" if t.get("tipo") == "saida" else "income",
+                    "amount": t.get("valor", 0),
+                    "title": t.get("titulo", t.get("descricao", "Transação")),
+                    "description": t.get("descricao", "Transação da imagem"),
+                    "category": t.get("categoria", "Outros"),
+                    "date": t.get("data"),
+                }
+            )
+
         return formatted
 
 

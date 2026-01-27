@@ -2,11 +2,23 @@
 Modelos do sistema IRIS - separados por funcionalidade.
 """
 
+# Cache e métricas da IA
+from app.models.ai_cache import AgentMetrics, ClassificationCache, ConversationMemory
+
 # Base e utilitários
 from app.models.base import Base, RecurrenceType, utc_now
 
-# Usuário e autenticação
-from app.models.user import User, VerificationToken, VerificationTokenType
+# Documentos e RAG
+from app.models.document import Document, DocumentCategory, DocumentEmbedding
+
+# Finanças
+from app.models.finance import Finance, FinanceCategory, FinanceType
+
+# Integrações externas
+from app.models.integration import UserIntegration
+
+# Reuniões
+from app.models.meeting import Meeting
 
 # Mensagens
 from app.models.message import Message
@@ -14,43 +26,31 @@ from app.models.message import Message
 # Lembretes
 from app.models.reminder_model import Reminder
 
-# Finanças
-from app.models.finance import Finance, FinanceCategory, FinanceType
-
-# Reuniões
-from app.models.meeting import Meeting
-
 # Mensagens agendadas
 from app.models.scheduled_message import ScheduledMessage, ScheduledMessageStatus
-
-# Gerenciador de Tarefas
-from app.models.task import Task, TaskStatus, TaskPriority, Project, TaskLabel
 
 # Planos e assinaturas
 from app.models.subscription import Plan, PlanType, Subscription, SubscriptionStatus
 
-# Documentos e RAG
-from app.models.document import Document, DocumentCategory, DocumentEmbedding
+# Gerenciador de Tarefas
+from app.models.task import Project, Task, TaskLabel, TaskPriority, TaskStatus
 
-# Cache e métricas da IA
-from app.models.ai_cache import AgentMetrics, ClassificationCache, ConversationMemory
+# Usuário e autenticação
+from app.models.user import User, VerificationToken, VerificationTokenType
 
 # Memória estruturada v3
 from app.models.user_memory import (
-    UserMemory,
-    MemoryAuditLog,
-    MemoryTypeEnum,
-    MemoryLayerEnum,
-    ImportanceEnum,
-    MemorySourceEnum,
-    SOURCE_CONFIDENCE,
-    MEMORY_LIMITS,
-    TYPE_IMPORTANCE,
     DECAY_CONFIG,
+    MEMORY_LIMITS,
+    SOURCE_CONFIDENCE,
+    TYPE_IMPORTANCE,
+    ImportanceEnum,
+    MemoryAuditLog,
+    MemoryLayerEnum,
+    MemorySourceEnum,
+    MemoryTypeEnum,
+    UserMemory,
 )
-
-# Integrações externas
-from app.models.integration import UserIntegration
 
 __all__ = [
     "Base",

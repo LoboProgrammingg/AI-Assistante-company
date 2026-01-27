@@ -9,8 +9,8 @@ Responsabilidades:
 
 from app.ai.agents.bills.agent import BillsAgent
 from app.ai.agents.bills.tools import (
-    extract_invoice_data,
     create_financial_reminder,
+    extract_invoice_data,
 )
 
 __all__ = [

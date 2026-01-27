@@ -109,10 +109,7 @@ def get_current_user(
 
     # SEGURANÇA: Verificar se usuário está ativo
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Conta desativada"
-        )
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Conta desativada")
 
     return user
 

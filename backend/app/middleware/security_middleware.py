@@ -26,7 +26,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     - Strict-Transport-Security
     - Content-Security-Policy
     - Referrer-Policy
-    
+
     SEGURANÇA: Usa CSP diferente para dev/prod
     """
 
@@ -34,11 +34,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
 
         # Usar headers apropriados para o ambiente
-        headers = (
-            SecurityConfig.SECURITY_HEADERS_DEV 
-            if settings.DEBUG 
-            else SecurityConfig.SECURITY_HEADERS
-        )
+        headers = SecurityConfig.SECURITY_HEADERS_DEV if settings.DEBUG else SecurityConfig.SECURITY_HEADERS
 
         # Adicionar headers de segurança
         for header, value in headers.items():

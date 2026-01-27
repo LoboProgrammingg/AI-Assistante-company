@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.models import Task, TaskStatus, TaskPriority, Project, TaskLabel
+from app.models import Project, Task, TaskLabel, TaskPriority, TaskStatus
 from app.models.base import RecurrenceType
 from app.models.user import User
 from app.services.auth_service import get_current_user
@@ -22,6 +22,7 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
 
 # ==================== SCHEMAS ====================
+
 
 class TaskCreate(BaseModel):
     title: str = Field(..., min_length=1, max_length=200)
@@ -128,6 +129,7 @@ class KanbanBoard(BaseModel):
 
 # ==================== HELPER ====================
 
+
 def task_to_response(task: Task) -> TaskResponse:
     """Converte Task para TaskResponse."""
     return TaskResponse(
@@ -156,6 +158,7 @@ def task_to_response(task: Task) -> TaskResponse:
 
 # ==================== TASKS ENDPOINTS ====================
 
+
 @router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(
     data: TaskCreate,
@@ -164,11 +167,11 @@ def create_task(
 ):
     """Cria uma nova tarefa."""
     service = TaskService(db)
-    
+
     priority = TaskPriority(data.priority) if data.priority else TaskPriority.MEDIUM
     task_status = TaskStatus(data.status) if data.status else TaskStatus.TODO
     recurrence = RecurrenceType(data.recurrence_type) if data.recurrence_type else RecurrenceType.ONCE
-    
+
     task = service.create_task(
         user_id=current_user.id,
         title=data.title,
@@ -198,10 +201,10 @@ def list_tasks(
 ):
     """Lista tarefas com filtros."""
     service = TaskService(db)
-    
+
     task_status = TaskStatus(status) if status else None
     task_priority = TaskPriority(priority) if priority else None
-    
+
     tasks = service.list_tasks(
         user_id=current_user.id,
         status=task_status,
@@ -288,7 +291,7 @@ def get_subtasks(
     task = service.get_task(current_user.id, task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Tarefa não encontrada")
-    
+
     subtasks = service.list_tasks(
         user_id=current_user.id,
         parent_id=task_id,
@@ -342,6 +345,7 @@ def delete_task(
 
 # ==================== PROJECTS ENDPOINTS ====================
 
+
 @router.post("/projects/", response_model=ProjectResponse, status_code=status.HTTP_201_CREATED)
 def create_project(
     data: ProjectCreate,
@@ -384,6 +388,7 @@ def delete_project(
 
 
 # ==================== LABELS ENDPOINTS ====================
+
 
 @router.post("/labels/", response_model=LabelResponse, status_code=status.HTTP_201_CREATED)
 def create_label(

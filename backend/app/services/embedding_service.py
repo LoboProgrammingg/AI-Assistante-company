@@ -101,7 +101,7 @@ class EmbeddingService:
             # Converter embedding para formato pgvector: '[0.1,0.2,...]'
             # O formato deve ser uma string com colchetes e valores separados por vírgula
             emb_str = "[" + ",".join(str(x) for x in embedding) + "]"
-            
+
             self.db.execute(
                 text(
                     """
@@ -127,7 +127,7 @@ class EmbeddingService:
 
             # Converter embedding para formato pgvector
             query_emb_str = "[" + ",".join(str(x) for x in query_embedding) + "]"
-            
+
             # Buscar usando pgvector com filtro por usuário
             # Usa parâmetro seguro para evitar SQL injection
             result = self.db.execute(

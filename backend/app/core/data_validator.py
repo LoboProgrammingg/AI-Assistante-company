@@ -115,8 +115,8 @@ class DataValidator:
 
         return results
 
-    def validate_contact_data(self, data: Dict[str, Any]) -> List[ValidationResult]:
-        """Valida dados de contato extraídos."""
+    def validate_task_data(self, data: Dict[str, Any]) -> List[ValidationResult]:
+        """Valida dados de tarefa extraídos."""
         results = []
 
         # Validar telefone
@@ -383,7 +383,7 @@ def validate_entities(
         "finance": validator.validate_finance_data,
         "reminder": validator.validate_reminder_data,
         "meeting": validator.validate_meeting_data,
-        "contact": validator.validate_contact_data,
+        "task": validator.validate_task_data,
     }
 
     validate_fn = validators.get(entity_type)

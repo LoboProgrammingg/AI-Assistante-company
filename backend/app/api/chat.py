@@ -13,7 +13,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.ai.agents.meeting_agent import MeetingAgent
-from app.ai.graph_v3.migration import process_message as process_message_v3, GRAPH_VERSION
+from app.ai.graph_v3.migration import GRAPH_VERSION
+from app.ai.graph_v3.migration import process_message as process_message_v3
 from app.api.deps import get_current_user, get_db
 from app.config import settings
 from app.models import (

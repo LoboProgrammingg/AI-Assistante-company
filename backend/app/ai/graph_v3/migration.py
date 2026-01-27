@@ -24,19 +24,19 @@ async def process_message(
 ) -> dict:
     """
     Processa mensagem usando o Graph v3.
-    
+
     Args:
         user_id: ID do usuário
         session_id: ID da sessão
         message: Mensagem do usuário
         context: Contexto adicional
         db: Sessão do banco de dados
-    
+
     Returns:
         Dict com resposta e metadados
     """
     from app.ai.graph_v3 import get_iris_graph_v3
-    
+
     graph = get_iris_graph_v3()
     return await graph.process_message(user_id, session_id, message, context, db)
 

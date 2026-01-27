@@ -17,17 +17,17 @@ import logging
 import re
 import uuid
 from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 from app.ai.memory.types import (
+    MEMORY_LIMITS,
+    SOURCE_CONFIDENCE,
+    Importance,
     MemoryItem,
-    MemoryType,
     MemoryLayer,
     MemorySource,
-    Importance,
+    MemoryType,
     MemoryWriteResult,
-    SOURCE_CONFIDENCE,
-    MEMORY_LIMITS,
 )
 
 if TYPE_CHECKING:
@@ -36,13 +36,14 @@ if TYPE_CHECKING:
 # Tentar importar modelo UserMemory (v3)
 try:
     from app.models.user_memory import (
-        UserMemory as UserMemoryModel,
-        MemoryAuditLog,
-        MemoryTypeEnum,
-        MemoryLayerEnum,
         ImportanceEnum,
+        MemoryAuditLog,
+        MemoryLayerEnum,
         MemorySourceEnum,
+        MemoryTypeEnum,
     )
+    from app.models.user_memory import UserMemory as UserMemoryModel
+
     HAS_USER_MEMORY_MODEL = True
 except ImportError:
     HAS_USER_MEMORY_MODEL = False
@@ -117,25 +118,25 @@ TYPE_IMPORTANCE = {
 class MemoryWriterNode:
     """
     Nó de escrita de memória - 100% baseado em regras.
-    
+
     Decide o que memorizar usando padrões determinísticos.
     LLM NUNCA decide o que salvar.
     """
-    
+
     def __init__(self, db: "Session" = None):
         self.db = db
-    
+
     def write(self, state: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analisa estado e decide o que memorizar.
-        
+
         Input (state):
             - user_id: int
             - message: str
             - intent: str
             - entities: dict
             - execution_result: dict
-        
+
         Output (state update):
             - memory_operations: List[MemoryWriteResult]
         """
@@ -144,70 +145,70 @@ class MemoryWriterNode:
         intent = state.get("intent", "")
         entities = state.get("entities", {})
         execution_result = state.get("execution_result", {})
-        
+
         if not user_id or not message:
             return {"memory_operations": []}
-        
+
         operations = []
-        
+
         try:
             # 1. Verificar se deve descartar
             if self._should_discard(message):
                 logger.debug(f"[MEMORY_WRITER] Descartando: ruído/emoção")
                 return {"memory_operations": []}
-            
+
             # 2. Verificar dados sensíveis
             if self._contains_sensitive(message):
                 logger.info(f"[MEMORY_WRITER] Dados sensíveis detectados - requer confirmação")
                 # Não salvar automaticamente
                 return {"memory_operations": []}
-            
+
             # 3. Detectar memórias a partir da mensagem
             detected = self._detect_memories(message, user_id)
-            
+
             for memory in detected:
                 result = self._save_memory(memory)
                 operations.append(result)
-            
+
             # 4. Registrar ação executada (episódico)
             if execution_result.get("success"):
                 action_memory = self._create_action_memory(
-                    user_id, 
+                    user_id,
                     execution_result,
                     intent,
                 )
                 if action_memory:
                     result = self._save_memory(action_memory)
                     operations.append(result)
-            
+
             if operations:
                 logger.info(
                     f"[MEMORY_WRITER] user={user_id} | "
                     f"operations={len(operations)} | "
                     f"created={sum(1 for o in operations if o.action == 'created')}"
                 )
-            
+
             return {"memory_operations": operations}
-            
+
         except Exception as e:
             logger.error(f"[MEMORY_WRITER] Erro: {e}")
             return {"memory_operations": []}
-    
+
     def _should_discard(self, message: str) -> bool:
         """Verifica se mensagem deve ser descartada."""
         message_lower = message.lower().strip()
-        
+
         # Mensagens muito curtas
         if len(message_lower) < 5:
             return True
-        
+
         # Padrões de descarte
         for pattern in DISCARD_PATTERNS:
             if re.search(pattern, message_lower):
                 return True
-        
+
         return False
-    
+
     def _contains_sensitive(self, message: str) -> bool:
         """Verifica se contém dados sensíveis."""
         message_lower = message.lower()
@@ -215,18 +216,18 @@ class MemoryWriterNode:
             if re.search(pattern, message_lower):
                 return True
         return False
-    
+
     def _detect_memories(self, message: str, user_id: int) -> List[MemoryItem]:
         """Detecta memórias a partir de padrões."""
         message_lower = message.lower()
         memories = []
-        
+
         for memory_type, patterns in SAVE_PATTERNS.items():
             for pattern, category in patterns:
                 match = re.search(pattern, message_lower)
                 if match:
                     content = match.group(1).strip() if match.groups() else ""
-                    
+
                     if content and len(content) > 2:
                         memory = MemoryItem(
                             memory_id=str(uuid.uuid4()),
@@ -246,16 +247,16 @@ class MemoryWriterNode:
                         )
                         memories.append(memory)
                         break  # Apenas um match por tipo
-        
+
         return memories
-    
+
     def _generate_key(self, memory_type: MemoryType, content: str) -> str:
         """Gera chave semântica para a memória."""
         # Simplificar content para chave
         key_content = re.sub(r"[^a-z0-9\s]", "", content.lower())
         key_content = "_".join(key_content.split()[:3])
         return f"{memory_type.value}_{key_content}"
-    
+
     def _create_action_memory(
         self,
         user_id: int,
@@ -264,24 +265,28 @@ class MemoryWriterNode:
     ) -> Optional[MemoryItem]:
         """Cria memória episódica de ação executada."""
         action_type = execution_result.get("action_type", "")
-        
+
         # Apenas ações significativas
         significant_actions = {
-            "create_finance", "create_reminder", "create_goal",
-            "create_event", "create_contact", "schedule_message",
+            "create_finance",
+            "create_reminder",
+            "create_goal",
+            "create_event",
+            "create_contact",
+            "schedule_message",
         }
-        
+
         if action_type not in significant_actions:
             return None
-        
+
         data = execution_result.get("data", {})
         summary = f"Executou {action_type}"
-        
+
         if data.get("amount"):
             summary += f": R$ {data['amount']}"
         if data.get("title"):
             summary += f": {data['title'][:50]}"
-        
+
         return MemoryItem(
             memory_id=str(uuid.uuid4()),
             user_id=user_id,
@@ -299,35 +304,39 @@ class MemoryWriterNode:
             last_accessed=datetime.now(),
             expires_at=datetime.now() + timedelta(days=90),
         )
-    
+
     def _save_memory(self, memory: MemoryItem) -> MemoryWriteResult:
         """Salva ou atualiza memória."""
         if not self.db:
             return self._save_to_memory_manager(memory)
-        
+
         # Usar modelo UserMemory v3 se disponível
         if HAS_USER_MEMORY_MODEL:
             try:
                 return self._save_to_user_memory(memory)
             except Exception as e:
                 logger.warning(f"[MEMORY_WRITER] UserMemory fallback: {e}")
-        
+
         # Fallback para MemoryManager legado
         return self._save_to_memory_manager(memory)
-    
+
     def _save_to_user_memory(self, memory: MemoryItem) -> MemoryWriteResult:
         """Salva memória no modelo UserMemory v3."""
         # Verificar se já existe
-        existing = self.db.query(UserMemoryModel).filter(
-            UserMemoryModel.user_id == memory.user_id,
-            UserMemoryModel.key == memory.key,
-        ).first()
-        
+        existing = (
+            self.db.query(UserMemoryModel)
+            .filter(
+                UserMemoryModel.user_id == memory.user_id,
+                UserMemoryModel.key == memory.key,
+            )
+            .first()
+        )
+
         if existing:
             # Atualizar existente
             old_confidence = existing.confidence
             new_confidence = min(old_confidence + 0.1, 1.0)
-            
+
             # Log de auditoria
             audit = MemoryAuditLog(
                 user_id=memory.user_id,
@@ -340,36 +349,36 @@ class MemoryWriterNode:
                 reason="reinforcement",
             )
             self.db.add(audit)
-            
+
             existing.confidence = new_confidence
             existing.updated_at = datetime.now()
             existing.last_confirmed = datetime.now()
             existing.access_count = (existing.access_count or 0) + 1
-            
+
             # Atualizar valor se diferente
             if existing.value != memory.value:
                 existing.value = memory.value
                 existing.summary = memory.summary
-            
+
             self.db.commit()
-            
+
             return MemoryWriteResult(
                 success=True,
                 action="updated",
                 memory_id=str(existing.id),
                 message=f"Confiança aumentada: {old_confidence:.2f} → {new_confidence:.2f}",
             )
-        
+
         else:
             # Verificar limite
             self._check_limit_v3(memory.user_id, memory.memory_type)
-            
+
             # Mapear enums
             mem_type = MemoryTypeEnum(memory.memory_type.value)
             layer = MemoryLayerEnum(memory.layer.value)
             importance = ImportanceEnum(memory.importance.value)
             source = MemorySourceEnum(memory.source.value)
-            
+
             # Criar nova
             new_memory = UserMemoryModel(
                 user_id=memory.user_id,
@@ -387,10 +396,10 @@ class MemoryWriterNode:
                 last_accessed=memory.last_accessed,
                 expires_at=memory.expires_at,
             )
-            
+
             self.db.add(new_memory)
             self.db.flush()  # Para obter o ID
-            
+
             # Log de auditoria
             audit = MemoryAuditLog(
                 user_id=memory.user_id,
@@ -401,45 +410,55 @@ class MemoryWriterNode:
                 reason="detected_pattern",
             )
             self.db.add(audit)
-            
+
             self.db.commit()
-            
+
             return MemoryWriteResult(
                 success=True,
                 action="created",
                 memory_id=str(new_memory.id),
                 message=f"Memória criada: {memory.memory_type.value}",
             )
-    
+
     def _check_limit_v3(self, user_id: int, memory_type: MemoryType) -> bool:
         """Verifica e aplica limite de memórias por tipo (v3)."""
         try:
             from app.models.user_memory import MEMORY_LIMITS as V3_LIMITS
-            
+
             mem_type = MemoryTypeEnum(memory_type.value)
             limit = V3_LIMITS.get(mem_type, 50)
-            
-            count = self.db.query(UserMemoryModel).filter(
-                UserMemoryModel.user_id == user_id,
-                UserMemoryModel.memory_type == mem_type,
-                UserMemoryModel.is_archived == False,
-            ).count()
-            
-            if count >= limit:
-                # Arquivar memórias mais antigas com menor confiança
-                to_archive = self.db.query(UserMemoryModel).filter(
+
+            count = (
+                self.db.query(UserMemoryModel)
+                .filter(
                     UserMemoryModel.user_id == user_id,
                     UserMemoryModel.memory_type == mem_type,
                     UserMemoryModel.is_archived == False,
-                ).order_by(
-                    UserMemoryModel.confidence,
-                    UserMemoryModel.last_accessed,
-                ).limit(5).all()
-                
+                )
+                .count()
+            )
+
+            if count >= limit:
+                # Arquivar memórias mais antigas com menor confiança
+                to_archive = (
+                    self.db.query(UserMemoryModel)
+                    .filter(
+                        UserMemoryModel.user_id == user_id,
+                        UserMemoryModel.memory_type == mem_type,
+                        UserMemoryModel.is_archived == False,
+                    )
+                    .order_by(
+                        UserMemoryModel.confidence,
+                        UserMemoryModel.last_accessed,
+                    )
+                    .limit(5)
+                    .all()
+                )
+
                 for mem in to_archive:
                     mem.is_archived = True
                     mem.layer = MemoryLayerEnum.ARCHIVED
-                    
+
                     # Log de auditoria
                     audit = MemoryAuditLog(
                         user_id=user_id,
@@ -449,22 +468,22 @@ class MemoryWriterNode:
                         reason="limit_exceeded",
                     )
                     self.db.add(audit)
-                
+
                 logger.info(f"[MEMORY_WRITER] Arquivadas {len(to_archive)} memórias por limite")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"[MEMORY_WRITER] Limit check error: {e}")
             return True
-    
+
     def _save_to_memory_manager(self, memory: MemoryItem) -> MemoryWriteResult:
         """Fallback: salvar via MemoryManager existente."""
         try:
             from app.ai.memory import MemoryManager
-            
+
             manager = MemoryManager(self.db, memory.user_id)
-            
+
             if memory.memory_type == MemoryType.PREFERENCE:
                 manager.add_preference(memory.value)
             elif memory.memory_type in [MemoryType.IDENTITY, MemoryType.CONSTRAINT]:
@@ -473,13 +492,13 @@ class MemoryWriterNode:
                 manager.add_habit(memory.value)
             else:
                 manager.add_fact(memory.summary, category=memory.category)
-            
+
             return MemoryWriteResult(
                 success=True,
                 action="created",
                 message="Salvo via MemoryManager",
             )
-            
+
         except Exception as e:
             logger.error(f"[MEMORY_WRITER] MemoryManager error: {e}")
             return MemoryWriteResult(
@@ -487,39 +506,49 @@ class MemoryWriterNode:
                 action="error",
                 message=str(e),
             )
-    
+
     def _check_limit(self, user_id: int, memory_type: MemoryType) -> bool:
         """Verifica e aplica limite de memórias por tipo."""
         if not self.db:
             return True
-        
+
         try:
             from app.models import UserMemory
-            
+
             limit = MEMORY_LIMITS.get(memory_type, 50)
-            count = self.db.query(UserMemory).filter(
-                UserMemory.user_id == user_id,
-                UserMemory.memory_type == memory_type.value,
-            ).count()
-            
-            if count >= limit:
-                # Remover memórias mais antigas com menor confiança
-                to_delete = self.db.query(UserMemory).filter(
+            count = (
+                self.db.query(UserMemory)
+                .filter(
                     UserMemory.user_id == user_id,
                     UserMemory.memory_type == memory_type.value,
-                ).order_by(
-                    UserMemory.confidence,
-                    UserMemory.last_accessed,
-                ).limit(5).all()
-                
+                )
+                .count()
+            )
+
+            if count >= limit:
+                # Remover memórias mais antigas com menor confiança
+                to_delete = (
+                    self.db.query(UserMemory)
+                    .filter(
+                        UserMemory.user_id == user_id,
+                        UserMemory.memory_type == memory_type.value,
+                    )
+                    .order_by(
+                        UserMemory.confidence,
+                        UserMemory.last_accessed,
+                    )
+                    .limit(5)
+                    .all()
+                )
+
                 for mem in to_delete:
                     self.db.delete(mem)
-                
+
                 self.db.commit()
                 logger.info(f"[MEMORY_WRITER] Removidas {len(to_delete)} memórias antigas")
-            
+
             return True
-            
+
         except Exception as e:
             logger.error(f"[MEMORY_WRITER] Limit check error: {e}")
             return True
@@ -535,11 +564,13 @@ def write_memory_if_relevant(
 ) -> List[MemoryWriteResult]:
     """Função auxiliar para escrita de memória."""
     writer = MemoryWriterNode(db=db)
-    result = writer.write({
-        "user_id": user_id,
-        "message": message,
-        "intent": intent,
-        "entities": entities or {},
-        "execution_result": execution_result or {},
-    })
+    result = writer.write(
+        {
+            "user_id": user_id,
+            "message": message,
+            "intent": intent,
+            "entities": entities or {},
+            "execution_result": execution_result or {},
+        }
+    )
     return result.get("memory_operations", [])

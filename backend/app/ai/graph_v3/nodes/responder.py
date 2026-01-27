@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-RESPONSE_PROMPT = '''Você é IRIS, uma assistente pessoal EXTREMAMENTE inteligente e capaz.
+RESPONSE_PROMPT = """Você é IRIS, uma assistente pessoal EXTREMAMENTE inteligente e capaz.
 
 DATA/HORA ATUAL: {datetime_context}
 {user_context}
@@ -69,10 +69,10 @@ Resposta:
 ✅ *Parabéns!* Você já ultrapassou sua meta!
 Economizou R$ 3.096,35 A MAIS que o objetivo.
 
-Agora responda a pergunta do usuário usando os dados fornecidos:'''
+Agora responda a pergunta do usuário usando os dados fornecidos:"""
 
 
-GENERAL_PROMPT = '''Você é IRIS, assistente pessoal EXTREMAMENTE inteligente e capaz.
+GENERAL_PROMPT = """Você é IRIS, assistente pessoal EXTREMAMENTE inteligente e capaz.
 
 📅 DATA/HORA: {datetime_context}
 {user_context}
@@ -107,15 +107,15 @@ Resposta (usando dados do contexto):
 ✅ *Parabéns!* Você já atingiu sua meta!
 Economizou R$ A MAIS que o objetivo.
 
-Agora responda a pergunta usando os dados fornecidos:'''
+Agora responda a pergunta usando os dados fornecidos:"""
 
 
 class ResponderNode:
     """Gerador de respostas via LLM Pro."""
-    
+
     def __init__(self, llm: "ChatGoogleGenerativeAI"):
         self.llm = llm
-    
+
     def respond(self, state: IRISStateV3) -> Dict[str, Any]:
         """Gera resposta usando LLM Pro."""
         # Se já tem template, usar direto
@@ -123,30 +123,30 @@ class ResponderNode:
         if template:
             logger.info("[RESPONDER] ⚡ Usando template existente")
             return {"messages": [AIMessage(content=template)]}
-        
+
         # Verificar se é resposta geral ou com contexto de execução
         execution_result = state.get("execution_result")
-        
+
         if execution_result and not execution_result.response_template:
             return self._respond_with_context(state)
-        
+
         return self._respond_general(state)
-    
+
     def _respond_with_context(self, state: IRISStateV3) -> Dict[str, Any]:
         """Gera resposta com contexto de execução e dados completos."""
         user_message = state["messages"][-1].content if state["messages"] else ""
         user_name = state.get("user_name", "")
-        
+
         # Construir contexto de dados completo
         data_context = self._build_data_context(state)
-        
+
         prompt = RESPONSE_PROMPT.format(
             datetime_context=get_datetime_context(),
             user_context=f"👤 Usuário: {user_name}" if user_name else "",
             user_message=user_message,
             data_context=data_context,
         )
-        
+
         try:
             response = self.llm.invoke(prompt)
             logger.info(f"[RESPONDER] 💬 Resposta inteligente: {len(response.content)} chars")
@@ -154,47 +154,47 @@ class ResponderNode:
         except Exception as e:
             logger.error(f"[RESPONDER] ❌ Erro: {e}")
             return {"messages": [AIMessage(content="Desculpe, tive um problema. Pode tentar novamente?")]}
-    
+
     def _respond_general(self, state: IRISStateV3) -> Dict[str, Any]:
         """Gera resposta para conversas gerais com contexto completo."""
         user_message = state["messages"][-1].content if state["messages"] else ""
         user_name = state.get("user_name", "")
         db = state.get("db")
         user_id = state.get("user_id")
-        
+
         logger.info(f"[RESPONDER] _respond_general: db={db is not None}, user_id={user_id}")
         logger.info(f"[RESPONDER] Message: {user_message[:100]}")
-        
+
         # Construir contexto completo
         full_context = self._build_full_context(state)
-        
+
         logger.info(f"[RESPONDER] Context length: {len(full_context)} chars")
-        
+
         prompt = GENERAL_PROMPT.format(
             datetime_context=get_datetime_context(),
             user_context=f"👤 Usuário: {user_name}" if user_name else "",
             full_context=full_context,
             user_message=user_message,
         )
-        
+
         try:
             response = self.llm.invoke(prompt)
             return {"messages": [AIMessage(content=response.content)]}
         except Exception as e:
             logger.error(f"[RESPONDER] ❌ Erro: {e}")
             return {"messages": [AIMessage(content="Tive um problema, pode repetir?")]}
-    
+
     def _build_data_context(self, state: IRISStateV3) -> str:
         """Constrói contexto de dados completo para o LLM."""
         result = state.get("execution_result")
         entities = state.get("entities", {})
-        
+
         lines = []
-        
+
         # Adicionar dados da execução
         if result and result.success and result.data:
             data = result.data
-            
+
             # Processar transações financeiras
             if "transactions" in data:
                 transactions = data["transactions"]
@@ -206,10 +206,10 @@ class ResponderNode:
                         f"{t.get('description', 'Sem descrição')} "
                         f"({t.get('category', 'Outros')}) - {t.get('date', '')}"
                     )
-                
+
                 if len(transactions) > 20:
                     lines.append(f"... e mais {len(transactions) - 20} transações")
-            
+
             # Processar resumo financeiro
             if "summary" in data:
                 s = data["summary"]
@@ -217,11 +217,11 @@ class ResponderNode:
                 lines.append("### RESUMO FINANCEIRO:")
                 lines.append(f"💵 Receitas: R$ {s.get('total_income', 0):,.2f}")
                 lines.append(f"💸 Gastos: R$ {s.get('total_expenses', s.get('total_expense', 0)):,.2f}")
-                balance = s.get('balance', 0)
+                balance = s.get("balance", 0)
                 emoji = "🟢" if balance >= 0 else "🔴"
                 lines.append(f"{emoji} Saldo: R$ {balance:,.2f}")
                 lines.append(f"📊 Total de transações: {s.get('count', 0)}")
-            
+
             # Processar categorias
             if "by_category" in data:
                 cats = data["by_category"]
@@ -230,12 +230,12 @@ class ResponderNode:
                     lines.append("### GASTOS POR CATEGORIA:")
                     for cat in cats[:5]:
                         lines.append(f"  • {cat.get('category', 'Outros')}: R$ {cat.get('total', 0):,.2f}")
-            
+
             # Processar total (para top N)
             if "total" in data:
                 lines.append(f"")
                 lines.append(f"💰 TOTAL: R$ {data['total']:,.2f}")
-            
+
             # Processar lembretes
             if "reminders" in data or "active" in data:
                 reminders = data.get("reminders", data.get("active", []))
@@ -244,50 +244,55 @@ class ResponderNode:
                     lines.append("### LEMBRETES:")
                     for r in reminders[:10]:
                         lines.append(f"  • {r.get('title', '')} - {r.get('scheduled_time', '')}")
-        
+
         # Se não teve dados da execução, buscar do contexto
         if not lines:
             context = state.get("context", {})
             if context:
                 lines.append("### CONTEXTO DISPONÍVEL:")
                 lines.append(str(context)[:2000])
-        
+
         # Adicionar a pergunta original para contexto
         original_msg = entities.get("original_message", "")
         if original_msg:
-            lines.insert(0, f"### PERGUNTA ORIGINAL: \"{original_msg}\"\n")
-        
+            lines.insert(0, f'### PERGUNTA ORIGINAL: "{original_msg}"\n')
+
         return "\n".join(lines) if lines else "Nenhum dado específico encontrado."
-    
+
     def _build_full_context(self, state: IRISStateV3) -> str:
         """Constrói contexto completo para respostas gerais."""
         db = state.get("db")
         user_id = state.get("user_id")
-        
+
         logger.info(f"[RESPONDER] _build_full_context: db={db is not None}, user_id={user_id}")
-        
+
         if db and user_id:
             try:
                 from app.ai.context import ContextBuilder
+
                 builder = ContextBuilder(db, user_id, state.get("user_name", ""))
                 context = builder.build_full_context()
                 logger.info(f"[RESPONDER] Contexto construído: {len(context)} chars")
                 return context
             except Exception as e:
                 logger.error(f"[RESPONDER] Erro ao construir contexto: {e}", exc_info=True)
-        
+
         # Fallback: usar contexto do state
         context_prompt = state.get("context_prompt", "")
         rag_context = state.get("rag_context", "")
-        
-        return f"{context_prompt}\n\n{rag_context}" if context_prompt or rag_context else "Nenhum contexto adicional disponível."
-    
+
+        return (
+            f"{context_prompt}\n\n{rag_context}"
+            if context_prompt or rag_context
+            else "Nenhum contexto adicional disponível."
+        )
+
     def _summarize_execution(self, state: IRISStateV3) -> str:
         """Resume resultado da execução para log."""
         result = state.get("execution_result")
         if not result:
             return "Nenhuma ação executada"
-        
+
         if result.success:
             data = result.data
             if isinstance(data, dict):
@@ -298,5 +303,5 @@ class ResponderNode:
                     return f"Sucesso - Saldo: R$ {s.get('balance', 0):,.2f}"
                 return f"Sucesso - {list(data.keys())[:3]}"
             return f"Sucesso"
-        
+
         return f"Erro - {result.error or 'desconhecido'}"

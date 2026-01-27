@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from app.models import Task, TaskStatus, TaskPriority, Project, TaskLabel
+from app.models import Project, Task, TaskLabel, TaskPriority, TaskStatus
 from app.models.base import RecurrenceType
 
 logger = logging.getLogger(__name__)
@@ -71,21 +71,31 @@ class TaskService:
 
         title = data.get("title", data.get("titulo", "Nova tarefa"))
         description = data.get("description", data.get("descricao"))
-        
+
         # Prioridade
         priority_str = data.get("priority", data.get("prioridade", "medium")).lower()
-        priority_map = {"low": TaskPriority.LOW, "medium": TaskPriority.MEDIUM, 
-                        "high": TaskPriority.HIGH, "urgent": TaskPriority.URGENT,
-                        "baixa": TaskPriority.LOW, "media": TaskPriority.MEDIUM,
-                        "alta": TaskPriority.HIGH, "urgente": TaskPriority.URGENT}
+        priority_map = {
+            "low": TaskPriority.LOW,
+            "medium": TaskPriority.MEDIUM,
+            "high": TaskPriority.HIGH,
+            "urgent": TaskPriority.URGENT,
+            "baixa": TaskPriority.LOW,
+            "media": TaskPriority.MEDIUM,
+            "alta": TaskPriority.HIGH,
+            "urgente": TaskPriority.URGENT,
+        }
         priority = priority_map.get(priority_str, TaskPriority.MEDIUM)
-        
+
         # Status
         status_str = data.get("status", "todo").lower()
-        status_map = {"backlog": TaskStatus.BACKLOG, "todo": TaskStatus.TODO,
-                      "in_progress": TaskStatus.IN_PROGRESS, "done": TaskStatus.DONE}
+        status_map = {
+            "backlog": TaskStatus.BACKLOG,
+            "todo": TaskStatus.TODO,
+            "in_progress": TaskStatus.IN_PROGRESS,
+            "done": TaskStatus.DONE,
+        }
         status = status_map.get(status_str, TaskStatus.TODO)
-        
+
         # Data de vencimento
         due_date = None
         due_str = data.get("due_date", data.get("data_vencimento", data.get("date")))
@@ -97,10 +107,10 @@ class TaskService:
                     due_date = due_str
             except Exception:
                 pass
-        
+
         # Projeto
         project_id = data.get("project_id", data.get("projeto_id"))
-        
+
         return self.create_task(
             user_id=user_id,
             title=title,
@@ -113,9 +123,7 @@ class TaskService:
 
     def get_task(self, user_id: int, task_id: int) -> Optional[Task]:
         """Busca tarefa por ID."""
-        return self.db.query(Task).filter(
-            and_(Task.id == task_id, Task.user_id == user_id)
-        ).first()
+        return self.db.query(Task).filter(and_(Task.id == task_id, Task.user_id == user_id)).first()
 
     def list_tasks(
         self,
@@ -129,26 +137,24 @@ class TaskService:
         limit: int = 50,
     ) -> List[Task]:
         """Lista tarefas com filtros."""
-        query = self.db.query(Task).filter(
-            and_(Task.user_id == user_id, Task.is_active == True)
-        )
-        
+        query = self.db.query(Task).filter(and_(Task.user_id == user_id, Task.is_active == True))
+
         if status:
             query = query.filter(Task.status == status)
         else:
             query = query.filter(Task.status != TaskStatus.CANCELLED)
-        
+
         if priority:
             query = query.filter(Task.priority == priority)
-        
+
         if project_id:
             query = query.filter(Task.project_id == project_id)
-        
+
         if only_root and not include_subtasks:
             query = query.filter(Task.parent_id == None)
         elif parent_id:
             query = query.filter(Task.parent_id == parent_id)
-        
+
         return query.order_by(Task.due_date.asc().nullslast(), Task.priority.desc()).limit(limit).all()
 
     def update_task(self, user_id: int, task_id: int, data: Dict[str, Any]) -> Optional[Task]:
@@ -156,7 +162,7 @@ class TaskService:
         task = self.get_task(user_id, task_id)
         if not task:
             return None
-        
+
         for key, value in data.items():
             if hasattr(task, key) and value is not None:
                 if key == "status" and isinstance(value, str):
@@ -164,20 +170,17 @@ class TaskService:
                 elif key == "priority" and isinstance(value, str):
                     value = TaskPriority(value)
                 setattr(task, key, value)
-        
+
         if data.get("status") == TaskStatus.DONE or data.get("status") == "done":
             task.completed_at = datetime.utcnow()
-        
+
         self.db.commit()
         self.db.refresh(task)
         return task
 
     def complete_task(self, user_id: int, task_id: int) -> Optional[Task]:
         """Marca tarefa como concluída."""
-        return self.update_task(user_id, task_id, {
-            "status": TaskStatus.DONE,
-            "completed_at": datetime.utcnow()
-        })
+        return self.update_task(user_id, task_id, {"status": TaskStatus.DONE, "completed_at": datetime.utcnow()})
 
     def delete_task(self, user_id: int, task_id: int) -> bool:
         """Remove tarefa (soft delete)."""
@@ -192,45 +195,56 @@ class TaskService:
     def get_overdue_tasks(self, user_id: int) -> List[Task]:
         """Retorna tarefas atrasadas."""
         now = datetime.utcnow()
-        return self.db.query(Task).filter(
-            and_(
-                Task.user_id == user_id,
-                Task.is_active == True,
-                Task.due_date < now,
-                Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED])
+        return (
+            self.db.query(Task)
+            .filter(
+                and_(
+                    Task.user_id == user_id,
+                    Task.is_active == True,
+                    Task.due_date < now,
+                    Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED]),
+                )
             )
-        ).order_by(Task.due_date.asc()).all()
+            .order_by(Task.due_date.asc())
+            .all()
+        )
 
     def get_upcoming_tasks(self, user_id: int, hours: int = 24) -> List[Task]:
         """Retorna tarefas próximas do vencimento."""
         now = datetime.utcnow()
         future = now + timedelta(hours=hours)
-        return self.db.query(Task).filter(
-            and_(
-                Task.user_id == user_id,
-                Task.is_active == True,
-                Task.due_date >= now,
-                Task.due_date <= future,
-                Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED])
+        return (
+            self.db.query(Task)
+            .filter(
+                and_(
+                    Task.user_id == user_id,
+                    Task.is_active == True,
+                    Task.due_date >= now,
+                    Task.due_date <= future,
+                    Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED]),
+                )
             )
-        ).order_by(Task.due_date.asc()).all()
+            .order_by(Task.due_date.asc())
+            .all()
+        )
 
     def get_tasks_needing_notification(self) -> List[Task]:
         """Retorna tarefas que precisam de notificação."""
         now = datetime.utcnow()
-        tasks = self.db.query(Task).filter(
-            and_(
-                Task.is_active == True,
-                Task.notified == False,
-                Task.due_date != None,
-                Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED])
+        tasks = (
+            self.db.query(Task)
+            .filter(
+                and_(
+                    Task.is_active == True,
+                    Task.notified == False,
+                    Task.due_date != None,
+                    Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED]),
+                )
             )
-        ).all()
-        
-        return [
-            t for t in tasks 
-            if t.due_date and (t.due_date - timedelta(minutes=t.remind_before_minutes)) <= now
-        ]
+            .all()
+        )
+
+        return [t for t in tasks if t.due_date and (t.due_date - timedelta(minutes=t.remind_before_minutes)) <= now]
 
     def mark_as_notified(self, task_id: int) -> bool:
         """Marca tarefa como notificada."""
@@ -246,9 +260,9 @@ class TaskService:
         filters = [Task.user_id == user_id, Task.is_active == True, Task.parent_id == None]
         if project_id:
             filters.append(Task.project_id == project_id)
-        
+
         tasks = self.db.query(Task).filter(and_(*filters)).all()
-        
+
         return {
             "backlog": [t for t in tasks if t.status == TaskStatus.BACKLOG],
             "todo": [t for t in tasks if t.status == TaskStatus.TODO],
@@ -281,15 +295,16 @@ class TaskService:
 
     def list_projects(self, user_id: int) -> List[Project]:
         """Lista projetos do usuário."""
-        return self.db.query(Project).filter(
-            and_(Project.user_id == user_id, Project.is_active == True)
-        ).order_by(Project.is_favorite.desc(), Project.name.asc()).all()
+        return (
+            self.db.query(Project)
+            .filter(and_(Project.user_id == user_id, Project.is_active == True))
+            .order_by(Project.is_favorite.desc(), Project.name.asc())
+            .all()
+        )
 
     def get_project(self, user_id: int, project_id: int) -> Optional[Project]:
         """Busca projeto por ID."""
-        return self.db.query(Project).filter(
-            and_(Project.id == project_id, Project.user_id == user_id)
-        ).first()
+        return self.db.query(Project).filter(and_(Project.id == project_id, Project.user_id == user_id)).first()
 
     def delete_project(self, user_id: int, project_id: int) -> bool:
         """Remove projeto (soft delete)."""
@@ -316,9 +331,7 @@ class TaskService:
 
     def delete_label(self, user_id: int, label_id: int) -> bool:
         """Remove etiqueta."""
-        label = self.db.query(TaskLabel).filter(
-            and_(TaskLabel.id == label_id, TaskLabel.user_id == user_id)
-        ).first()
+        label = self.db.query(TaskLabel).filter(and_(TaskLabel.id == label_id, TaskLabel.user_id == user_id)).first()
         if label:
             self.db.delete(label)
             self.db.commit()
@@ -329,12 +342,10 @@ class TaskService:
 
     def get_summary(self, user_id: int) -> Dict[str, Any]:
         """Retorna resumo das tarefas."""
-        tasks = self.db.query(Task).filter(
-            and_(Task.user_id == user_id, Task.is_active == True)
-        ).all()
-        
+        tasks = self.db.query(Task).filter(and_(Task.user_id == user_id, Task.is_active == True)).all()
+
         now = datetime.utcnow()
-        
+
         return {
             "total": len(tasks),
             "by_status": {
@@ -349,6 +360,16 @@ class TaskService:
                 "medium": sum(1 for t in tasks if t.priority == TaskPriority.MEDIUM),
                 "low": sum(1 for t in tasks if t.priority == TaskPriority.LOW),
             },
-            "overdue": sum(1 for t in tasks if t.due_date and t.due_date < now and t.status not in [TaskStatus.DONE, TaskStatus.CANCELLED]),
-            "due_today": sum(1 for t in tasks if t.due_date and t.due_date.date() == now.date() and t.status not in [TaskStatus.DONE, TaskStatus.CANCELLED]),
+            "overdue": sum(
+                1
+                for t in tasks
+                if t.due_date and t.due_date < now and t.status not in [TaskStatus.DONE, TaskStatus.CANCELLED]
+            ),
+            "due_today": sum(
+                1
+                for t in tasks
+                if t.due_date
+                and t.due_date.date() == now.date()
+                and t.status not in [TaskStatus.DONE, TaskStatus.CANCELLED]
+            ),
         }
