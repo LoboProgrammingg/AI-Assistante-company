@@ -274,7 +274,7 @@ class MeetingTranscriptionService:
                 raise ValueError("Falha no upload do arquivo de áudio")
 
             # Usar Gemini para transcrever
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            model = genai.GenerativeModel("gemini-2.5-pro")
 
             prompt = TRANSCRIPTION_PROMPT.format(language=language)
 
@@ -316,7 +316,7 @@ class MeetingTranscriptionService:
 
             genai.configure(api_key=api_key)
 
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            model = genai.GenerativeModel("gemini-2.5-pro")
 
             prompt = SUMMARIZATION_PROMPT.format(transcript=transcript)
 

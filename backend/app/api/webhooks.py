@@ -253,6 +253,43 @@ def save_whatsapp_message(db: Session, user_id: int, content: str, direction: st
     return message
 
 
+def split_message(text: str, max_length: int = 1500) -> list:
+    """
+    Divide mensagem longa em partes menores respeitando limite do WhatsApp.
+    
+    Tenta dividir em quebras de linha ou espaços para não cortar palavras.
+    """
+    if len(text) <= max_length:
+        return [text]
+    
+    parts = []
+    current = text
+    
+    while len(current) > max_length:
+        # Tentar dividir em quebra de linha dupla (parágrafo)
+        split_pos = current.rfind("\n\n", 0, max_length)
+        
+        # Se não encontrou, tentar quebra de linha simples
+        if split_pos == -1:
+            split_pos = current.rfind("\n", 0, max_length)
+        
+        # Se não encontrou, tentar espaço
+        if split_pos == -1:
+            split_pos = current.rfind(" ", 0, max_length)
+        
+        # Último recurso: cortar no limite
+        if split_pos == -1:
+            split_pos = max_length
+        
+        parts.append(current[:split_pos].strip())
+        current = current[split_pos:].strip()
+    
+    if current:
+        parts.append(current)
+    
+    return parts
+
+
 def send_whatsapp_message(to: str, body: str):
     """Envia mensagem via WhatsApp usando Twilio."""
     try:
@@ -264,9 +301,21 @@ def send_whatsapp_message(to: str, body: str):
         if not from_number.startswith("whatsapp:"):
             from_number = f"whatsapp:{from_number}"
 
-        message = twilio_client.messages.create(body=body, from_=from_number, to=to)
-        logger.info(f"Mensagem enviada para {to}: {message.sid}")
-        return message.sid
+        # Dividir mensagem se exceder limite do WhatsApp (1600 chars)
+        parts = split_message(body, max_length=1500)
+        
+        message_sids = []
+        for i, part in enumerate(parts):
+            if len(parts) > 1:
+                # Adicionar indicador de parte se houver múltiplas
+                part_indicator = f"({i+1}/{len(parts)})\n" if i > 0 else ""
+                part = part_indicator + part
+            
+            message = twilio_client.messages.create(body=part, from_=from_number, to=to)
+            message_sids.append(message.sid)
+            logger.info(f"Mensagem {i+1}/{len(parts)} enviada para {to}: {message.sid}")
+        
+        return message_sids[0] if message_sids else None
     except Exception as e:
         logger.error(f"Erro ao enviar mensagem WhatsApp: {e}")
         raise
