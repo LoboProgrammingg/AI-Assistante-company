@@ -21,17 +21,14 @@ ActionType = Literal[
     "create_finance", "query_finance", "delete_finance", "update_finance",
     # Lembretes
     "create_reminder", "list_reminders", "delete_reminder", "update_reminder",
-    # Reuniões (banco local)
+    # Reuniões (transcrição de áudio)
     "create_meeting", "list_meetings",
     # Calendar (Google)
     "create_event", "list_events", "check_availability",
-    # Contatos
-    "create_contact", "list_contacts", "delete_contact", "update_contact",
+    # Tarefas
+    "create_task", "list_tasks", "complete_task", "delete_task", "task_summary",
     # Mensagens
     "schedule_message", "list_scheduled_messages",
-    # Todoist
-    "create_todoist_task", "list_todoist_tasks", "complete_todoist_task",
-    "update_todoist_task", "delete_todoist_task", "check_todoist_alerts",
     # Integrações
     "web_search", "search_news", "get_stock", "get_crypto", "get_weather",
     # Especiais
@@ -44,8 +41,8 @@ ActionType = Literal[
 
 # Intenções suportadas
 IntentType = Literal[
-    "finance", "reminder", "meeting", "calendar", "contact", 
-    "message", "todoist", "search", "general", "transcription"
+    "finance", "reminder", "meeting", "calendar", "task",
+    "message", "search", "general", "transcription"
 ]
 
 

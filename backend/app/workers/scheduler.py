@@ -9,14 +9,14 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import SessionLocal
 from app.models import (
-    Contact,
     RecurrenceType,
     Reminder,
     ScheduledMessage,
     ScheduledMessageStatus,
     User,
+    Task,
+    TaskStatus,
 )
-from app.services.contact_service import ContactService
 from app.services.whatsapp_service import WhatsAppService
 
 logging.basicConfig(level=logging.INFO)
@@ -181,23 +181,9 @@ class ReminderScheduler:
         """Envia uma mensagem agendada"""
         try:
             # Determinar destinatário
-            if scheduled_msg.contact_id:
-                contact = db.query(Contact).filter(Contact.id == scheduled_msg.contact_id).first()
-                if contact:
-                    recipient_phone = contact.phone_number
-                    recipient_name = contact.name
-                else:
-                    scheduled_msg.status = ScheduledMessageStatus.FAILED
-                    scheduled_msg.error_message = "Contato não encontrado"
-                    db.commit()
-                    return
-            elif scheduled_msg.recipient_phone:
+            if scheduled_msg.recipient_phone:
                 recipient_phone = scheduled_msg.recipient_phone
                 recipient_name = scheduled_msg.recipient_name or "Contato"
-            elif scheduled_msg.group_name:
-                # Enviar para grupo inteiro
-                await self.send_to_group(scheduled_msg, user, db)
-                return
             else:
                 scheduled_msg.status = ScheduledMessageStatus.FAILED
                 scheduled_msg.error_message = "Nenhum destinatário definido"
@@ -227,52 +213,6 @@ class ReminderScheduler:
             scheduled_msg.error_message = str(e)
             db.commit()
             logger.error(f"Erro ao processar mensagem agendada {scheduled_msg.id}: {e}")
-
-    async def send_to_group(self, scheduled_msg: ScheduledMessage, user: User, db: Session):
-        """Envia mensagem agendada para um grupo de contatos"""
-        try:
-            contact_service = ContactService(db)
-            contacts = contact_service.get_by_group(user.id, scheduled_msg.group_name)
-
-            if not contacts:
-                scheduled_msg.status = ScheduledMessageStatus.FAILED
-                scheduled_msg.error_message = f"Nenhum contato no grupo {scheduled_msg.group_name}"
-                db.commit()
-                return
-
-            sent_count = 0
-            failed_count = 0
-
-            for contact in contacts:
-                try:
-                    result = self.whatsapp_service.send_message(
-                        to_number=contact.phone_number, message=scheduled_msg.message
-                    )
-                    if result.get("success"):
-                        sent_count += 1
-                    else:
-                        failed_count += 1
-                except Exception:
-                    failed_count += 1
-
-            if sent_count > 0:
-                scheduled_msg.status = ScheduledMessageStatus.SENT
-                scheduled_msg.sent_at = datetime.now(timezone.utc)
-                scheduled_msg.error_message = f"Enviado: {sent_count}, Falhas: {failed_count}" if failed_count else None
-                logger.info(
-                    f"Mensagem agendada {scheduled_msg.id} enviada para grupo {scheduled_msg.group_name}: {sent_count} enviadas"
-                )
-            else:
-                scheduled_msg.status = ScheduledMessageStatus.FAILED
-                scheduled_msg.error_message = f"Todas as {failed_count} mensagens falharam"
-
-            db.commit()
-
-        except Exception as e:
-            scheduled_msg.status = ScheduledMessageStatus.FAILED
-            scheduled_msg.error_message = str(e)
-            db.commit()
-            logger.error(f"Erro ao enviar para grupo: {e}")
 
     def create_next_scheduled_message(self, original: ScheduledMessage, db: Session):
         """Cria a próxima ocorrência de uma mensagem recorrente"""
@@ -322,16 +262,95 @@ class ReminderScheduler:
         finally:
             db.close()
 
+    # ==================== TASKS ====================
+
+    def get_pending_task_notifications(self, db: Session) -> list[Task]:
+        """Busca tarefas que precisam de notificação."""
+        now = datetime.now(timezone.utc)
+        
+        tasks = (
+            db.query(Task)
+            .filter(
+                and_(
+                    Task.is_active == True,
+                    Task.notified == False,
+                    Task.due_date != None,
+                    Task.status.notin_([TaskStatus.DONE, TaskStatus.CANCELLED]),
+                )
+            )
+            .all()
+        )
+        
+        # Filtrar apenas as que estão dentro do tempo de notificação
+        return [
+            t for t in tasks
+            if t.due_date and (t.due_date - timedelta(minutes=t.remind_before_minutes)) <= now
+        ]
+
+    def format_task_message(self, task: Task, user: User) -> str:
+        """Formata a mensagem de notificação da tarefa."""
+        user_tz = pytz.timezone(user.timezone)
+        
+        priority_emoji = {"low": "🟢", "medium": "🟡", "high": "🟠", "urgent": "🔴"}
+        emoji = priority_emoji.get(task.priority.value, "📋")
+        
+        message = f"{emoji} *Lembrete de Tarefa*\n\n"
+        message += f"📌 {task.title}\n"
+        
+        if task.description:
+            message += f"\n{task.description[:200]}\n"
+        
+        if task.due_date:
+            due_local = task.due_date.replace(tzinfo=pytz.utc).astimezone(user_tz)
+            message += f"\n⏰ Vencimento: {due_local.strftime('%d/%m/%Y às %H:%M')}"
+        
+        return message
+
+    async def send_task_notification(self, task: Task, user: User, db: Session):
+        """Envia notificação de tarefa para o usuário."""
+        try:
+            message = self.format_task_message(task, user)
+            
+            result = self.whatsapp_service.send_message(to_number=user.phone_number, message=message)
+            
+            if result["success"]:
+                task.notified = True
+                db.commit()
+                logger.info(f"Notificação de tarefa {task.id} enviada para usuário {user.id}")
+            else:
+                logger.error(f"Erro ao enviar notificação de tarefa {task.id}: {result.get('error')}")
+        
+        except Exception as e:
+            logger.error(f"Erro ao processar notificação de tarefa {task.id}: {e}")
+
+    async def process_task_notifications(self):
+        """Processa notificações de tarefas pendentes."""
+        db = SessionLocal()
+        
+        try:
+            tasks = self.get_pending_task_notifications(db)
+            if tasks:
+                logger.info(f"📋 Processando {len(tasks)} notificações de tarefas")
+            
+            for task in tasks:
+                user = db.query(User).filter(User.id == task.user_id).first()
+                if user:
+                    await self.send_task_notification(task, user, db)
+        
+        finally:
+            db.close()
+
     async def run(self):
         """Loop principal do scheduler"""
         self.running = True
         self._cycle_count = 0
         self._heartbeat_interval = 60  # Log de status a cada 60 ciclos (~5 min)
-        logger.info("🚀 Scheduler iniciado - monitorando lembretes e mensagens agendadas")
+        logger.info("🚀 Scheduler iniciado - monitorando lembretes, tarefas e mensagens agendadas")
 
         while self.running:
             try:
                 await self.process_reminders()
+                await self.process_task_notifications()
                 await self.process_scheduled_messages()
 
                 # Heartbeat periódico para confirmar que está rodando

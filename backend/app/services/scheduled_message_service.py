@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 from sqlalchemy import and_
 from sqlalchemy.orm import Session
 
-from app.models import Contact, ScheduledMessage, ScheduledMessageStatus
+from app.models import ScheduledMessage, ScheduledMessageStatus
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,6 @@ class ScheduledMessageService:
         user_id: int,
         message: str,
         scheduled_time: datetime,
-        contact_id: Optional[int] = None,
         recipient_phone: Optional[str] = None,
         recipient_name: Optional[str] = None,
         group_name: Optional[str] = None,
@@ -33,7 +32,6 @@ class ScheduledMessageService:
         """Cria uma nova mensagem agendada."""
         scheduled_msg = ScheduledMessage(
             user_id=user_id,
-            contact_id=contact_id,
             recipient_phone=recipient_phone,
             recipient_name=recipient_name,
             group_name=group_name,
@@ -56,7 +54,6 @@ class ScheduledMessageService:
         recipient_name = data.get("recipient_name")
         recipient_phone = data.get("recipient_phone")
         group_name = data.get("group_name")
-        contact_id = None
 
         # Parsear data/hora
         if isinstance(scheduled_time_str, str):
@@ -66,36 +63,13 @@ class ScheduledMessageService:
         else:
             scheduled_time = datetime.now()
 
-        # Se tiver nome do destinatário, buscar contato
-        if recipient_name and not recipient_phone:
-            contact = self._find_contact_by_name(user_id, recipient_name)
-            if contact:
-                contact_id = contact.id
-                recipient_phone = contact.phone_number
-                recipient_name = contact.name
-
         return self.create(
             user_id=user_id,
             message=message,
             scheduled_time=scheduled_time,
-            contact_id=contact_id,
             recipient_phone=recipient_phone,
             recipient_name=recipient_name,
             group_name=group_name,
-        )
-
-    def _find_contact_by_name(self, user_id: int, name: str) -> Optional[Contact]:
-        """Busca contato por nome."""
-        return (
-            self.db.query(Contact)
-            .filter(
-                and_(
-                    Contact.user_id == user_id,
-                    Contact.name.ilike(f"%{name}%"),
-                    Contact.is_active == True,
-                )
-            )
-            .first()
         )
 
     def get_pending(self, user_id: int) -> List[ScheduledMessage]:

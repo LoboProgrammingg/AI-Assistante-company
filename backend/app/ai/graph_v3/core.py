@@ -46,17 +46,17 @@ class IRISGraphV3:
     def _init_llms(self) -> None:
         """Inicializa os LLMs."""
         self.llm_flash = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash",
+            model="gemini-2.5-pro",
             google_api_key=self.api_key,
             temperature=0.1,
-            max_output_tokens=10000,
+            max_output_tokens=30000,
         )
         
         self.llm_pro = ChatGoogleGenerativeAI(
             model=settings.GEMINI_MODEL,
             google_api_key=self.api_key,
             temperature=0.7,
-            max_output_tokens=10000,
+            max_output_tokens=30000,
         )
     
     def _init_nodes(self) -> None:

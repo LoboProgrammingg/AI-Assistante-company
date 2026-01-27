@@ -39,13 +39,15 @@ class User(Base):
     reminders = relationship("Reminder", back_populates="user", cascade="all, delete-orphan")
     finances = relationship("Finance", back_populates="user", cascade="all, delete-orphan")
     meetings = relationship("Meeting", back_populates="user", cascade="all, delete-orphan")
-    contacts = relationship("Contact", back_populates="user", cascade="all, delete-orphan")
-    contact_groups = relationship("CustomContactGroup", back_populates="user", cascade="all, delete-orphan")
     scheduled_messages = relationship("ScheduledMessage", back_populates="user", cascade="all, delete-orphan")
     verification_tokens = relationship("VerificationToken", back_populates="user", cascade="all, delete-orphan")
     subscription = relationship("Subscription", back_populates="user", uselist=False, cascade="all, delete-orphan")
     documents = relationship("Document", back_populates="user", cascade="all, delete-orphan")
     memories = relationship("UserMemory", back_populates="user", cascade="all, delete-orphan")
+    # Gerenciador de Tarefas
+    tasks = relationship("Task", back_populates="user", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="user", cascade="all, delete-orphan")
+    task_labels = relationship("TaskLabel", back_populates="user", cascade="all, delete-orphan")
 
 
 class VerificationTokenType(enum.Enum):

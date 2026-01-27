@@ -39,7 +39,6 @@ class ContextBuilder:
             self._build_header(),
             self._build_finance_context(),
             self._build_reminders_context(),
-            self._build_contacts_context(),
             self._build_meetings_context(),
             self._build_goals_context(),
         ]
@@ -158,27 +157,6 @@ class ContextBuilder:
         
         return "\n".join(lines)
     
-    def _build_contacts_context(self) -> str:
-        """Constrói seção de contatos."""
-        contacts = self._context.get("contacts", {})
-        total = contacts.get("total", 0)
-        
-        if total == 0:
-            return "📇 CONTATOS\n" + "-" * 30 + "\nNenhum contato cadastrado."
-        
-        lines = [
-            "📇 CONTATOS",
-            "-" * 30,
-            f"Total: {total} contatos",
-            "",
-        ]
-        
-        by_group = contacts.get("by_group", {})
-        for group, members in by_group.items():
-            lines.append(f"  📁 {group.title()}: {len(members)} contatos")
-        
-        return "\n".join(lines)
-    
     def _build_meetings_context(self) -> str:
         """Constrói seção de reuniões."""
         meetings = self._context.get("meetings", {})
@@ -237,8 +215,6 @@ class ContextBuilder:
             return self._build_finance_query_context(params)
         elif query_type == "reminders":
             return self._build_reminders_context()
-        elif query_type == "contacts":
-            return self._build_contacts_context()
         elif query_type == "meetings":
             return self._build_meetings_context()
         elif query_type == "goals":

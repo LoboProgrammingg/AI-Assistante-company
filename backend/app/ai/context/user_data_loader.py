@@ -5,9 +5,8 @@ Este módulo é responsável por buscar dados completos do usuário para
 fornecer contexto rico à IA, permitindo respostas inteligentes e precisas.
 
 Dados carregados:
-- Finanças (30 dias + mês anterior)
+- Finanças (30 dias + mês anterior + Ano)
 - Lembretes ativos
-- Contatos
 - Reuniões recentes
 - Mensagens agendadas
 - Metas do usuário
@@ -24,7 +23,6 @@ from sqlalchemy.orm import Session
 from app.models import (
     Finance, FinanceType, FinanceCategory,
     Reminder,
-    Contact,
     Meeting,
     ScheduledMessage, ScheduledMessageStatus,
     UserMemory,
@@ -57,7 +55,6 @@ class UserDataLoader:
         context = {
             "finance": self._load_finance_data(include_previous_month),
             "reminders": self._load_reminders(),
-            "contacts": self._load_contacts(),
             "meetings": self._load_meetings(),
             "scheduled_messages": self._load_scheduled_messages(),
             "goals": self._load_goals(),
@@ -234,46 +231,6 @@ class UserDataLoader:
             "total_active": len(active),
         }
     
-    def _load_contacts(self) -> Dict[str, Any]:
-        """Carrega contatos do usuário."""
-        contacts = (
-            self.db.query(Contact)
-            .filter(
-                and_(
-                    Contact.user_id == self.user_id,
-                    Contact.is_active == True,
-                )
-            )
-            .order_by(Contact.name.asc())
-            .all()
-        )
-        
-        # Agrupar por grupo
-        by_group = {}
-        for c in contacts:
-            group = c.group_name or "outros"
-            if group not in by_group:
-                by_group[group] = []
-            by_group[group].append({
-                "id": c.id,
-                "name": c.name,
-                "phone": c.phone_number,
-            })
-        
-        return {
-            "total": len(contacts),
-            "by_group": by_group,
-            "list": [
-                {
-                    "id": c.id,
-                    "name": c.name,
-                    "phone": c.phone_number,
-                    "group": c.group_name or "outros",
-                }
-                for c in contacts[:30]  # Limite para não sobrecarregar
-            ],
-        }
-    
     def _load_meetings(self) -> Dict[str, Any]:
         """Carrega reuniões recentes."""
         thirty_days_ago = datetime.now() - timedelta(days=30)
@@ -376,9 +333,6 @@ class UserDataLoader:
             "reminders": {
                 "active_count": context.get("reminders", {}).get("total_active", 0),
                 "upcoming_count": context.get("reminders", {}).get("upcoming_count", 0),
-            },
-            "contacts": {
-                "total": context.get("contacts", {}).get("total", 0),
             },
             "meetings": {
                 "recent_count": context.get("meetings", {}).get("total", 0),

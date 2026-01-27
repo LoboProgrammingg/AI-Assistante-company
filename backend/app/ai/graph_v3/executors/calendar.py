@@ -33,9 +33,27 @@ class CalendarExecutor:
             tz = ZoneInfo("America/Sao_Paulo")
             
             titulo = params.get("titulo", params.get("title", "Reunião"))
-            data_hora = params.get("data_hora", params.get("start_time", ""))
             duracao = params.get("duracao_minutos", params.get("duration", 60))
             participantes = params.get("participantes", params.get("attendees", []))
+            
+            # Combinar date + time se data_hora não estiver presente
+            data_hora = params.get("data_hora", params.get("start_time", ""))
+            if not data_hora:
+                date_str = params.get("date", "")
+                time_str = params.get("time", "")
+                if date_str and time_str:
+                    data_hora = f"{date_str} {time_str}"
+                elif date_str:
+                    data_hora = f"{date_str} 09:00"  # Default 9h se só tiver data
+            
+            logger.info(f"[CALENDAR] Creating event: titulo={titulo}, data_hora={data_hora}")
+            
+            if not data_hora:
+                return ExecutionResult(
+                    success=False, 
+                    action_type="create_event", 
+                    error="Data e hora não informadas. Por favor, diga quando você quer agendar."
+                )
             
             try:
                 start_time = datetime.strptime(data_hora, "%Y-%m-%d %H:%M").replace(tzinfo=tz)

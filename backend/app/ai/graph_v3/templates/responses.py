@@ -91,59 +91,6 @@ class ResponseTemplates:
             lines.append(f"• {e.get('summary', 'Sem título')} - {datetime_str}")
         return "\n".join(lines)
     
-    # ==================== CONTATOS ====================
-    
-    @staticmethod
-    def contact_created(data: Dict[str, Any]) -> str:
-        name = data.get("name", "")
-        group = data.get("group_name", "")
-        msg = f"👤 Contato *{name}* salvo"
-        if group:
-            msg += f" no grupo _{group}_"
-        return msg + "!"
-    
-    @staticmethod
-    def contact_list(contacts: list, total: int) -> str:
-        if not contacts:
-            return "📭 Nenhum contato encontrado."
-        
-        lines = ["👥 *Seus contatos:*", ""]
-        for c in contacts[:20]:
-            name = c.get("name", "") if isinstance(c, dict) else getattr(c, "name", "")
-            group = c.get("group_name", "") if isinstance(c, dict) else getattr(c, "group_name", "")
-            lines.append(f"• {name}{f' ({group})' if group else ''}")
-        
-        if total > 20:
-            lines.append(f"\n_+{total - 20} contatos_")
-        return "\n".join(lines)
-    
-    # ==================== TODOIST ====================
-    
-    @staticmethod
-    def todoist_task_created(data: Dict[str, Any]) -> str:
-        content = data.get("content", "")
-        due = data.get("due", {})
-        due_string = due.get("string", "") if isinstance(due, dict) else ""
-        msg = f"✅ Tarefa criada: *{content}*"
-        if due_string:
-            msg += f"\n📅 {due_string}"
-        return msg
-    
-    @staticmethod
-    def todoist_task_list(tasks: list) -> str:
-        if not tasks:
-            return "📭 Nenhuma tarefa encontrada."
-        
-        lines = ["📋 *Suas tarefas:*", ""]
-        for t in tasks[:10]:
-            due = t.get("due", {})
-            due_str = due.get("string", "") if due else ""
-            lines.append(f"• {t.get('content', '')}{f' ({due_str})' if due_str else ''}")
-        
-        if len(tasks) > 10:
-            lines.append(f"\n_+{len(tasks) - 10} tarefas_")
-        return "\n".join(lines)
-    
     # ==================== ERROS ====================
     
     @staticmethod
@@ -153,8 +100,6 @@ class ResponseTemplates:
             "query_finance": "consultar finanças",
             "create_reminder": "criar lembrete",
             "create_event": "criar evento",
-            "create_contact": "salvar contato",
-            "create_todoist_task": "criar tarefa",
         }
         return f"❌ Não consegui {action_names.get(action, action)}.\n\n_{error}_"
     
@@ -184,10 +129,6 @@ def get_template(action_type: str, data: Dict[str, Any] = None, error: str = Non
         "list_reminders": lambda: ResponseTemplates.reminder_list(data.get("reminders", []), data.get("total", 0)),
         "create_event": lambda: ResponseTemplates.event_created(data),
         "list_events": lambda: ResponseTemplates.event_list(data.get("events", []), kwargs.get("dias", 7)),
-        "create_contact": lambda: ResponseTemplates.contact_created(data),
-        "list_contacts": lambda: ResponseTemplates.contact_list(data.get("contacts", []), data.get("total", 0)),
-        "create_todoist_task": lambda: ResponseTemplates.todoist_task_created(data),
-        "list_todoist_tasks": lambda: ResponseTemplates.todoist_task_list(data.get("tasks", [])),
     }
     
     if error:

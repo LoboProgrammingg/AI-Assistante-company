@@ -12,9 +12,8 @@ from app.ai.graph_v3.executors.finance import FinanceExecutor
 from app.ai.graph_v3.executors.reminder import ReminderExecutor
 from app.ai.graph_v3.executors.meeting import MeetingExecutor
 from app.ai.graph_v3.executors.calendar import CalendarExecutor
-from app.ai.graph_v3.executors.contact import ContactExecutor
 from app.ai.graph_v3.executors.message import MessageExecutor
-from app.ai.graph_v3.executors.todoist import TodoistExecutor
+from app.ai.graph_v3.executors.task import TaskExecutor
 from app.ai.graph_v3.executors.integrations import IntegrationsExecutor
 from app.ai.graph_v3.executors.specialized import SpecializedExecutor, is_specialized_action
 
@@ -41,21 +40,15 @@ ACTION_DISPATCHERS = {
     "create_event": CalendarExecutor.create_event,
     "list_events": CalendarExecutor.list_events,
     "check_availability": CalendarExecutor.check_availability,
-    # Contatos
-    "create_contact": ContactExecutor.create,
-    "list_contacts": ContactExecutor.list_all,
-    "delete_contact": ContactExecutor.delete,
-    "update_contact": ContactExecutor.update,
     # Mensagens agendadas
     "schedule_message": MessageExecutor.schedule,
     "list_scheduled_messages": MessageExecutor.list_all,
-    # Todoist
-    "create_todoist_task": TodoistExecutor.create_task,
-    "list_todoist_tasks": TodoistExecutor.list_tasks,
-    "complete_todoist_task": TodoistExecutor.complete_task,
-    "update_todoist_task": TodoistExecutor.update_task,
-    "delete_todoist_task": TodoistExecutor.delete_task,
-    "check_todoist_alerts": TodoistExecutor.check_alerts,
+    # Tarefas
+    "create_task": TaskExecutor.create,
+    "list_tasks": TaskExecutor.list_all,
+    "complete_task": TaskExecutor.complete,
+    "delete_task": TaskExecutor.delete,
+    "task_summary": TaskExecutor.get_summary,
     # Pesquisa e integrações
     "web_search": IntegrationsExecutor.web_search,
     "search_news": IntegrationsExecutor.search_news,

@@ -44,17 +44,34 @@ Pense no que o usuário REALMENTE quer saber ou fazer. Exemplos de raciocínio:
 
 1. **finance** - Qualquer coisa sobre dinheiro, gastos, receitas, transações, economia, orçamento
 2. **reminder** - Lembretes, avisos, notificações pessoais
-3. **meeting/calendar** - Eventos, reuniões, agenda, compromissos
-4. **contact** - Gerenciar contatos, telefones, grupos
+3. **calendar** - Agendar eventos/reuniões no Google Calendar, ver compromissos, verificar agenda
+4. **task** - Gerenciar tarefas, to-do list, criar/listar/completar tarefas
 5. **message** - Mensagens agendadas para enviar depois
-6. **todoist** - Tarefas, to-do list, produtividade
-7. **search** - Pesquisas web, notícias, cotações, clima
-8. **goals** - Metas financeiras ou pessoais, objetivos de economia
-9. **advisor** - Simulações, projeções, análises financeiras complexas
-10. **patterns** - Análise de padrões de gastos, anomalias
-11. **general** - Conversas casuais, perguntas gerais (ÚLTIMO RECURSO)
+6. **search** - Pesquisas web, notícias, cotações, clima
+7. **goals** - Metas financeiras ou pessoais, objetivos de economia
+8. **advisor** - Simulações, projeções, análises financeiras complexas
+9. **patterns** - Análise de padrões de gastos, anomalias
+10. **general** - Conversas casuais, perguntas gerais (ÚLTIMO RECURSO)
+
+## REGRA IMPORTANTE: CALENDAR vs MEETING
+- "Agende uma reunião para amanhã às 15h" → intent=calendar, action=create_event (Google Calendar)
+- "Marque um compromisso para segunda" → intent=calendar, action=create_event (Google Calendar)
+- "Ver meus eventos da semana" → intent=calendar, action=list_events (Google Calendar)
+- NUNCA use create_meeting para agendamentos! create_meeting é APENAS para transcrições de áudio.
 
 ## AÇÕES POR INTENT
+
+### CALENDAR (Google Calendar):
+- create_event: Agendar evento/reunião no calendário
+- list_events: Ver próximos eventos/compromissos
+- check_availability: Verificar disponibilidade de horário
+
+### TASK (Gerenciador de Tarefas):
+- create_task: Criar nova tarefa
+- list_tasks: Listar tarefas pendentes
+- complete_task: Marcar tarefa como concluída
+- delete_task: Remover tarefa
+- task_summary: Ver resumo das tarefas
 
 ### FINANCE:
 - create_finance: Registrar novo gasto/receita
@@ -73,6 +90,20 @@ Pense no que o usuário REALMENTE quer saber ou fazer. Exemplos de raciocínio:
 - simulate_scenario: Simular cenários "e se"
 
 ## EXTRAÇÃO DE ENTIDADES
+
+Para CALENDAR extraia:
+- date: data no formato YYYY-MM-DD (ex: "2026-01-28")
+- time: horário no formato HH:MM (ex: "14:00", "09:30")
+- title: título do evento/reunião
+- duration: duração em minutos (default: 60)
+- attendees: lista de participantes (se mencionados)
+
+Para TASK extraia:
+- title: título da tarefa (obrigatório)
+- description: descrição detalhada
+- priority: "low", "medium", "high", "urgent"
+- due_date: data de vencimento no formato YYYY-MM-DD HH:MM
+- project_id: ID do projeto (se mencionado)
 
 Para FINANCE extraia:
 - periodo: "hoje", "semana", "mes", "ano", "mes_anterior", ou nome do mês
@@ -113,10 +144,8 @@ VALID_ACTIONS = {
     "create_reminder", "list_reminders", "delete_reminder", "update_reminder",
     "create_meeting", "list_meetings",
     "create_event", "list_events", "check_availability",
-    "create_contact", "list_contacts", "delete_contact", "update_contact",
+    "create_task", "list_tasks", "complete_task", "delete_task", "task_summary",
     "schedule_message", "list_scheduled_messages",
-    "create_todoist_task", "list_todoist_tasks", "complete_todoist_task",
-    "update_todoist_task", "delete_todoist_task", "check_todoist_alerts",
     "web_search", "search_news", "get_stock", "get_crypto", "get_weather",
     "summarize_transcription",
     # Bills Agent
@@ -142,11 +171,10 @@ VALID_ACTIONS = {
 DEFAULT_ACTIONS = {
     "finance": "query_finance",
     "reminder": "list_reminders",
-    "meeting": "list_events",
+    "meeting": "list_meetings",
     "calendar": "list_events",
-    "contact": "list_contacts",
+    "task": "list_tasks",
     "message": "list_scheduled_messages",
-    "todoist": "list_todoist_tasks",
     "search": "web_search",
     "transcription": "summarize_transcription",
     "bills": "extract_invoice",
@@ -161,7 +189,7 @@ DEFAULT_ACTIONS = {
 
 # Ações que precisam de confirmação
 DANGEROUS_ACTIONS = {
-    "delete_finance", "delete_reminder", "delete_contact",
+    "delete_finance", "delete_reminder",
     "schedule_message",
 }
 

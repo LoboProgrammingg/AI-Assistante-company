@@ -20,8 +20,11 @@ from app.models.finance import Finance, FinanceCategory, FinanceType
 # Reuniões
 from app.models.meeting import Meeting
 
-# Contatos e mensagens agendadas
-from app.models.contact import Contact, ContactGroupEnum, CustomContactGroup, ScheduledMessage, ScheduledMessageStatus
+# Mensagens agendadas
+from app.models.scheduled_message import ScheduledMessage, ScheduledMessageStatus
+
+# Gerenciador de Tarefas
+from app.models.task import Task, TaskStatus, TaskPriority, Project, TaskLabel
 
 # Planos e assinaturas
 from app.models.subscription import Plan, PlanType, Subscription, SubscriptionStatus
@@ -53,8 +56,6 @@ __all__ = [
     "Base",
     "RecurrenceType",
     "FinanceType",
-    "ContactGroupEnum",
-    "CustomContactGroup",
     "User",
     "UserIntegration",
     "Message",
@@ -63,7 +64,6 @@ __all__ = [
     "Finance",
     "Meeting",
     "ConversationMemory",
-    "Contact",
     "ScheduledMessage",
     "ScheduledMessageStatus",
     "VerificationToken",
@@ -77,6 +77,12 @@ __all__ = [
     "DocumentEmbedding",
     "ClassificationCache",
     "AgentMetrics",
+    # Gerenciador de Tarefas
+    "Task",
+    "TaskStatus",
+    "TaskPriority",
+    "Project",
+    "TaskLabel",
     # Memory v3
     "UserMemory",
     "MemoryAuditLog",
