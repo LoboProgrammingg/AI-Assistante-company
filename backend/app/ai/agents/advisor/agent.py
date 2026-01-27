@@ -43,11 +43,20 @@ class AdvisorAgent(SpecializedAgent):
         message_lower = message.lower()
 
         # PRIORIDADE 1: Verificar ação específica das entities (do CognitiveNode)
-        # Isso permite que o LLM determine a intenção corretamente
         action_hint = entities.get("action") or entities.get("action_type", "")
 
-        if action_hint == "financial_state":
-            return await self._handle_financial_state_with_analysis(message)
+        # Perguntas que precisam de resposta INTELIGENTE via LLM
+        # (investimentos, dicas, conselhos, ajuda)
+        needs_llm_response = any(k in message_lower for k in [
+            "investir", "investimento", "aplicar", "aplicação",
+            "ajudar", "ajuda", "conselho", "dica", "sugestão",
+            "economizar", "poupar", "guardar", "melhorar",
+            "recomendar", "recomendação", "o que fazer"
+        ])
+
+        # Se precisa de resposta inteligente, passar dados para o LLM
+        if needs_llm_response:
+            return await self._handle_intelligent_advice(message)
 
         if action_hint == "simulate_scenario":
             return await self._handle_simulation(message, entities)
@@ -55,25 +64,24 @@ class AdvisorAgent(SpecializedAgent):
         if action_hint == "run_projection":
             return await self._handle_projection(message, entities)
 
-        # PRIORIDADE 2: Pattern matching por palavras-chave
+        # Projeção financeira
+        if any(k in message_lower for k in ["projeção", "projetar", "futuro", "daqui"]):
+            return await self._handle_projection(message, entities)
+
         # Simulação financeira
         if any(k in message_lower for k in ["simular", "simulação", "se eu"]):
             return await self._handle_simulation(message, entities)
 
-        # Projeção
-        if any(k in message_lower for k in ["projeção", "projetar", "futuro", "daqui"]):
-            return await self._handle_projection(message, entities)
-
-        # Estado financeiro / Análise
-        if any(k in message_lower for k in ["situação", "estado", "como estou", "analise", "análise", "finanças", "financas", "baseando"]):
+        # Estado financeiro / Análise (resposta com template)
+        if any(k in message_lower for k in ["situação", "estado", "como estou", "analise", "análise"]):
             return await self._handle_financial_state_with_analysis(message)
 
         # Compromissos
         if any(k in message_lower for k in ["compromisso", "obrigação", "pendência"]):
             return await self._handle_commitments()
 
-        # FALLBACK: Se chegou aqui com intent advisor, fazer análise financeira
-        return await self._handle_financial_state_with_analysis(message)
+        # FALLBACK: Resposta inteligente via LLM com dados financeiros
+        return await self._handle_intelligent_advice(message)
 
     async def _handle_simulation(self, message: str, entities: Dict[str, Any]) -> AgentResult:
         """Simula cenário financeiro."""
@@ -195,6 +203,63 @@ class AdvisorAgent(SpecializedAgent):
     async def _handle_financial_state(self) -> AgentResult:
         """Mostra estado financeiro atual (versão simples)."""
         return await self._handle_financial_state_with_analysis("")
+
+    async def _handle_intelligent_advice(self, message: str) -> AgentResult:
+        """
+        Gera resposta inteligente usando LLM com dados financeiros.
+        
+        Retorna dados SEM template para que o ResponderNode use o LLM.
+        """
+        if not self.db or not self.user_id:
+            return AgentResult(success=False, action="error", error="Sem acesso ao banco")
+
+        try:
+            from app.services.finance_service import FinanceService
+
+            service = FinanceService(self.db)
+
+            # Buscar dados financeiros completos
+            summary = service.get_summary_by_period(self.user_id, "mes")
+            s = summary.get("summary", {})
+            by_category = summary.get("by_category", [])
+
+            income = s.get("total_income", 0)
+            expense = s.get("total_expenses", s.get("total_expense", 0))
+            balance = income - expense
+            count = s.get("count", 0)
+
+            # Buscar top gastos
+            top_data = service.get_top_transactions(
+                user_id=self.user_id,
+                limit=10,
+                tipo="expense",
+                periodo="mes",
+                ordenacao="maior",
+            )
+            top_expenses = top_data.get("transactions", [])
+
+            # Retornar dados SEM message para o LLM gerar resposta inteligente
+            return AgentResult(
+                success=True,
+                action="intelligent_advice",
+                data={
+                    "summary": {
+                        "total_income": income,
+                        "total_expenses": expense,
+                        "balance": balance,
+                        "count": count,
+                        "savings_rate": round((balance / income * 100), 1) if income > 0 else 0,
+                    },
+                    "by_category": by_category,
+                    "top_expenses": top_expenses,
+                    "original_question": message,
+                },
+                message=None,  # SEM template - deixa LLM responder
+            )
+
+        except Exception as e:
+            logger.error(f"[ADVISOR] Erro ao buscar dados para conselho: {e}")
+            return AgentResult(success=False, action="error", error=str(e))
 
     async def _handle_financial_state_with_analysis(self, message: str) -> AgentResult:
         """Análise financeira completa com dados reais do banco."""

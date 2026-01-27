@@ -146,6 +146,22 @@ class ResponderNode:
                     for cat in cats[:5]:
                         lines.append(f"  • {cat.get('category', 'Outros')}: R$ {cat.get('total', 0):,.2f}")
 
+            # Processar top gastos (do intelligent_advice)
+            if "top_expenses" in data:
+                top = data["top_expenses"]
+                if top:
+                    lines.append("")
+                    lines.append("### MAIORES GASTOS DO MÊS:")
+                    for i, t in enumerate(top[:10], 1):
+                        lines.append(
+                            f"{i}. R$ {t.get('amount', 0):,.2f} - {t.get('description', 'Sem descrição')} "
+                            f"({t.get('category', 'Outros')})"
+                        )
+
+            # Processar pergunta original (do intelligent_advice)
+            if "original_question" in data:
+                lines.insert(0, f'### PERGUNTA DO USUÁRIO: "{data["original_question"]}"\n')
+
             # Processar total (para top N)
             if "total" in data:
                 lines.append(f"")
