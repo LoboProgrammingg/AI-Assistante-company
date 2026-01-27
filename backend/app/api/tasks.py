@@ -14,7 +14,7 @@ from app.database import get_db
 from app.models import Project, Task, TaskLabel, TaskPriority, TaskStatus
 from app.models.base import RecurrenceType
 from app.models.user import User
-from app.services.auth_service import get_current_user
+from app.api.deps import get_current_user
 from app.services.task_service import TaskService
 
 logger = logging.getLogger(__name__)

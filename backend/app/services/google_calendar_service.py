@@ -8,14 +8,24 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import UserIntegration
+
+# Google APIs - imports condicionais
+try:
+    from google.oauth2.credentials import Credentials
+    from google_auth_oauthlib.flow import Flow
+    from googleapiclient.discovery import build
+    from googleapiclient.errors import HttpError
+    GOOGLE_AVAILABLE = True
+except ImportError:
+    GOOGLE_AVAILABLE = False
+    Credentials = None
+    Flow = None
+    build = None
+    HttpError = Exception
 
 logger = logging.getLogger(__name__)
 
