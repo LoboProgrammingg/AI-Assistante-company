@@ -162,6 +162,30 @@ class ResponderNode:
             if "original_question" in data:
                 lines.insert(0, f'### PERGUNTA DO USUÁRIO: "{data["original_question"]}"\n')
 
+            # Processar dados de web search
+            if "web_search" in data:
+                ws = data["web_search"]
+                if ws.get("answer"):
+                    lines.append("")
+                    lines.append("### INFORMAÇÃO DA WEB:")
+                    lines.append(ws["answer"])
+                if ws.get("results"):
+                    lines.append("")
+                    lines.append("### FONTES:")
+                    for r in ws["results"][:3]:
+                        lines.append(f"• {r.get('title', '')}")
+                        if r.get("content"):
+                            lines.append(f"  {r['content'][:200]}...")
+
+            # Processar user_summary (do web_search_advice)
+            if "user_summary" in data:
+                us = data["user_summary"]
+                lines.append("")
+                lines.append("### SITUAÇÃO FINANCEIRA DO USUÁRIO:")
+                lines.append(f"💵 Receitas: R$ {us.get('total_income', 0):,.2f}")
+                lines.append(f"💸 Gastos: R$ {us.get('total_expenses', 0):,.2f}")
+                lines.append(f"💰 Disponível para investir: R$ {us.get('available_to_invest', 0):,.2f}")
+
             # Processar total (para top N)
             if "total" in data:
                 lines.append(f"")

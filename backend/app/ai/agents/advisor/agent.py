@@ -45,6 +45,18 @@ class AdvisorAgent(SpecializedAgent):
         # PRIORIDADE 1: Verificar ação específica das entities (do CognitiveNode)
         action_hint = entities.get("action") or entities.get("action_type", "")
 
+        # Perguntas que precisam de WEB SEARCH (ações, cotações, mercado)
+        needs_web_search = any(k in message_lower for k in [
+            "ações", "ação", "acoes", "acao", "bolsa", "ibovespa",
+            "cotação", "cotacao", "preço da", "preco da",
+            "selic", "cdi", "ipca", "inflação", "inflacao",
+            "tesouro direto", "renda fixa", "fundo", "etf",
+            "criptomoeda", "bitcoin", "crypto", "dolar", "dólar", "algum tema que voce nao tenha informacao"
+        ])
+
+        if needs_web_search:
+            return await self._handle_web_search_advice(message)
+
         # Perguntas que precisam de resposta INTELIGENTE via LLM
         # (investimentos, dicas, conselhos, ajuda)
         needs_llm_response = any(k in message_lower for k in [
@@ -260,6 +272,63 @@ class AdvisorAgent(SpecializedAgent):
         except Exception as e:
             logger.error(f"[ADVISOR] Erro ao buscar dados para conselho: {e}")
             return AgentResult(success=False, action="error", error=str(e))
+
+    async def _handle_web_search_advice(self, message: str) -> AgentResult:
+        """
+        Busca informações na web sobre ações, cotações, mercado financeiro.
+        
+        Combina dados do usuário com informações da web.
+        """
+        if not self.db or not self.user_id:
+            return AgentResult(success=False, action="error", error="Sem acesso ao banco")
+
+        try:
+            from app.services.finance_service import FinanceService
+            from app.ai.graph_v3.executors.integrations import IntegrationsExecutor
+
+            # Buscar dados financeiros do usuário
+            service = FinanceService(self.db)
+            summary = service.get_summary_by_period(self.user_id, "mes")
+            s = summary.get("summary", {})
+
+            income = s.get("total_income", 0)
+            expense = s.get("total_expenses", s.get("total_expense", 0))
+            balance = income - expense
+
+            # Buscar na web
+            web_result = IntegrationsExecutor.web_search(
+                params={"query": message, "original_message": message},
+                db=self.db,
+                user_id=self.user_id,
+                user_name="",
+            )
+
+            web_data = web_result.data if web_result.success else {}
+
+            return AgentResult(
+                success=True,
+                action="web_search_advice",
+                data={
+                    "user_summary": {
+                        "total_income": income,
+                        "total_expenses": expense,
+                        "balance": balance,
+                        "available_to_invest": max(0, balance),
+                    },
+                    "web_search": {
+                        "query": message,
+                        "answer": web_data.get("answer", ""),
+                        "results": web_data.get("results", []),
+                    },
+                    "original_question": message,
+                },
+                message=None,  # LLM gera resposta
+            )
+
+        except Exception as e:
+            logger.error(f"[ADVISOR] Erro no web search: {e}")
+            # Fallback para resposta inteligente sem web
+            return await self._handle_intelligent_advice(message)
 
     async def _handle_financial_state_with_analysis(self, message: str) -> AgentResult:
         """Análise financeira completa com dados reais do banco."""
