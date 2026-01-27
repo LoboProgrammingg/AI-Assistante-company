@@ -290,6 +290,13 @@ class GoogleCalendarService:
             logger.error(f"Erro ao listar eventos: {e}")
             return {"success": False, "error": str(e)}
 
+    def _get_user_timezone(self, user_id: int) -> str:
+        """Obtém o timezone configurado do usuário."""
+        from app.models.user import User
+        
+        user = self.db.query(User).filter(User.id == user_id).first()
+        return user.timezone if user and user.timezone else "America/Sao_Paulo"
+
     def create_event(
         self,
         user_id: int,
@@ -300,6 +307,7 @@ class GoogleCalendarService:
         location: str = None,
         attendees: list = None,
         add_meet: bool = False,
+        timezone: str = None,
     ) -> dict:
         """Cria evento no calendário do usuário."""
         credentials = self._get_credentials(user_id)
@@ -312,15 +320,18 @@ class GoogleCalendarService:
             if not end_time:
                 end_time = start_time + timedelta(hours=1)
 
+            # Usar timezone do usuário se não foi especificado
+            user_tz = timezone or self._get_user_timezone(user_id)
+
             event = {
                 "summary": title,
                 "start": {
                     "dateTime": start_time.isoformat(),
-                    "timeZone": "America/Sao_Paulo",
+                    "timeZone": user_tz,
                 },
                 "end": {
                     "dateTime": end_time.isoformat(),
-                    "timeZone": "America/Sao_Paulo",
+                    "timeZone": user_tz,
                 },
             }
 

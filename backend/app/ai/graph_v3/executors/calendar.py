@@ -14,6 +14,14 @@ class CalendarExecutor:
     """Executor de ações do Google Calendar."""
 
     @staticmethod
+    def _get_user_timezone(db: Any, user_id: int) -> str:
+        """Obtém o timezone configurado do usuário."""
+        from app.models.user import User
+        
+        user = db.query(User).filter(User.id == user_id).first()
+        return user.timezone if user and user.timezone else "America/Sao_Paulo"
+
+    @staticmethod
     def create_event(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Cria evento no Google Calendar."""
         try:
@@ -31,7 +39,9 @@ class CalendarExecutor:
                     response_template="⚠️ Conecte seu Google Calendar nas *Configurações*.",
                 )
 
-            tz = ZoneInfo("America/Sao_Paulo")
+            # Usar timezone do usuário
+            user_tz = CalendarExecutor._get_user_timezone(db, user_id)
+            tz = ZoneInfo(user_tz)
 
             titulo = params.get("titulo", params.get("title", "Reunião"))
             duracao = params.get("duracao_minutos", params.get("duration", 60))
@@ -114,7 +124,9 @@ class CalendarExecutor:
                     response_template="⚠️ Conecte seu Google Calendar nas Configurações.",
                 )
 
-            tz = ZoneInfo("America/Sao_Paulo")
+            # Usar timezone do usuário
+            user_tz = CalendarExecutor._get_user_timezone(db, user_id)
+            tz = ZoneInfo(user_tz)
             dias = params.get("dias", 7)
             time_max = datetime.now(tz) + timedelta(days=dias)
 
@@ -160,7 +172,9 @@ class CalendarExecutor:
                     response_template="⚠️ Conecte seu Google Calendar nas Configurações.",
                 )
 
-            tz = ZoneInfo("America/Sao_Paulo")
+            # Usar timezone do usuário
+            user_tz = CalendarExecutor._get_user_timezone(db, user_id)
+            tz = ZoneInfo(user_tz)
             data = params.get("data", "")
             hora_inicio = params.get("hora_inicio", "08:00")
             hora_fim = params.get("hora_fim", "18:00")
