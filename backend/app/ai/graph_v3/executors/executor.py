@@ -55,8 +55,6 @@ ACTION_DISPATCHERS = {
     # Pesquisa e integrações
     "web_search": IntegrationsExecutor.web_search,
     "search_news": IntegrationsExecutor.search_news,
-    "get_stock": IntegrationsExecutor.get_stock,
-    "get_crypto": IntegrationsExecutor.get_crypto,
     "get_weather": IntegrationsExecutor.get_weather,
 }
 

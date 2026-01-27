@@ -141,8 +141,6 @@ VALID_ACTIONS = {
     "list_scheduled_messages",
     "web_search",
     "search_news",
-    "get_stock",
-    "get_crypto",
     "get_weather",
     "summarize_transcription",
     # Bills Agent

@@ -36,26 +36,6 @@ class IntegrationsExecutor:
         )
 
     @staticmethod
-    def get_stock(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
-        """Consulta cotação de ação."""
-        return ExecutionResult(
-            success=True,
-            action_type="get_stock",
-            data={"symbol": params.get("symbol", ""), "needs_llm": True},
-            response_template=None,
-        )
-
-    @staticmethod
-    def get_crypto(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
-        """Consulta cotação de crypto."""
-        return ExecutionResult(
-            success=True,
-            action_type="get_crypto",
-            data={"symbol": params.get("symbol", ""), "needs_llm": True},
-            response_template=None,
-        )
-
-    @staticmethod
     def get_weather(params: Dict, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Consulta clima."""
         return ExecutionResult(

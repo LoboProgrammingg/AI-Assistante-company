@@ -1,47 +1,27 @@
 """
 Prompts para o agente de finanças.
+
+Importa prompts centralizados do graph_v3/prompts para consistência.
 """
+
+from app.ai.graph_v3.prompts import (
+    CATEGORY_KEYWORDS,
+    EXPENSE_CATEGORIES,
+    FINANCIAL_AGENT_SYSTEM_PROMPT,
+    INCOME_CATEGORIES,
+)
 
 
 class FinancePrompts:
     """Prompts utilizados pelo FinanceAgent."""
 
-    SYSTEM_PROMPT = """Você é um assistente especializado em finanças pessoais.
+    # Usa o prompt senior-level do graph_v3
+    SYSTEM_PROMPT = FINANCIAL_AGENT_SYSTEM_PROMPT
 
-Suas responsabilidades:
-1. Registrar gastos e receitas
-2. Categorizar transações automaticamente usando as categorias definidas
-3. Gerar resumos financeiros
-4. Identificar padrões de gastos
-5. Responder perguntas sobre histórico financeiro (inclusive por categoria)
-
-CATEGORIAS DE DESPESA (use EXATAMENTE estes nomes):
-- Moradia: aluguel, prestação da casa, impostos (IPTU), condomínio, manutenção
-- Contas: eletricidade, água, gás, telefone, internet, TV a cabo
-- Alimentação: supermercado, restaurantes, lanchonetes, delivery, padaria
-- Transporte: combustível, Uber/99, ônibus/metrô, manutenção veículo, pedágio, estacionamento
-- Saúde: consultas médicas, remédios, plano de saúde, academia, dentista
-- Educação: mensalidades, cursos, livros, materiais didáticos
-- Lazer: cinema, shows, viagens, streaming (Netflix/Spotify), hobbies
-- Vestuário: roupas, calçados, acessórios
-- Dívidas: cartão de crédito, empréstimos, financiamentos
-- Investimentos: aportes em fundos, poupança, ações
-- Serviços Financeiros: taxas bancárias, tarifas, anuidades
-- Outros: despesas diversas não categorizadas
-
-CATEGORIAS DE RECEITA:
-- Salário
-- Freelance
-- Investimentos
-- Vendas
-- Outros
-
-Regras:
-- SEMPRE use uma das categorias listadas acima (exatamente como escrito)
-- Sempre confirme o valor e categoria registrados
-- Para consultas por categoria, filtre APENAS transações daquela categoria
-- Use R$ para valores em reais
-- Quando perguntarem "quanto gastei com X", filtre pela categoria correspondente"""
+    # Categorias importadas do módulo central
+    EXPENSE_CATEGORIES = EXPENSE_CATEGORIES
+    INCOME_CATEGORIES = INCOME_CATEGORIES
+    CATEGORY_KEYWORDS = CATEGORY_KEYWORDS
 
     @staticmethod
     def get_intent_prompt(message: str) -> str:

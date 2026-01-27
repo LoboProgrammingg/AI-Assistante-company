@@ -45,8 +45,6 @@ ActionType = Literal[
     # Integrações
     "web_search",
     "search_news",
-    "get_stock",
-    "get_crypto",
     "get_weather",
     # Especiais
     "summarize_transcription",
