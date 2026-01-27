@@ -206,7 +206,13 @@ class GoogleCalendarService:
         )
 
         # Verificar se precisa renovar
-        if integration.token_expiry and integration.token_expiry < datetime.now(timezone.utc):
+        token_expiry = integration.token_expiry
+        if token_expiry:
+            # Garantir que token_expiry é timezone-aware
+            if token_expiry.tzinfo is None:
+                token_expiry = token_expiry.replace(tzinfo=timezone.utc)
+        
+        if token_expiry and token_expiry < datetime.now(timezone.utc):
             try:
                 from google.auth.transport.requests import Request
 
