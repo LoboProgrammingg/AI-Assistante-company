@@ -690,7 +690,7 @@ class FinanceService:
                     "description": t.description,
                     "amount": float(t.amount),
                     "type": t.type.value,
-                    "category": t.category.value if t.category else "outros",
+                    "category": t.category.name if t.category else "Outros",
                     "date": t.transaction_date.isoformat(),
                 }
                 for t in transactions
