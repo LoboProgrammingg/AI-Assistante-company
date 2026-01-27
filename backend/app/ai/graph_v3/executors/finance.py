@@ -22,8 +22,8 @@ class FinanceExecutor:
             service = FinanceService(db)
 
             # Verificar se é uma lista de transações (do CognitiveNode)
-            if "items" in params:
-                items = params["items"]
+            if "transactions" in params:
+                items = params["transactions"]
                 if not isinstance(items, list):
                     items = [items]
                 
