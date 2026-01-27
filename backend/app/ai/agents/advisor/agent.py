@@ -251,15 +251,13 @@ class AdvisorAgent(SpecializedAgent):
                     cat = t.get("category", "")
                     lines.append(f"{i}. R$ {amount:,.2f} - {desc}")
 
-            # Gastos por categoria
+            # Gastos por categoria (by_category já vem filtrado por gastos do FinanceService)
             if by_category:
-                expense_cats = [c for c in by_category if c.get("type") == "expense"][:5]
-                if expense_cats:
-                    lines.append("\n*📁 Por Categoria:*")
-                    for cat in expense_cats:
-                        cat_name = cat.get("category", "Outros")
-                        cat_total = cat.get("total", 0)
-                        lines.append(f"• {cat_name}: R$ {cat_total:,.2f}")
+                lines.append("\n*📁 Por Categoria:*")
+                for cat in by_category[:5]:
+                    cat_name = cat.get("category", "Outros")
+                    cat_total = cat.get("total", 0)
+                    lines.append(f"• {cat_name}: R$ {cat_total:,.2f}")
 
             # Observações
             lines.append(f"\n_{count} transações registradas_")
