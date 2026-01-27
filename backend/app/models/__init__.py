@@ -18,7 +18,15 @@ from app.models.finance import Finance, FinanceCategory, FinanceType
 from app.models.integration import UserIntegration
 
 # Reuniões
-from app.models.meeting import Meeting
+from app.models.meeting import (
+    Meeting,
+    MeetingArtifact,
+    MeetingChunk,
+    MeetingSession,
+    MeetingStatus,
+    SessionSourceType,
+    SessionStatus,
+)
 
 # Mensagens
 from app.models.message import Message
@@ -63,6 +71,12 @@ __all__ = [
     "FinanceCategory",
     "Finance",
     "Meeting",
+    "MeetingSession",
+    "MeetingChunk",
+    "MeetingArtifact",
+    "MeetingStatus",
+    "SessionStatus",
+    "SessionSourceType",
     "ConversationMemory",
     "ScheduledMessage",
     "ScheduledMessageStatus",
