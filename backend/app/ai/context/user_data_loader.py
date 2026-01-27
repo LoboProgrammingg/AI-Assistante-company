@@ -236,34 +236,44 @@ class UserDataLoader:
 
     def _load_meetings(self) -> Dict[str, Any]:
         """Carrega reuniões recentes."""
-        thirty_days_ago = datetime.now() - timedelta(days=30)
+        try:
+            thirty_days_ago = datetime.now() - timedelta(days=30)
 
-        meetings = (
-            self.db.query(Meeting)
-            .filter(
-                and_(
-                    Meeting.user_id == self.user_id,
-                    Meeting.created_at >= thirty_days_ago,
+            meetings = (
+                self.db.query(Meeting)
+                .filter(
+                    and_(
+                        Meeting.user_id == self.user_id,
+                        Meeting.created_at >= thirty_days_ago,
+                    )
                 )
+                .order_by(Meeting.date.desc())
+                .limit(20)
+                .all()
             )
-            .order_by(Meeting.date.desc())
-            .limit(20)
-            .all()
-        )
 
-        return {
-            "total": len(meetings),
-            "recent": [
-                {
-                    "id": m.id,
-                    "title": m.title,
-                    "date": m.date.strftime("%Y-%m-%d %H:%M") if m.date else None,
-                    "summary": m.summary[:200] if m.summary else None,
-                    "action_items": m.action_items or [],
-                }
-                for m in meetings[:10]
-            ],
-        }
+            return {
+                "total": len(meetings),
+                "recent": [
+                    {
+                        "id": m.id,
+                        "title": m.title,
+                        "date": m.date.strftime("%Y-%m-%d %H:%M") if m.date else None,
+                        "summary": m.summary[:200] if m.summary else None,
+                        "action_items": m.action_items or [],
+                    }
+                    for m in meetings[:10]
+                ],
+            }
+        except Exception as e:
+            # Se a tabela meetings não tiver as colunas novas, ignora
+            logger.warning(f"[DATA_LOADER] Erro ao carregar meetings (migration pendente?): {e}")
+            # Rollback da transação para limpar estado de erro
+            try:
+                self.db.rollback()
+            except Exception:
+                pass
+            return {"total": 0, "recent": []}
 
     def _load_scheduled_messages(self) -> Dict[str, Any]:
         """Carrega mensagens agendadas."""
