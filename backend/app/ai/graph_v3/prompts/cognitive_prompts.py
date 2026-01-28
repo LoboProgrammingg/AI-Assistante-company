@@ -108,11 +108,25 @@ Para GOALS extraia:
 5. NUNCA use general se houver QUALQUER indicação de intent específico
 6. Sempre inclua a mensagem original em "original_message" nas entities
 
+## FLAGS COGNITIVAS (OBRIGATÓRIO)
+
+Inclua SEMPRE estas flags no JSON de saída:
+
+- **needs_user_data**: true SE o usuário está perguntando sobre SEUS dados pessoais (finanças, lembretes, tarefas, etc)
+  - "quais foram minhas receitas" → needs_user_data: true
+  - "quanto gastei esse mês" → needs_user_data: true
+  - "me mostra meus gastos" → needs_user_data: true
+  - "o que é CDI" → needs_user_data: false (pergunta conceitual)
+  
+- **needs_web**: true SE precisa buscar informação externa (notícias, cotações, clima)
+
+- **needs_analysis**: true SE o usuário pede análise, conselho, projeção ou comparação
+
 ## OUTPUT OBRIGATÓRIO (JSON COMPACTO)
 
 Retorne APENAS um JSON válido, SEM markdown, SEM explicações:
 
-{{"intent":"<intent>","action":"<action>","confidence":<0.0-1.0>,"entities":{{...}}}}
+{{"intent":"<intent>","action":"<action>","confidence":<0.0-1.0>,"needs_user_data":<true/false>,"needs_web":<true/false>,"needs_analysis":<true/false>,"entities":{{...}}}}
 
 IMPORTANTE: NÃO use ```json, NÃO adicione reasoning longo. Seja CONCISO."""
 

@@ -165,6 +165,11 @@ class CognitiveNode:
             needs_web = bool(parsed.get("needs_web", False))
             needs_analysis = bool(parsed.get("needs_analysis", False))
 
+            # 🔧 CORREÇÃO: Forçar needs_user_data=true para consultas que precisam dos dados do usuário
+            if action_type in {"query_finance", "list_reminders", "list_tasks", "list_goals", "goal_progress"}:
+                needs_user_data = True
+                logger.info(f"[COGNITIVE] Forçando needs_user_data=True para {action_type}")
+
             entities["original_message"] = original_message
 
             if action_type not in VALID_ACTIONS:
