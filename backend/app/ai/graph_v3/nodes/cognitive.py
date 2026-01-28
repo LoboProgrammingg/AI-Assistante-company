@@ -153,12 +153,40 @@ class CognitiveNode:
             end = content.rfind("}") + 1
             json_str = content[start:end]
 
+            logger.info(f"[COGNITIVE] 📝 Parsing JSON: {json_str[:500]}")
+
             parsed = json.loads(json_str)
 
             intent = parsed.get("intent", "general")
             action_type = parsed.get("action", "none")
             confidence = float(parsed.get("confidence", 0.5))
             entities = parsed.get("entities", {})
+
+            # 📊 LOG DETALHADO DAS ENTIDADES EXTRAÍDAS
+            logger.info(f"[COGNITIVE] 📊 Entities extraídas: {entities}")
+            
+            # 🔑 VERIFICAÇÃO CRÍTICA: tipo da transação para create_finance
+            if action_type == "create_finance":
+                tipo = entities.get("tipo", entities.get("type", "NOT_FOUND"))
+                valor = entities.get("valor", entities.get("amount", 0))
+                descricao = entities.get("descricao", entities.get("description", ""))
+                logger.info(f"[COGNITIVE] 💰 CREATE_FINANCE: tipo={tipo} | valor={valor} | desc={descricao}")
+                
+                # 🚨 FALLBACK: Se tipo não veio do LLM, inferir pela mensagem
+                if tipo == "NOT_FOUND" or tipo not in ("income", "expense"):
+                    msg_lower = original_message.lower()
+                    income_keywords = ["ganhei", "recebi", "entrou", "lucrei", "faturei", "me pagaram", "vendi"]
+                    expense_keywords = ["gastei", "paguei", "comprei", "perdi", "saiu"]
+                    
+                    if any(kw in msg_lower for kw in income_keywords):
+                        entities["tipo"] = "income"
+                        logger.warning(f"[COGNITIVE] ⚠️ FALLBACK: Inferido tipo=income de '{original_message[:50]}'")
+                    elif any(kw in msg_lower for kw in expense_keywords):
+                        entities["tipo"] = "expense"
+                        logger.warning(f"[COGNITIVE] ⚠️ FALLBACK: Inferido tipo=expense de '{original_message[:50]}'")
+                    else:
+                        entities["tipo"] = "expense"  # default
+                        logger.warning(f"[COGNITIVE] ⚠️ FALLBACK: Usando default tipo=expense")
 
             # 🔑 FLAGS COGNITIVAS (o pulo do gato)
             needs_user_data = bool(parsed.get("needs_user_data", False))
@@ -173,6 +201,7 @@ class CognitiveNode:
             entities["original_message"] = original_message
 
             if action_type not in VALID_ACTIONS:
+                logger.warning(f"[COGNITIVE] ⚠️ Action '{action_type}' não válida, usando default para intent '{intent}'")
                 action_type = DEFAULT_ACTIONS.get(intent, "needs_llm_response")
 
             action = ExtractedAction(

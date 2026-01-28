@@ -18,6 +18,8 @@ class FinanceExecutor:
         """Cria transação financeira."""
         from app.services.finance_service import FinanceService
 
+        logger.info(f"[FINANCE] 📥 CREATE recebeu params: {params}")
+
         try:
             service = FinanceService(db)
 
@@ -26,6 +28,8 @@ class FinanceExecutor:
                 items = params["transactions"]
                 if not isinstance(items, list):
                     items = [items]
+                
+                logger.info(f"[FINANCE] 📋 Processando {len(items)} transações")
                 
                 created = []
                 for item in items:
@@ -37,6 +41,7 @@ class FinanceExecutor:
                         "type": item.get("tipo", item.get("type", "expense")),
                         "date": item.get("data", item.get("date")),
                     }
+                    logger.info(f"[FINANCE] 💳 Item normalizado: {finance_data}")
                     
                     # Validar amount > 0
                     if finance_data["amount"] <= 0:
@@ -68,7 +73,9 @@ class FinanceExecutor:
                     response_template=template,
                 )
             
-            # Single transaction (fallback)
+            # Single transaction (fallback) - entities vêm direto do CognitiveNode
+            logger.info(f"[FINANCE] 📝 Single transaction mode")
+            
             finance_data = {
                 "amount": params.get("valor", params.get("amount", 0)),
                 "description": params.get("descricao", params.get("description", "")),
@@ -77,8 +84,11 @@ class FinanceExecutor:
                 "date": params.get("data", params.get("date")),
             }
             
+            logger.info(f"[FINANCE] 💳 Dados normalizados: type={finance_data['type']} | amount={finance_data['amount']} | desc={finance_data['description']}")
+            
             # Validar amount > 0
             if finance_data["amount"] <= 0:
+                logger.warning(f"[FINANCE] ❌ Valor inválido: {finance_data['amount']}")
                 return ExecutionResult(
                     success=False,
                     action_type="create_finance",
@@ -86,12 +96,15 @@ class FinanceExecutor:
                 )
 
             service.create_from_entities(user_id, finance_data)
+            
+            logger.info(f"[FINANCE] ✅ Transação criada com sucesso: {finance_data}")
 
             amount = finance_data["amount"]
             desc = finance_data["description"]
             tipo = "Gasto" if finance_data["type"] == "expense" else "Receita"
 
             template = f"✅ {tipo} registrado: *{desc}* - R$ {amount:.2f}"
+            logger.info(f"[FINANCE] 📤 Template: {template}")
 
             return ExecutionResult(
                 success=True,
