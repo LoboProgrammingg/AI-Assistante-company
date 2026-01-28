@@ -86,9 +86,18 @@ Q1: Is user REGISTERING a transaction?
            │       Signal: "cancela", "apaga", "remove", "deleta"
            │       → action="delete_finance"
            │
-           └─ NO → Is user UPDATING?
-                   Signal: "atualiza", "muda", "corrige", "altera"
+           └─ NO → Is user UPDATING/CORRECTING?
+                   Signals: "atualiza", "muda", "corrige", "altera", "era", "deveria ser"
                    → action="update_finance"
+                   
+                   Extract entities:
+                   - busca: term to find transaction (e.g. "blaze", "uber")
+                   - novo_tipo: "income" or "expense" (if changing type)
+                   - novo_valor: new amount (if changing value)
+                   - nova_descricao: new description (if changing)
+                   
+                   Example: "o ganho na blaze era receita, não despesa"
+                   → busca="blaze", novo_tipo="income"
 
 ┌──────────────────────────────────────────────────────┐
 │ NON-FINANCIAL ANALYSIS                               │

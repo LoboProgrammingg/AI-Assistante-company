@@ -338,23 +338,84 @@ _{count} transação(ões)_"""
         """Atualiza transação financeira."""
         from app.services.finance_service import FinanceService
 
+        logger.info(f"[FINANCE] 📝 UPDATE recebeu params: {params}")
+
         try:
             service = FinanceService(db)
 
-            filters = {"descricao": params.get("descricao_busca", params.get("descricao", ""))}
+            # Construir filtros de busca
+            filters = {}
+            
+            # Busca por ID (mais preciso)
+            if params.get("id") or params.get("finance_id"):
+                filters["id"] = params.get("id", params.get("finance_id"))
+            
+            # Busca por descrição (termo de busca)
+            elif params.get("descricao_busca") or params.get("busca") or params.get("descricao"):
+                filters["descricao"] = params.get("descricao_busca", params.get("busca", params.get("descricao", "")))
+            
+            # Busca por original_message (extrair termos relevantes)
+            elif params.get("original_message"):
+                # Extrair possíveis termos de busca da mensagem original
+                msg = params["original_message"].lower()
+                # Palavras-chave comuns para ignorar
+                ignore = ["altere", "mude", "corrija", "atualize", "o", "a", "de", "para", "mim", "que", "foi", "era", "deveria", "ser", "mas", "como", "voce", "você", "registrou"]
+                words = [w for w in msg.split() if w not in ignore and len(w) > 2]
+                if words:
+                    filters["descricao"] = " ".join(words[:3])  # Primeiras 3 palavras relevantes
+                    logger.info(f"[FINANCE] 🔍 Extraído termo de busca: '{filters['descricao']}'")
+                else:
+                    filters["ultima"] = True
+                    logger.info(f"[FINANCE] 🔍 Usando última transação")
+            
+            # Fallback: última transação
+            else:
+                filters["ultima"] = True
+                logger.info(f"[FINANCE] 🔍 Fallback: usando última transação")
+
+            logger.info(f"[FINANCE] 🔍 Filtros de busca: {filters}")
+
+            # Construir updates
             updates = {}
 
             if params.get("novo_valor") or params.get("amount"):
                 updates["amount"] = params.get("novo_valor", params.get("amount"))
             if params.get("nova_descricao") or params.get("description"):
                 updates["description"] = params.get("nova_descricao", params.get("description"))
-            if params.get("novo_tipo") or params.get("type"):
-                updates["type"] = params.get("novo_tipo", params.get("type"))
+            if params.get("novo_tipo") or params.get("type") or params.get("tipo"):
+                updates["type"] = params.get("novo_tipo", params.get("type", params.get("tipo")))
+            if params.get("nova_categoria") or params.get("category") or params.get("categoria"):
+                updates["category"] = params.get("nova_categoria", params.get("category", params.get("categoria")))
+
+            logger.info(f"[FINANCE] ✏️ Updates a aplicar: {updates}")
+
+            if not updates:
+                logger.warning(f"[FINANCE] ⚠️ Nenhum update especificado")
+                return ExecutionResult(
+                    success=False,
+                    action_type="update_finance",
+                    data={},
+                    response_template="❌ Nenhuma alteração especificada. Diga o que deseja mudar (valor, tipo, descrição).",
+                )
 
             result = service.update_by_filters(user_id, filters, updates)
 
+            logger.info(f"[FINANCE] 📤 Resultado update: {result}")
+
             if result.get("success"):
-                template = "✏️ Transação atualizada!"
+                old_data = result.get("old", {})
+                old_desc = old_data.get("description", "Transação")
+                new_info = []
+                if updates.get("type"):
+                    tipo_label = "Receita" if updates["type"] == "income" else "Gasto"
+                    new_info.append(f"tipo → {tipo_label}")
+                if updates.get("amount"):
+                    new_info.append(f"valor → R$ {updates['amount']:.2f}")
+                if updates.get("description"):
+                    new_info.append(f"descrição → {updates['description']}")
+                
+                changes = ", ".join(new_info) if new_info else "atualizado"
+                template = f"✏️ *{old_desc}* atualizado: {changes}"
             else:
                 template = f"❌ {result.get('error', 'Transação não encontrada')}"
 
@@ -365,4 +426,5 @@ _{count} transação(ões)_"""
                 response_template=template,
             )
         except Exception as e:
+            logger.error(f"[FINANCE] ❌ Erro no update: {e}", exc_info=True)
             return ExecutionResult(success=False, action_type="update_finance", error=str(e))
