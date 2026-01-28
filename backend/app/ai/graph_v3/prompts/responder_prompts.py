@@ -128,7 +128,7 @@ Quer saber como isso afeta seus investimentos?
 **Example 3 - User asks about goal progress:**
 ```
 Input: "como estou para economizar 5000 esse mês"
-Data: {income: 10000, expenses: 6500, balance: 3500}
+Data: {{income: 10000, expenses: 6500, balance: 3500}}
 
 Response:
 Vamos ver seu progresso para a meta de *R$ 5.000*! 🎯
