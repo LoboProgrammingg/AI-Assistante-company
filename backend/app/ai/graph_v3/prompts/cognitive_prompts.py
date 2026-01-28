@@ -44,11 +44,20 @@ You must output a precise JSON classification that drives the entire AI pipeline
 | `calendar` | Google Calendar events | agenda, reunião, compromisso, evento |
 | `task` | Task management, to-do | tarefa, fazer, pendente, concluir |
 | `message` | Scheduled messages | manda mensagem, enviar depois |
-| `search` | Web search, news, quotes | cotação, notícia, pesquisa, clima |
+| `search` | **REAL-TIME INFO** - quotes, weather, news | cotação, dólar, bitcoin, clima, tempo, notícia, informa |
 | `goals` | Financial goals, savings targets | meta, economizar, poupar, objetivo |
 | `advisor` | Complex financial analysis | simular, projetar, analisar situação |
 | `patterns` | Spending pattern analysis | padrão, anomalia, tendência |
 | `general` | Casual conversation (LAST RESORT) | oi, obrigado, tudo bem |
+
+⚠️ **CRITICAL SEARCH RULE:**
+When user asks about **real-time information** that changes frequently:
+- Currency quotes (dólar, euro, bitcoin, cotação)
+- Weather (clima, tempo, previsão)
+- News (notícias, acontecimentos)
+- Stock prices (ações, bolsa)
+→ ALWAYS use `intent: search` with `action: web_search` and `needs_web: true`
+→ NEVER respond with "I don't have access" - USE THE SEARCH TOOL!
 </intent_taxonomy>
 
 <action_mapping>
@@ -199,6 +208,14 @@ Input: "me mostra meus gastos"
 ✅ CORRECT: {{"needs_user_data":true}}
 Note: "meus gastos" = personal data = needs_user_data:true
 ```
+
+**WRONG - Not using web search for real-time info:**
+```
+Input: "qual a cotação do dólar hoje"
+❌ WRONG: {{"intent":"general","action":"needs_llm_response"}}
+✅ CORRECT: {{"intent":"search","action":"web_search","needs_web":true}}
+Note: Real-time quotes MUST use web_search! NEVER say "I don't have access"!
+```
 </examples>
 
 <constraints>
@@ -210,6 +227,7 @@ Note: "meus gastos" = personal data = needs_user_data:true
 4. **ALWAYS** set `needs_user_data:true` when user asks about THEIR data
 5. **NEVER** add markdown formatting to output (no ```json)
 6. **NEVER** include explanatory text - output ONLY the JSON
+7. **ALWAYS** use `search` intent with `web_search` action for real-time info (quotes, weather, news, stocks, Information, questions for which you lack sufficient context.)
 </constraints>
 
 <output_schema>
