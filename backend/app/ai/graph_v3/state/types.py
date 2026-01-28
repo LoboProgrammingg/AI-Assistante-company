@@ -117,6 +117,11 @@ class IRISStateV3(MessagesState):
     early_exit: bool = False
     response_template: Optional[str] = None
 
+    # === Flags Cognitivas (decisões do CognitiveNode) ===
+    needs_user_data: bool = False
+    needs_web: bool = False
+    needs_analysis: bool = False
+
     # === Contexto ===
     context_prompt: str = ""
     rag_context: str = ""
@@ -150,5 +155,8 @@ def create_initial_state_v3(
         "execution_result": None,
         "early_exit": False,
         "response_template": None,
+        "needs_user_data": False,
+        "needs_web": False,
+        "needs_analysis": False,
         "error": None,
     }
