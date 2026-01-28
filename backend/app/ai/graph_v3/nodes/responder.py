@@ -75,6 +75,12 @@ class ResponderNode:
                 "ou orientação estratégica."
             )
 
+        # 🔑 HISTÓRICO DE CONVERSAS
+        conversation_history = self._build_conversation_history(state)
+        if conversation_history:
+            data_context = f"{conversation_history}\n\n{data_context}"
+            logger.info(f"[RESPONDER] 📜 Histórico incluído: {len(state.get('conversation_history', []))} msgs")
+
         advisor_mode = (
             "\n⚠️ MODO ASSESSOR FINANCEIRO SÊNIOR ATIVO\n"
             "Você deve priorizar análise, trade-offs, riscos e contexto de mercado.\n"
@@ -123,6 +129,12 @@ class ResponderNode:
         logger.info(f"[RESPONDER] Message: {user_message[:120]}")
 
         full_context = self._build_full_context(state)
+        
+        # 🔑 HISTÓRICO DE CONVERSAS
+        conversation_history = self._build_conversation_history(state)
+        if conversation_history:
+            full_context = f"{conversation_history}\n\n{full_context}"
+            logger.info(f"[RESPONDER] 📜 Histórico incluído: {len(state.get('conversation_history', []))} msgs")
 
         advisor_mode = (
             "\n⚠️ MODO ASSESSOR FINANCEIRO SÊNIOR ATIVO\n"
@@ -224,6 +236,37 @@ class ResponderNode:
             lines.insert(0, f'### PERGUNTA ORIGINAL: "{original_msg}"\n')
 
         return "\n".join(lines) if lines else "Nenhum dado financeiro relevante foi necessário."
+
+    # ------------------------------------------------------------------
+    # HISTÓRICO DE CONVERSAS
+    # ------------------------------------------------------------------
+
+    def _build_conversation_history(self, state: IRISStateV3) -> str:
+        """Constrói histórico de conversas formatado para o LLM."""
+        history = state.get("conversation_history", [])
+        
+        if not history:
+            return ""
+        
+        # Limitar a 20 mensagens mais recentes para o prompt
+        recent = history[-20:]
+        
+        lines = ["### 📜 HISTÓRICO DE CONVERSAS RECENTES:"]
+        
+        for msg in recent:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")[:300]  # Limitar tamanho
+            
+            if role == "user":
+                lines.append(f"👤 **Usuário:** {content}")
+            else:
+                # Resposta da IA
+                ai_response = msg.get("ai_response", content)[:300]
+                lines.append(f"🤖 **Assistente:** {ai_response}")
+        
+        lines.append("")  # Linha em branco no final
+        
+        return "\n".join(lines)
 
     # ------------------------------------------------------------------
     # CONTEXTO GERAL (MEMÓRIA / PERFIL)

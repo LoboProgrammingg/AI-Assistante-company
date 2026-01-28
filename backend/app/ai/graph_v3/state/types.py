@@ -125,6 +125,9 @@ class IRISStateV3(MessagesState):
     # === Contexto ===
     context_prompt: str = ""
     rag_context: str = ""
+    
+    # === Histórico de Conversas ===
+    conversation_history: List[Dict[str, Any]] = []
 
     # === Erro ===
     error: Optional[str] = None
@@ -148,6 +151,7 @@ def create_initial_state_v3(
         "db": ctx.get("db"),
         "context_prompt": ctx.get("context_prompt", ""),
         "rag_context": ctx.get("rag_context", ""),
+        "conversation_history": ctx.get("conversation_history", []),
         "intent": "general",
         "confidence": 0.0,
         "action": None,

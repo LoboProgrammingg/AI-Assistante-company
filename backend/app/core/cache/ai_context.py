@@ -34,8 +34,8 @@ class AIContextCache:
     - Invalidação inteligente por tipo de ação
     """
     
-    TTL_CONTEXT = 180
-    TTL_CONVERSATION = 120
+    TTL_CONTEXT = 300  # 5 minutos
+    TTL_CONVERSATION = 86400  # 24 horas - histórico deve persistir!
     TTL_FACTS = 1800
     TTL_PREFERENCES = 900
     TTL_CLASSIFICATION = 300
@@ -44,7 +44,7 @@ class AIContextCache:
     TTL_SESSION = 14400
     TTL_WORKING_MEMORY = 86400
     
-    MAX_CONVERSATION_MESSAGES = 30
+    MAX_CONVERSATION_MESSAGES = 40  # Aumentado para 40 mensagens
     MAX_RECENT_ACTIONS = 20
     
     def __init__(self, cache: Optional[CacheManager] = None):

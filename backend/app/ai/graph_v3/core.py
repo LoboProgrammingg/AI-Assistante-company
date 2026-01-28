@@ -213,6 +213,34 @@ class IRISGraphV3:
             memory_context = memory_manager.get_full_context()
             enriched_context["memory"] = memory_context
             enriched_context["context_prompt"] = memory_manager.build_context_prompt(user_name=user_name)
+            
+            # 🔑 HISTÓRICO DE CONVERSAS (40 mensagens)
+            try:
+                from app.services.memory_service import MemoryService
+                from app.core.cache import get_ai_cache
+                
+                ai_cache = get_ai_cache()
+                
+                # Primeiro tenta cache Redis
+                conversation_history = ai_cache.get_conversation(user_id)
+                
+                # Se não tem no cache, busca do banco
+                if not conversation_history:
+                    memory_service = MemoryService(db)
+                    conversation_history = memory_service.get_conversation_context(user_id, limit=40)
+                    
+                    # Popula o cache para próximas requisições
+                    if conversation_history:
+                        ai_cache.set_conversation(user_id, conversation_history)
+                        logger.info(f"[IRIS v3] Histórico carregado do DB: {len(conversation_history)} msgs")
+                else:
+                    logger.info(f"[IRIS v3] Histórico do cache: {len(conversation_history)} msgs")
+                
+                enriched_context["conversation_history"] = conversation_history or []
+                
+            except Exception as e:
+                logger.warning(f"[IRIS v3] Erro ao carregar histórico: {e}")
+                enriched_context["conversation_history"] = []
 
         # Incluir contexto completo no rag_context para garantir que esteja disponível
         if full_user_context:
