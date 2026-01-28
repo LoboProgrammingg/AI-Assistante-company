@@ -78,10 +78,14 @@ class ExecutorNode:
         user_id = state.get("user_id")
         user_name = state.get("user_name", "")
 
-        logger.info(f"[EXECUTOR] Action: {action.action_type if action else 'None'}")
-        logger.info(f"[EXECUTOR] db={db is not None}, user_id={user_id}")
+        logger.info(f"[EXECUTOR] ──────────────────────────────")
+        logger.info(f"[EXECUTOR] ⚡ Executando ação (user={user_id})")
+        logger.info(f"[EXECUTOR] 🎯 Action: {action.action_type if action else 'None'}")
+        logger.info(f"[EXECUTOR] 💾 Params: {action.params if action else {}}")
+        logger.info(f"[EXECUTOR] 🗄️ DB: {'connected' if db else 'None'}")
 
         if not action:
+            logger.warning("[EXECUTOR] ⚠️ Nenhuma ação para executar")
             return {
                 "execution_result": ExecutionResult(
                     success=False,
@@ -91,12 +95,15 @@ class ExecutorNode:
             }
 
         try:
+            logger.info(f"[EXECUTOR] 🚀 Despachando para executor...")
             result = self._dispatch(action, db, user_id, user_name)
 
-            logger.info(
-                f"[EXECUTOR] {'✅' if result.success else '❌'} "
-                f"{action.action_type}: {result.data.get('message', result.error or 'OK')}"
-            )
+            status_emoji = '✅' if result.success else '❌'
+            logger.info(f"[EXECUTOR] {status_emoji} RESULTADO: {action.action_type}")
+            logger.info(f"[EXECUTOR] 📊 Success: {result.success}")
+            logger.info(f"[EXECUTOR] 📦 Data keys: {list(result.data.keys()) if result.data else 'none'}")
+            if result.error:
+                logger.error(f"[EXECUTOR] ❌ Error: {result.error}")
 
             return {
                 "execution_result": result,
@@ -105,7 +112,7 @@ class ExecutorNode:
             }
 
         except Exception as e:
-            logger.error(f"[EXECUTOR] ❌ Erro: {e}")
+            logger.error(f"[EXECUTOR] ❌ EXCEPTION: {e}", exc_info=True)
             return {
                 "execution_result": ExecutionResult(
                     success=False,
@@ -116,8 +123,8 @@ class ExecutorNode:
 
     def _dispatch(self, action: ExtractedAction, db: Any, user_id: int, user_name: str) -> ExecutionResult:
         """Despacha para o executor correto."""
-        logger.info(f"[EXECUTOR] Dispatching: {action.action_type}")
-        logger.info(f"[EXECUTOR] Is specialized: {is_specialized_action(action.action_type)}")
+        is_spec = is_specialized_action(action.action_type)
+        logger.info(f"[EXECUTOR] 📨 Dispatch: {action.action_type} | specialized={is_spec}")
 
         # 1. Verificar se é ação de agente especializado (async)
         if is_specialized_action(action.action_type):

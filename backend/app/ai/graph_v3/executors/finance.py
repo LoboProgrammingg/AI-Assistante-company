@@ -18,7 +18,9 @@ class FinanceExecutor:
         """Cria transação financeira."""
         from app.services.finance_service import FinanceService
 
-        logger.info(f"[FINANCE] 📥 CREATE recebeu params: {params}")
+        logger.info(f"[FINANCE] ──────────────────────────────")
+        logger.info(f"[FINANCE] 💰 CREATE (user={user_id})")
+        logger.info(f"[FINANCE] 📥 Params: {params}")
 
         try:
             service = FinanceService(db)
@@ -126,6 +128,10 @@ class FinanceExecutor:
         """
         from app.services.finance_service import FinanceService
 
+        logger.info(f"[FINANCE] ──────────────────────────────")
+        logger.info(f"[FINANCE] 📊 QUERY (user={user_id})")
+        logger.info(f"[FINANCE] 📥 Params: {params}")
+
         try:
             service = FinanceService(db)
 
@@ -158,7 +164,7 @@ class FinanceExecutor:
                     "period": top_data.get("period", {}),
                 }
 
-                logger.info(f"[FINANCE] Top {limite or 5} transações encontradas")
+                logger.info(f"[FINANCE] ✅ Top {limite or 5}: {len(top_data.get('transactions', []))} transações")
 
                 # Não usar template - deixar ResponderNode gerar resposta inteligente
                 return ExecutionResult(
@@ -171,7 +177,7 @@ class FinanceExecutor:
             # Query de busca por termo
             if busca:
                 search_data = service.get_summary_by_period(user_id, periodo, ano, busca)
-                logger.info(f"[FINANCE] Busca por '{busca}': {len(search_data.get('transactions', []))} resultados")
+                logger.info(f"[FINANCE] ✅ Busca '{busca}': {len(search_data.get('transactions', []))} resultados")
 
                 return ExecutionResult(
                     success=True,
@@ -181,7 +187,8 @@ class FinanceExecutor:
                 )
 
             # Query de resumo geral
-            logger.info(f"[FINANCE] Resumo do período '{periodo}'")
+            s = summary.get('summary', {})
+            logger.info(f"[FINANCE] ✅ Resumo '{periodo}': R$ {s.get('total_income', 0):.2f} receitas | R$ {s.get('total_expenses', 0):.2f} gastos")
 
             return ExecutionResult(
                 success=True,
@@ -191,7 +198,7 @@ class FinanceExecutor:
             )
 
         except Exception as e:
-            logger.error(f"Erro ao consultar finanças: {e}")
+            logger.error(f"[FINANCE] ❌ QUERY ERRO: {e}", exc_info=True)
             return ExecutionResult(success=False, action_type="query_finance", error=str(e))
 
     @staticmethod

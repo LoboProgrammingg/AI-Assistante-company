@@ -36,9 +36,15 @@ class ResponderNode:
 
     def respond(self, state: IRISStateV3) -> Dict[str, Any]:
         """Gera resposta usando LLM Pro."""
+        user_id = state.get("user_id", 0)
+        intent = state.get("intent", "general")
+        
+        logger.info(f"[RESPONDER] ──────────────────────────────")
+        logger.info(f"[RESPONDER] 💬 Gerando resposta (user={user_id}, intent={intent})")
+        
         template = state.get("response_template")
         if template:
-            logger.info("[RESPONDER] ⚡ Usando template existente")
+            logger.info(f"[RESPONDER] ⚡ TEMPLATE: {template[:80]}...")
             return {"messages": [AIMessage(content=template)]}
 
         execution_result = state.get("execution_result")
@@ -98,6 +104,8 @@ class ResponderNode:
             + advisor_mode
         )
 
+        logger.info(f"[RESPONDER] 📡 Chamando LLM Pro (prompt: {len(prompt)} chars)")
+        
         try:
             response = invoke_llm_with_retry(
                 self.llm,
@@ -105,10 +113,11 @@ class ResponderNode:
                 operation_name="RESPONDER",
                 max_attempts=3
             )
-            logger.info(f"[RESPONDER] 💬 Resposta gerada ({len(response.content)} chars)")
+            logger.info(f"[RESPONDER] ✅ Resposta gerada: {len(response.content)} chars")
+            logger.info(f"[RESPONDER] 📤 Output: {response.content[:150]}..." if len(response.content) > 150 else f"[RESPONDER] 📤 Output: {response.content}")
             return {"messages": [AIMessage(content=response.content)]}
         except Exception as e:
-            logger.error(f"[RESPONDER] ❌ Erro ao gerar resposta: {e}", exc_info=True)
+            logger.error(f"[RESPONDER] ❌ ERRO ao gerar resposta: {e}", exc_info=True)
             return {
                 "messages": [
                     AIMessage(content="Desculpe, tive um problema ao processar isso. Pode tentar novamente?")
@@ -125,8 +134,8 @@ class ResponderNode:
 
         needs_analysis = state.get("needs_analysis", False)
 
-        logger.info(f"[RESPONDER] General | needs_analysis={needs_analysis}")
-        logger.info(f"[RESPONDER] Message: {user_message[:120]}")
+        logger.info(f"[RESPONDER] 📨 Modo GERAL | needs_analysis={needs_analysis}")
+        logger.info(f"[RESPONDER] 📝 Message: {user_message[:120]}")
 
         full_context = self._build_full_context(state)
         
@@ -153,6 +162,8 @@ class ResponderNode:
             + advisor_mode
         )
 
+        logger.info(f"[RESPONDER] 📡 Chamando LLM Pro GERAL (prompt: {len(prompt)} chars)")
+        
         try:
             response = invoke_llm_with_retry(
                 self.llm,
@@ -160,9 +171,11 @@ class ResponderNode:
                 operation_name="RESPONDER_GENERAL",
                 max_attempts=3
             )
+            logger.info(f"[RESPONDER] ✅ Resposta geral: {len(response.content)} chars")
+            logger.info(f"[RESPONDER] 📤 Output: {response.content[:150]}..." if len(response.content) > 150 else f"[RESPONDER] 📤 Output: {response.content}")
             return {"messages": [AIMessage(content=response.content)]}
         except Exception as e:
-            logger.error(f"[RESPONDER] ❌ Erro na resposta geral: {e}", exc_info=True)
+            logger.error(f"[RESPONDER] ❌ ERRO na resposta geral: {e}", exc_info=True)
             return {"messages": [AIMessage(content="Tive um problema, pode repetir?")]}
 
     # ------------------------------------------------------------------

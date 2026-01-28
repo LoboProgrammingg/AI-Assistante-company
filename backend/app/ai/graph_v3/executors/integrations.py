@@ -21,7 +21,10 @@ class IntegrationsExecutor:
         """Pesquisa na web usando Tavily API."""
         query = params.get("query", params.get("original_message", ""))
         
-        logger.info(f"[WEB_SEARCH] 🔍 Iniciando busca: '{query}'")
+        logger.info(f"[WEB_SEARCH] ──────────────────────────────")
+        logger.info(f"[WEB_SEARCH] 🌐 Busca Web (user={user_id})")
+        logger.info(f"[WEB_SEARCH] 🔍 Query: '{query}'")
+        logger.info(f"[WEB_SEARCH] 📦 Params: {params}")
         
         if not query:
             logger.warning("[WEB_SEARCH] ⚠️ Query vazia")
@@ -38,7 +41,7 @@ class IntegrationsExecutor:
             logger.info(f"[WEB_SEARCH] API Key configurada: {bool(api_key)} (len={len(api_key) if api_key else 0})")
             
             if not api_key:
-                logger.error("[WEB_SEARCH] ❌ TAVILY_API_KEY não configurada no Railway!")
+                logger.error("[WEB_SEARCH] ❌ ERRO: TAVILY_API_KEY não configurada!")
                 return ExecutionResult(
                     success=True,
                     action_type="web_search",
@@ -73,7 +76,10 @@ class IntegrationsExecutor:
             
             answer = response.get("answer", "")
             
-            logger.info(f"[WEB_SEARCH] Query: {query} | Results: {len(results)}")
+            logger.info(f"[WEB_SEARCH] ✅ SUCESSO: {len(results)} resultados")
+            logger.info(f"[WEB_SEARCH] 📝 Answer: {answer[:150]}..." if len(answer) > 150 else f"[WEB_SEARCH] 📝 Answer: {answer}")
+            for i, r in enumerate(results, 1):
+                logger.info(f"[WEB_SEARCH]    {i}. {r.get('source', 'unknown')}: {r.get('title', '')[:50]}")
             
             return ExecutionResult(
                 success=True,

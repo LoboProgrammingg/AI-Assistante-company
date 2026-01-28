@@ -184,8 +184,11 @@ class IRISGraphV3:
         """Processa mensagem do usuário."""
         start_time = time.time()
 
-        msg_preview = message[:50] + "..." if len(message) > 50 else message
-        logger.info(f'[IRIS v3] ▶️ "{msg_preview}" (user={user_id})')
+        msg_preview = message[:80] + "..." if len(message) > 80 else message
+        logger.info("="*60)
+        logger.info(f"[IRIS v3] 🚀 NOVA REQUISIÇÃO")
+        logger.info(f"[IRIS v3] 👤 User ID: {user_id} | Session: {session_id[:8]}...")
+        logger.info(f'[IRIS v3] 💬 Mensagem: "{msg_preview}"')
 
         enriched_context = context or {}
         memory_manager = None
@@ -204,9 +207,12 @@ class IRISGraphV3:
                 full_user_context = context_builder.build_full_context()
                 enriched_context["full_user_context"] = full_user_context
                 enriched_context["raw_user_data"] = context_builder.get_raw_data()
-                logger.info(f"[IRIS v3] Contexto carregado: {len(full_user_context)} chars")
+                
+                raw_data = context_builder.get_raw_data()
+                logger.info(f"[IRIS v3] 📊 Contexto: {len(full_user_context)} chars")
+                logger.info(f"[IRIS v3] 💰 Transações: {len(raw_data.get('transactions', []))} | Lembretes: {len(raw_data.get('reminders', []))}")
             except Exception as e:
-                logger.warning(f"[IRIS v3] Erro ao carregar contexto: {e}")
+                logger.error(f"[IRIS v3] ❌ Erro ao carregar contexto: {e}", exc_info=True)
 
             # Manter compatibilidade com MemoryManager
             memory_manager = MemoryManager(db, user_id)
@@ -254,6 +260,7 @@ class IRISGraphV3:
             context=enriched_context,
         )
 
+        logger.info(f"[IRIS v3] ⚡ Invocando grafo...")
         result = await self.graph.ainvoke(initial_state)
 
         response_text = (
@@ -271,7 +278,13 @@ class IRISGraphV3:
             )
 
         elapsed = time.time() - start_time
-        logger.info(f"[IRIS v3] ✅ {elapsed:.1f}s | Intent: {result.get('intent', 'general')}")
+        
+        # Log de resultado final
+        logger.info(f"[IRIS v3] ──────────────────────────────")
+        logger.info(f"[IRIS v3] ✅ CONCLUÍDO em {elapsed:.2f}s")
+        logger.info(f"[IRIS v3] 🎯 Intent: {result.get('intent', 'general')} | Confidence: {result.get('confidence', 0):.2f}")
+        logger.info(f"[IRIS v3] 📤 Resposta: {response_text[:100]}..." if len(response_text) > 100 else f"[IRIS v3] 📤 Resposta: {response_text}")
+        logger.info("="*60)
 
         return {
             "response": response_text,

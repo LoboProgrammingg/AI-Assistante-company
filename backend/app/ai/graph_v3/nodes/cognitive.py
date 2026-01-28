@@ -46,11 +46,16 @@ class CognitiveNode:
     def process(self, state: IRISStateV3) -> Dict[str, Any]:
         last_message = state["messages"][-1]
         message_content = last_message.content
+        user_id = state.get("user_id", 0)
+
+        logger.info(f"[COGNITIVE] ──────────────────────────────")
+        logger.info(f"[COGNITIVE] 🧠 Processando mensagem (user={user_id})")
+        logger.info(f"[COGNITIVE] 📝 Input: {message_content[:100]}..." if len(message_content) > 100 else f"[COGNITIVE] 📝 Input: {message_content}")
 
         # 1. Early exit para mensagens triviais
         early = self._check_early_exit(message_content)
         if early:
-            logger.info(f"[COGNITIVE] ⚡ Early exit: {early['intent']}")
+            logger.info(f"[COGNITIVE] ⚡ EARLY EXIT: {early['intent']} | template={bool(early.get('response_template'))}")
             return early
 
         # 2. Construir prompt
@@ -59,6 +64,7 @@ class CognitiveNode:
             context_prompt=state.get("context_prompt", "")[:500] or "Nenhum",
             message=message_content[:1000],
         )
+        logger.info(f"[COGNITIVE] 📡 Chamando LLM (prompt: {len(prompt)} chars)")
 
         # 3. Chamar LLM com retry
         try:
@@ -68,23 +74,27 @@ class CognitiveNode:
                 operation_name="COGNITIVE",
                 max_attempts=3
             )
-            logger.info(f"[COGNITIVE] Raw response: {response.content[:300]}")
+            logger.info(f"[COGNITIVE] 📥 LLM Response: {response.content[:200]}...")
 
             parsed = self._parse_response(response.content, message_content)
 
-            logger.info(
-                f"[COGNITIVE] 🧠 intent={parsed['intent']} | "
-                f"action={parsed['action'].action_type if parsed.get('action') else 'none'} | "
-                f"confidence={parsed.get('confidence', 0):.0%} | "
-                f"user_data={parsed.get('needs_user_data')} | "
-                f"web={parsed.get('needs_web')} | "
-                f"analysis={parsed.get('needs_analysis')}"
-            )
+            action_type = parsed['action'].action_type if parsed.get('action') else 'none'
+            entities = parsed.get('entities', {})
+            
+            logger.info(f"[COGNITIVE] ──────────────────────────────")
+            logger.info(f"[COGNITIVE] ✅ RESULTADO:")
+            logger.info(f"[COGNITIVE]    🎯 Intent: {parsed['intent']}")
+            logger.info(f"[COGNITIVE]    ⚡ Action: {action_type}")
+            logger.info(f"[COGNITIVE]    📊 Confidence: {parsed.get('confidence', 0):.0%}")
+            logger.info(f"[COGNITIVE]    📁 Entities: {list(entities.keys()) if entities else 'none'}")
+            logger.info(f"[COGNITIVE]    💾 needs_user_data: {parsed.get('needs_user_data')}")
+            logger.info(f"[COGNITIVE]    🌐 needs_web: {parsed.get('needs_web')}")
+            logger.info(f"[COGNITIVE]    📝 needs_analysis: {parsed.get('needs_analysis')}")
 
             return parsed
 
         except Exception as e:
-            logger.error(f"[COGNITIVE] ❌ Erro: {e}", exc_info=True)
+            logger.error(f"[COGNITIVE] ❌ ERRO: {e}", exc_info=True)
             return self._fallback_result(message_content)
 
     # ------------------------------------------------------------------
