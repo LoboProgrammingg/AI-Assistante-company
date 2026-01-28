@@ -21,7 +21,10 @@ class IntegrationsExecutor:
         """Pesquisa na web usando Tavily API."""
         query = params.get("query", params.get("original_message", ""))
         
+        logger.info(f"[WEB_SEARCH] 🔍 Iniciando busca: '{query}'")
+        
         if not query:
+            logger.warning("[WEB_SEARCH] ⚠️ Query vazia")
             return ExecutionResult(
                 success=False,
                 action_type="web_search",
@@ -32,13 +35,16 @@ class IntegrationsExecutor:
             from tavily import TavilyClient
             
             api_key = settings.TAVILY_API_KEY
+            logger.info(f"[WEB_SEARCH] API Key configurada: {bool(api_key)} (len={len(api_key) if api_key else 0})")
+            
             if not api_key:
-                logger.warning("[WEB_SEARCH] TAVILY_API_KEY não configurada")
+                logger.error("[WEB_SEARCH] ❌ TAVILY_API_KEY não configurada no Railway!")
                 return ExecutionResult(
                     success=True,
                     action_type="web_search",
                     data={
                         "query": query,
+                        "answer": "⚠️ Busca web não disponível. Configure TAVILY_API_KEY no Railway.",
                         "results": [],
                         "message": "Busca web não disponível no momento",
                     },
@@ -48,7 +54,7 @@ class IntegrationsExecutor:
             
             response = client.search(
                 query=query,
-                search_depth="basic",
+                search_depth="advanced",
                 max_results=5,
                 include_answer=True,
             )
