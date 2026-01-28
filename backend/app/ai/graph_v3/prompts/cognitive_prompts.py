@@ -247,21 +247,21 @@ STEP 3: valor=200, descricao="Ganho na Blaze", categoria="Outros"
 STEP 4: needs_user_data=false (creating, not querying)
 
 Output:
-{
+{{
   "intent": "finance",
   "action": "create_finance",
   "confidence": 0.95,
   "needs_user_data": false,
   "needs_web": false,
   "needs_analysis": false,
-  "entities": {
+  "entities": {{
     "tipo": "income",
     "valor": 200.0,
     "descricao": "Ganho na Blaze",
     "categoria": "Outros",
     "original_message": "ganhei 200 reais na blaze hoje"
-  }
-}
+  }}
+}}
 
 Example B: Top Expenses Query
 ──────────────────────────────
@@ -275,21 +275,21 @@ STEP 3: periodo="mes", limite=5, ordenacao="maior", tipo_filtro="expense"
 STEP 4: needs_user_data=true (querying user's expenses)
 
 Output:
-{
+{{
   "intent": "finance",
   "action": "query_finance",
   "confidence": 0.95,
   "needs_user_data": true,
   "needs_web": false,
   "needs_analysis": false,
-  "entities": {
+  "entities": {{
     "periodo": "mes",
     "limite": 5,
     "ordenacao": "maior",
     "tipo_filtro": "expense",
     "original_message": "quais foram os 5 maiores gastos esse mês"
-  }
-}
+  }}
+}}
 
 Example C: Real-Time Search
 ────────────────────────────
@@ -302,18 +302,18 @@ STEP 3: query="cotação dólar hoje"
 STEP 4: needs_web=true (requires external API)
 
 Output:
-{
+{{
   "intent": "search",
   "action": "web_search",
   "confidence": 0.95,
   "needs_user_data": false,
   "needs_web": true,
   "needs_analysis": false,
-  "entities": {
+  "entities": {{
     "query": "cotação dólar hoje",
     "original_message": "qual a cotação do dólar hoje"
-  }
-}
+  }}
+}}
 
 Example D: Calendar Event
 ──────────────────────────
@@ -327,21 +327,21 @@ STEP 3: title="Reunião com João", date="2026-01-29", time="15:00"
 STEP 4: needs_user_data=false (creating event, not querying)
 
 Output:
-{
+{{
   "intent": "calendar",
   "action": "create_event",
   "confidence": 0.95,
   "needs_user_data": false,
   "needs_web": false,
   "needs_analysis": false,
-  "entities": {
+  "entities": {{
     "title": "Reunião com João",
     "date": "2026-01-29",
     "time": "15:00",
     "duration": 60,
     "original_message": "agenda reunião com João amanhã às 15h"
-  }
-}
+  }}
+}}
 
 Example E: Goal Progress Analysis
 ──────────────────────────────────
@@ -355,19 +355,19 @@ STEP 3: meta_valor=5000, meta_periodo="mes"
 STEP 4: needs_user_data=true (checking progress), needs_analysis=true
 
 Output:
-{
+{{
   "intent": "goals",
   "action": "goal_progress",
   "confidence": 0.92,
   "needs_user_data": true,
   "needs_web": false,
   "needs_analysis": true,
-  "entities": {
+  "entities": {{
     "meta_valor": 5000.0,
     "meta_periodo": "mes",
     "original_message": "como estou para economizar 5000 este mês"
-  }
-}
+  }}
+}}
 
 Example F: Simple Greeting (Last Resort)
 ─────────────────────────────────────────
@@ -378,17 +378,17 @@ STEP 2-5: No matches in decision tree
 STEP 6: CASUAL CONVERSATION → intent="general"
 
 Output:
-{
+{{
   "intent": "general",
   "action": "direct_response",
   "confidence": 0.99,
   "needs_user_data": false,
   "needs_web": false,
   "needs_analysis": false,
-  "entities": {
+  "entities": {{
     "original_message": "oi, bom dia!"
-  }
-}
+  }}
+}}
 
 </examples>
 
@@ -411,18 +411,18 @@ Output:
 
 Return ONLY this JSON (no backticks, no explanation):
 
-{
+{{
   "intent": "<intent>",
   "action": "<action>",
   "confidence": <0.0-1.0>,
   "needs_user_data": <true|false>,
   "needs_web": <true|false>,
   "needs_analysis": <true|false>,
-  "entities": {
+  "entities": {{
     "original_message": "<exact user input>",
     ...extracted_entities
-  }
-}
+  }}
+}}
 
 Confidence Guidelines:
 - 0.95-1.0: Perfect match, clear intent
