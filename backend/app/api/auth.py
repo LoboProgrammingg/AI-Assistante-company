@@ -275,6 +275,16 @@ async def test_email_send(request: Request, current_user: User = Depends(get_cur
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Este endpoint está desabilitado em produção")
 
     try:
+        # Primeiro testar conexão
+        connection_test = email_service.test_connection()
+        
+        if not connection_test["auth_ok"]:
+            return {
+                "status": "error",
+                "message": "Falha na conexão/autenticação SMTP",
+                "diagnosis": connection_test,
+            }
+        
         # SEGURANÇA: Enviar apenas para o email do usuário autenticado
         to_email = current_user.email
 
@@ -286,10 +296,40 @@ async def test_email_send(request: Request, current_user: User = Depends(get_cur
         )
 
         if success:
-            return {"status": "success", "message": f"Email de teste enviado para {to_email}"}
+            return {
+                "status": "success",
+                "message": f"Email de teste enviado para {to_email}",
+                "connection": connection_test,
+            }
         else:
-            return {"status": "error", "message": "Falha ao enviar email. Verifique os logs."}
+            return {
+                "status": "error",
+                "message": "Falha ao enviar email",
+                "last_error": email_service.last_error,
+                "connection": connection_test,
+            }
 
     except Exception as e:
         logger.error(f"Erro no teste de email: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/email-diagnosis")
+async def email_diagnosis(current_user: User = Depends(get_current_user)):
+    """
+    Retorna diagnóstico completo do serviço de email.
+    REQUER AUTENTICAÇÃO.
+    """
+    from app.services.email_service import email_service
+    
+    config_status = email_service.get_config_status()
+    
+    # Só testa conexão se estiver configurado
+    connection_test = None
+    if config_status["configured"]:
+        connection_test = email_service.test_connection()
+    
+    return {
+        "config": config_status,
+        "connection": connection_test,
+    }

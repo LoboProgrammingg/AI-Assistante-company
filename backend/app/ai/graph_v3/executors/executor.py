@@ -2,8 +2,10 @@
 Executor Node - Orquestrador de executores por domínio.
 
 Despacha ações para o executor específico.
+Suporta execução síncrona e assíncrona.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict
 
@@ -117,26 +119,119 @@ class ExecutorNode:
         logger.info(f"[EXECUTOR] Dispatching: {action.action_type}")
         logger.info(f"[EXECUTOR] Is specialized: {is_specialized_action(action.action_type)}")
 
-        # 1. Verificar se é ação de agente especializado
+        # 1. Verificar se é ação de agente especializado (async)
         if is_specialized_action(action.action_type):
-            import asyncio
+            return self._run_async_executor(action, db, user_id, user_name)
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                return loop.run_until_complete(
-                    SpecializedExecutor.execute(action.action_type, action.params, db, user_id, user_name)
-                )
-            finally:
-                loop.close()
-
-        # 2. Verificar dispatcher tradicional
+        # 2. Verificar dispatcher tradicional (sync)
         dispatcher = ACTION_DISPATCHERS.get(action.action_type)
 
         if dispatcher:
             return dispatcher(action.params, db, user_id, user_name)
 
         # 3. Ação não suportada
+        return ExecutionResult(
+            success=False,
+            action_type=action.action_type,
+            error=f"Ação não implementada: {action.action_type}",
+        )
+
+    def _run_async_executor(
+        self,
+        action: ExtractedAction,
+        db: Any,
+        user_id: int,
+        user_name: str
+    ) -> ExecutionResult:
+        """
+        Executa ação async de forma segura.
+        
+        Reutiliza event loop existente se disponível,
+        caso contrário cria um temporário.
+        """
+        coro = SpecializedExecutor.execute(
+            action.action_type,
+            action.params,
+            db,
+            user_id,
+            user_name
+        )
+        
+        try:
+            loop = asyncio.get_running_loop()
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(asyncio.run, coro)
+                return future.result(timeout=60)
+        except RuntimeError:
+            return asyncio.run(coro)
+
+    async def execute_async(self, state: IRISStateV3) -> Dict[str, Any]:
+        """
+        Versão async do execute para uso em contextos assíncronos.
+        """
+        action = state.get("action")
+        db = state.get("db")
+        user_id = state.get("user_id")
+        user_name = state.get("user_name", "")
+
+        logger.info(f"[EXECUTOR] Action: {action.action_type if action else 'None'}")
+
+        if not action:
+            return {
+                "execution_result": ExecutionResult(
+                    success=False,
+                    action_type="none",
+                    error="Nenhuma ação para executar",
+                ),
+            }
+
+        try:
+            result = await self._dispatch_async(action, db, user_id, user_name)
+
+            logger.info(
+                f"[EXECUTOR] {'✅' if result.success else '❌'} "
+                f"{action.action_type}: {result.data.get('message', result.error or 'OK')}"
+            )
+
+            return {
+                "execution_result": result,
+                "response_template": result.response_template,
+                "early_exit": result.response_template is not None,
+            }
+
+        except Exception as e:
+            logger.error(f"[EXECUTOR] ❌ Erro: {e}")
+            return {
+                "execution_result": ExecutionResult(
+                    success=False,
+                    action_type=action.action_type,
+                    error=str(e),
+                ),
+            }
+
+    async def _dispatch_async(
+        self,
+        action: ExtractedAction,
+        db: Any,
+        user_id: int,
+        user_name: str
+    ) -> ExecutionResult:
+        """Versão async do dispatch."""
+        if is_specialized_action(action.action_type):
+            return await SpecializedExecutor.execute(
+                action.action_type,
+                action.params,
+                db,
+                user_id,
+                user_name
+            )
+
+        dispatcher = ACTION_DISPATCHERS.get(action.action_type)
+
+        if dispatcher:
+            return dispatcher(action.params, db, user_id, user_name)
+
         return ExecutionResult(
             success=False,
             action_type=action.action_type,

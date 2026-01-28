@@ -1,6 +1,8 @@
 """
 Redis Working Memory - Camada intermediária de memória.
 
+MIGRADO para usar o sistema de cache unificado (app.core.cache).
+
 Esta camada mantém:
 - Contexto de sessão (4 horas)
 - Working memory ativa (24 horas)
@@ -13,109 +15,65 @@ REGRAS:
 - Fallback gracioso se Redis indisponível
 """
 
-import json
 import logging
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from app.config import settings
+from app.core.cache import get_cache, get_ai_cache, CacheManager, AIContextCache
 
 logger = logging.getLogger(__name__)
-
-
-# Tentar importar Redis
-try:
-    import redis
-
-    HAS_REDIS = True
-except ImportError:
-    HAS_REDIS = False
-    logger.warning("[REDIS_WORKING] Redis não disponível")
 
 
 class RedisWorkingMemory:
     """
     Working Memory em Redis para IRIS v3.
 
-    Camada intermediária entre sessão e PostgreSQL.
+    Usa o sistema de cache unificado (CacheManager + AIContextCache).
     Fornece cache rápido e contexto temporário.
     """
 
-    # Prefixo para todas as keys
-    PREFIX = "iris"
-
-    # TTL padrão por tipo
     TTL_CONFIG = {
-        "session": 4 * 3600,  # 4 horas
-        "working": 24 * 3600,  # 24 horas
-        "memory_cache": 3600,  # 1 hora
-        "context": 300,  # 5 minutos
+        "session": 4 * 3600,
+        "working": 24 * 3600,
+        "memory_cache": 3600,
+        "context": 300,
     }
 
-    # TTL dinâmico por risco de operação
     TTL_BY_RISK = {
-        "low": 1800,  # 30 min - saudações, perguntas simples
-        "medium": 7200,  # 2 horas - consultas, buscas
-        "high": 14400,  # 4 horas - ações financeiras
-        "critical": 86400,  # 24 horas - decisões importantes
+        "low": 1800,
+        "medium": 7200,
+        "high": 14400,
+        "critical": 86400,
     }
 
-    # Mapeamento de ações para níveis de risco
     ACTION_RISK_MAP = {
-        # Baixo risco
         "direct_response": "low",
         "greeting": "low",
         "query_finance": "low",
         "list_reminders": "low",
         "list_contacts": "low",
-        # Médio risco
         "search": "medium",
         "list_events": "medium",
         "check_availability": "medium",
-        # Alto risco
         "create_finance": "high",
         "create_reminder": "high",
         "schedule_message": "high",
         "create_event": "high",
-        # Crítico
         "delete_finance": "critical",
         "create_goal": "critical",
         "extract_invoice": "critical",
     }
 
     def __init__(self, redis_url: str = None):
-        """
-        Inicializa conexão Redis.
-
-        Args:
-            redis_url: URL do Redis (default: settings.REDIS_URL)
-        """
-        self.redis = None
-        self.enabled = False
-
-        if not HAS_REDIS:
-            logger.info("[REDIS_WORKING] Redis não instalado, usando fallback")
-            return
-
-        try:
-            url = redis_url or getattr(settings, "REDIS_URL", None)
-            if url:
-                self.redis = redis.from_url(url, decode_responses=True)
-                # Testar conexão
-                self.redis.ping()
-                self.enabled = True
-                logger.info("[REDIS_WORKING] Conectado ao Redis")
-            else:
-                logger.warning("[REDIS_WORKING] REDIS_URL não configurado")
-        except Exception as e:
-            logger.warning(f"[REDIS_WORKING] Falha ao conectar: {e}")
-
-    def _key(self, key_type: str, user_id: int, **kwargs) -> str:
-        """Gera key padronizada."""
-        base = f"{self.PREFIX}:user:{user_id}:{key_type}"
-        if kwargs.get("session_id"):
-            base += f":{kwargs['session_id']}"
-        return base
+        """Inicializa usando sistema de cache unificado."""
+        self._cache: CacheManager = get_cache()
+        self._ai_cache: AIContextCache = get_ai_cache()
+        self.enabled = self._cache.redis_available
+        
+        if self.enabled:
+            logger.info("[REDIS_WORKING] ✓ Usando cache unificado (Redis)")
+        else:
+            logger.info("[REDIS_WORKING] Usando cache unificado (Memória)")
 
     def get_ttl_for_action(self, action_type: str) -> int:
         """Retorna TTL apropriado para o tipo de ação."""
@@ -131,22 +89,9 @@ class RedisWorkingMemory:
         context: Dict[str, Any],
         ttl: int = None,
     ) -> bool:
-        """
-        Salva contexto da sessão atual.
-
-        Args:
-            user_id: ID do usuário
-            session_id: ID da sessão
-            context: Contexto a salvar
-            ttl: TTL em segundos (default: 4 horas)
-        """
-        if not self.enabled:
-            return False
-
+        """Salva contexto da sessão atual."""
         try:
-            key = self._key("session", user_id, session_id=session_id)
-            ttl = ttl or self.TTL_CONFIG["session"]
-            self.redis.setex(key, ttl, json.dumps(context, default=str))
+            self._ai_cache.set_session_context(user_id, session_id, context)
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] set_session_context error: {e}")
@@ -158,13 +103,8 @@ class RedisWorkingMemory:
         session_id: str,
     ) -> Optional[Dict[str, Any]]:
         """Recupera contexto da sessão."""
-        if not self.enabled:
-            return None
-
         try:
-            key = self._key("session", user_id, session_id=session_id)
-            data = self.redis.get(key)
-            return json.loads(data) if data else None
+            return self._ai_cache.get_session_context(user_id, session_id)
         except Exception as e:
             logger.error(f"[REDIS_WORKING] get_session_context error: {e}")
             return None
@@ -176,13 +116,9 @@ class RedisWorkingMemory:
         updates: Dict[str, Any],
     ) -> bool:
         """Atualiza contexto da sessão (merge)."""
-        if not self.enabled:
-            return False
-
         try:
-            current = self.get_session_context(user_id, session_id) or {}
-            current.update(updates)
-            return self.set_session_context(user_id, session_id, current)
+            self._ai_cache.update_session_context(user_id, session_id, updates)
+            return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] update_session_context error: {e}")
             return False
@@ -196,25 +132,9 @@ class RedisWorkingMemory:
         value: Any,
         ttl: int = None,
     ) -> bool:
-        """
-        Adiciona item à working memory.
-
-        Args:
-            user_id: ID do usuário
-            memory_key: Chave do item
-            value: Valor a armazenar
-            ttl: TTL em segundos (default: 24 horas)
-        """
-        if not self.enabled:
-            return False
-
+        """Adiciona item à working memory."""
         try:
-            key = self._key("working", user_id)
-            ttl = ttl or self.TTL_CONFIG["working"]
-
-            # Usar hash para múltiplos itens
-            self.redis.hset(key, memory_key, json.dumps(value, default=str))
-            self.redis.expire(key, ttl)
+            self._ai_cache.update_working_memory(user_id, memory_key, value)
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] add_to_working error: {e}")
@@ -222,38 +142,28 @@ class RedisWorkingMemory:
 
     def get_from_working(self, user_id: int, memory_key: str) -> Optional[Any]:
         """Recupera item específico da working memory."""
-        if not self.enabled:
-            return None
-
         try:
-            key = self._key("working", user_id)
-            data = self.redis.hget(key, memory_key)
-            return json.loads(data) if data else None
+            memory = self._ai_cache.get_working_memory(user_id)
+            return memory.get(memory_key)
         except Exception as e:
             logger.error(f"[REDIS_WORKING] get_from_working error: {e}")
             return None
 
     def get_working_memory(self, user_id: int) -> Dict[str, Any]:
         """Retorna toda working memory."""
-        if not self.enabled:
-            return {}
-
         try:
-            key = self._key("working", user_id)
-            data = self.redis.hgetall(key)
-            return {k: json.loads(v) for k, v in data.items()}
+            return self._ai_cache.get_working_memory(user_id)
         except Exception as e:
             logger.error(f"[REDIS_WORKING] get_working_memory error: {e}")
             return {}
 
     def remove_from_working(self, user_id: int, memory_key: str) -> bool:
         """Remove item da working memory."""
-        if not self.enabled:
-            return False
-
         try:
-            key = self._key("working", user_id)
-            self.redis.hdel(key, memory_key)
+            memory = self._ai_cache.get_working_memory(user_id)
+            if memory_key in memory:
+                del memory[memory_key]
+                self._ai_cache.set_working_memory(user_id, memory)
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] remove_from_working error: {e}")
@@ -261,12 +171,8 @@ class RedisWorkingMemory:
 
     def clear_working(self, user_id: int) -> bool:
         """Limpa toda working memory."""
-        if not self.enabled:
-            return False
-
         try:
-            key = self._key("working", user_id)
-            self.redis.delete(key)
+            self._ai_cache.set_working_memory(user_id, {})
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] clear_working error: {e}")
@@ -280,21 +186,9 @@ class RedisWorkingMemory:
         memories: List[Dict],
         ttl: int = None,
     ) -> bool:
-        """
-        Cache de memórias do PostgreSQL.
-
-        Args:
-            user_id: ID do usuário
-            memories: Lista de memórias
-            ttl: TTL em segundos (default: 1 hora)
-        """
-        if not self.enabled:
-            return False
-
+        """Cache de memórias do PostgreSQL."""
         try:
-            key = self._key("memory_cache", user_id)
-            ttl = ttl or self.TTL_CONFIG["memory_cache"]
-            self.redis.setex(key, ttl, json.dumps(memories, default=str))
+            self._ai_cache.set_learned_facts(user_id, {"memories": memories})
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] cache_memories error: {e}")
@@ -302,25 +196,17 @@ class RedisWorkingMemory:
 
     def get_cached_memories(self, user_id: int) -> Optional[List[Dict]]:
         """Recupera memórias cacheadas."""
-        if not self.enabled:
-            return None
-
         try:
-            key = self._key("memory_cache", user_id)
-            data = self.redis.get(key)
-            return json.loads(data) if data else None
+            data = self._ai_cache.get_learned_facts(user_id)
+            return data.get("memories") if data else None
         except Exception as e:
             logger.error(f"[REDIS_WORKING] get_cached_memories error: {e}")
             return None
 
     def invalidate_memory_cache(self, user_id: int) -> bool:
         """Invalida cache de memórias (após escrita)."""
-        if not self.enabled:
-            return False
-
         try:
-            key = self._key("memory_cache", user_id)
-            self.redis.delete(key)
+            self._ai_cache.invalidate_facts(user_id)
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] invalidate_memory_cache error: {e}")
@@ -334,21 +220,9 @@ class RedisWorkingMemory:
         context: str,
         ttl: int = None,
     ) -> bool:
-        """
-        Cache do contexto compilado para LLM.
-
-        Args:
-            user_id: ID do usuário
-            context: Contexto formatado
-            ttl: TTL em segundos (default: 5 min)
-        """
-        if not self.enabled:
-            return False
-
+        """Cache do contexto compilado para LLM."""
         try:
-            key = self._key("context", user_id)
-            ttl = ttl or self.TTL_CONFIG["context"]
-            self.redis.setex(key, ttl, context)
+            self._ai_cache.set_full_context(user_id, {"compiled_context": context})
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] cache_llm_context error: {e}")
@@ -356,12 +230,9 @@ class RedisWorkingMemory:
 
     def get_cached_context(self, user_id: int) -> Optional[str]:
         """Recupera contexto cacheado."""
-        if not self.enabled:
-            return None
-
         try:
-            key = self._key("context", user_id)
-            return self.redis.get(key)
+            data = self._ai_cache.get_full_context(user_id)
+            return data.get("compiled_context") if data else None
         except Exception as e:
             logger.error(f"[REDIS_WORKING] get_cached_context error: {e}")
             return None
@@ -370,14 +241,8 @@ class RedisWorkingMemory:
 
     def invalidate_user(self, user_id: int) -> bool:
         """Invalida todo cache do usuário."""
-        if not self.enabled:
-            return False
-
         try:
-            pattern = f"{self.PREFIX}:user:{user_id}:*"
-            keys = self.redis.keys(pattern)
-            if keys:
-                self.redis.delete(*keys)
+            self._ai_cache.invalidate_user(user_id)
             return True
         except Exception as e:
             logger.error(f"[REDIS_WORKING] invalidate_user error: {e}")
@@ -385,35 +250,15 @@ class RedisWorkingMemory:
 
     def get_stats(self, user_id: int) -> Dict[str, Any]:
         """Retorna estatísticas de uso do cache."""
-        if not self.enabled:
-            return {"enabled": False}
-
         try:
-            pattern = f"{self.PREFIX}:user:{user_id}:*"
-            keys = self.redis.keys(pattern)
-
-            stats = {
-                "enabled": True,
-                "total_keys": len(keys),
-                "keys": [],
+            return {
+                "enabled": self.enabled,
+                "backend": "redis" if self._cache.redis_available else "memory",
+                "cache_stats": self._ai_cache.get_stats(),
             }
-
-            for key in keys:
-                ttl = self.redis.ttl(key)
-                key_type = key.split(":")[-1] if ":" in key else "unknown"
-                stats["keys"].append(
-                    {
-                        "key": key,
-                        "type": key_type,
-                        "ttl_seconds": ttl,
-                    }
-                )
-
-            return stats
-
         except Exception as e:
             logger.error(f"[REDIS_WORKING] get_stats error: {e}")
-            return {"enabled": True, "error": str(e)}
+            return {"enabled": self.enabled, "error": str(e)}
 
 
 # Singleton instance

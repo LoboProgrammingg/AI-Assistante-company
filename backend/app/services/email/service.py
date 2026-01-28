@@ -80,13 +80,23 @@ class EmailService:
         self._from_email = settings.SMTP_FROM_EMAIL or self._user
         self._from_name = settings.SMTP_FROM_NAME
         self._templates = EmailTemplates()
+        self._last_error: Optional[str] = None
         
         self._initialized = True
         
         if self.is_configured:
-            logger.info(f"[EMAIL] Serviço inicializado | Host: {self._host}")
+            logger.info(f"[EMAIL] ✓ Serviço inicializado | Host: {self._host}:{self._port} | From: {self._from_email}")
         else:
-            logger.warning("[EMAIL] Serviço não configurado - emails desabilitados")
+            missing = []
+            if not self._host:
+                missing.append("SMTP_HOST")
+            if not self._user:
+                missing.append("SMTP_USER")
+            if not self._password:
+                missing.append("SMTP_PASSWORD")
+            if not self._from_email:
+                missing.append("SMTP_FROM_EMAIL")
+            logger.warning(f"[EMAIL] ⚠ Serviço não configurado - faltando: {', '.join(missing)}")
     
     @property
     def is_configured(self) -> bool:
@@ -207,33 +217,41 @@ class EmailService:
         
         for port, use_ssl in attempts:
             try:
-                logger.debug(f"[EMAIL] Tentando {self._host}:{port} (SSL={use_ssl})")
+                conn_type = "SSL" if use_ssl else "STARTTLS"
+                logger.info(f"[EMAIL] Tentando {self._host}:{port} ({conn_type})...")
                 
                 if use_ssl:
                     self._send_with_ssl(msg, to_email, port)
                 else:
                     self._send_with_starttls(msg, to_email, port)
                 
-                logger.info(f"[EMAIL] ✓ Enviado para {to_email} via porta {port}")
+                self._last_error = None
+                logger.info(f"[EMAIL] ✓ Enviado para {to_email} via porta {port} ({conn_type})")
                 return True
                 
             except smtplib.SMTPAuthenticationError as e:
-                logger.error(f"[EMAIL] Erro de autenticação: {e}")
+                self._last_error = f"Autenticação falhou: {e}"
+                logger.error(f"[EMAIL] ✗ Erro de autenticação SMTP: {e}")
+                logger.error(f"[EMAIL] Verifique: 1) Senha de app Gmail, 2) 2FA ativo, 3) User correto")
                 return False
                 
             except (smtplib.SMTPConnectError, TimeoutError, OSError) as e:
-                logger.warning(f"[EMAIL] Porta {port} indisponível: {type(e).__name__}")
+                self._last_error = f"Conexão falhou porta {port}: {type(e).__name__}"
+                logger.warning(f"[EMAIL] Porta {port} indisponível: {type(e).__name__} - {e}")
                 continue
                 
             except smtplib.SMTPException as e:
+                self._last_error = f"Erro SMTP porta {port}: {e}"
                 logger.warning(f"[EMAIL] Erro SMTP na porta {port}: {e}")
                 continue
                 
             except Exception as e:
-                logger.warning(f"[EMAIL] Erro inesperado na porta {port}: {e}")
+                self._last_error = f"Erro inesperado: {e}"
+                logger.error(f"[EMAIL] Erro inesperado na porta {port}: {e}", exc_info=True)
                 continue
         
         logger.error(f"[EMAIL] ✗ Falha ao enviar para {to_email} - todas as portas falharam")
+        logger.error(f"[EMAIL] Último erro: {self._last_error}")
         return False
     
     def send_verification_code(
@@ -353,6 +371,97 @@ class EmailService:
             html_content=template["html"],
             text_content=template["text"]
         )
+
+
+    def test_connection(self) -> dict:
+        """
+        Testa conexão SMTP e retorna diagnóstico.
+        
+        Returns:
+            Dict com status e detalhes da conexão
+        """
+        result = {
+            "configured": self.is_configured,
+            "host": self._host,
+            "port": self._port,
+            "user": self._user[:3] + "***" if self._user else None,
+            "from_email": self._from_email,
+            "connection_ok": False,
+            "auth_ok": False,
+            "error": None,
+            "working_port": None,
+        }
+        
+        if not self.is_configured:
+            result["error"] = "Serviço não configurado"
+            return result
+        
+        attempts = self._get_connection_attempts()
+        
+        for port, use_ssl in attempts:
+            try:
+                conn_type = "SSL" if use_ssl else "STARTTLS"
+                context = ssl.create_default_context()
+                
+                if use_ssl:
+                    with smtplib.SMTP_SSL(
+                        self._host, port, 
+                        timeout=self.TIMEOUT_SECONDS,
+                        context=context
+                    ) as server:
+                        result["connection_ok"] = True
+                        server.login(self._user, self._password.strip())
+                        result["auth_ok"] = True
+                        result["working_port"] = port
+                        result["connection_type"] = conn_type
+                        return result
+                else:
+                    with smtplib.SMTP(
+                        self._host, port, 
+                        timeout=self.TIMEOUT_SECONDS
+                    ) as server:
+                        server.ehlo()
+                        result["connection_ok"] = True
+                        server.starttls(context=context)
+                        server.ehlo()
+                        server.login(self._user, self._password.strip())
+                        result["auth_ok"] = True
+                        result["working_port"] = port
+                        result["connection_type"] = conn_type
+                        return result
+                        
+            except smtplib.SMTPAuthenticationError as e:
+                result["connection_ok"] = True
+                result["error"] = f"Autenticação falhou: {e}"
+                return result
+                
+            except Exception as e:
+                result["error"] = f"Porta {port}: {type(e).__name__} - {e}"
+                continue
+        
+        if not result["error"]:
+            result["error"] = "Todas as portas falharam"
+        
+        return result
+    
+    @property
+    def last_error(self) -> Optional[str]:
+        """Retorna último erro registrado."""
+        return self._last_error
+    
+    def get_config_status(self) -> dict:
+        """Retorna status da configuração para diagnóstico."""
+        return {
+            "configured": self.is_configured,
+            "host": self._host,
+            "port": self._port,
+            "use_ssl": self._use_ssl,
+            "user_set": bool(self._user),
+            "password_set": bool(self._password),
+            "from_email": self._from_email,
+            "from_name": self._from_name,
+            "last_error": self._last_error,
+        }
 
 
 email_service = EmailService()

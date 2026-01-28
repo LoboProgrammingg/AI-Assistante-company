@@ -9,6 +9,7 @@ Responsabilidade:
 - NÃO forçar uso de dados quando não forem relevantes
 
 Usa Gemini Pro com orquestração cognitiva.
+Implementa retry com backoff exponencial para resiliência.
 """
 
 import logging
@@ -19,6 +20,7 @@ from langchain_core.messages import AIMessage
 from app.ai.datetime_utils import get_datetime_context
 from app.ai.graph_v3.prompts import GENERAL_PROMPT, RESPONSE_PROMPT
 from app.ai.graph_v3.state import IRISStateV3
+from app.ai.llm.retry import invoke_llm_with_retry
 
 if TYPE_CHECKING:
     from langchain_google_genai import ChatGoogleGenerativeAI
@@ -91,7 +93,12 @@ class ResponderNode:
         )
 
         try:
-            response = self.llm.invoke(prompt)
+            response = invoke_llm_with_retry(
+                self.llm,
+                prompt,
+                operation_name="RESPONDER",
+                max_attempts=3
+            )
             logger.info(f"[RESPONDER] 💬 Resposta gerada ({len(response.content)} chars)")
             return {"messages": [AIMessage(content=response.content)]}
         except Exception as e:
@@ -135,7 +142,12 @@ class ResponderNode:
         )
 
         try:
-            response = self.llm.invoke(prompt)
+            response = invoke_llm_with_retry(
+                self.llm,
+                prompt,
+                operation_name="RESPONDER_GENERAL",
+                max_attempts=3
+            )
             return {"messages": [AIMessage(content=response.content)]}
         except Exception as e:
             logger.error(f"[RESPONDER] ❌ Erro na resposta geral: {e}", exc_info=True)

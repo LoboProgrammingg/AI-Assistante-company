@@ -9,6 +9,7 @@ Responsabilidade ÚNICA:
 5. Definir NECESSIDADES COGNITIVAS (flags)
 
 Usa Gemini Flash com prompt otimizado para JSON estruturado.
+Implementa retry com backoff exponencial para resiliência.
 """
 
 import json
@@ -24,6 +25,7 @@ from app.ai.graph_v3.prompts import (
     VALID_ACTIONS,
 )
 from app.ai.graph_v3.state import ExtractedAction, IRISStateV3
+from app.ai.llm.retry import invoke_llm_with_retry
 
 if TYPE_CHECKING:
     from langchain_google_genai import ChatGoogleGenerativeAI
@@ -58,9 +60,14 @@ class CognitiveNode:
             message=message_content[:1000],
         )
 
-        # 3. Chamar LLM
+        # 3. Chamar LLM com retry
         try:
-            response = self.llm_fast.invoke(prompt)
+            response = invoke_llm_with_retry(
+                self.llm_fast,
+                prompt,
+                operation_name="COGNITIVE",
+                max_attempts=3
+            )
             logger.info(f"[COGNITIVE] Raw response: {response.content[:300]}")
 
             parsed = self._parse_response(response.content, message_content)
