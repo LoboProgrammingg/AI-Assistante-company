@@ -1,5 +1,12 @@
 # Core modules for IRIS
-from app.core.cache_manager import CacheManager, get_cache
+from app.core.cache_manager import (
+    CacheManager,
+    CacheNamespace,
+    CacheTTL,
+    get_cache,
+    AIContextCache,
+    get_ai_cache,
+)
 from app.core.data_validator import DataValidator, validate_entities
 from app.core.exceptions import IRISException
 from app.core.input_sanitizer import InputSanitizer
@@ -16,5 +23,9 @@ __all__ = [
     "DataValidator",
     "validate_entities",
     "CacheManager",
+    "CacheNamespace",
+    "CacheTTL",
     "get_cache",
+    "AIContextCache",
+    "get_ai_cache",
 ]

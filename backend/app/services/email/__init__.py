@@ -1,8 +1,7 @@
 """
-Serviço de envio de emails - Compatibilidade.
+Módulo de email para IRIS.
 
-Este arquivo mantém compatibilidade com imports existentes.
-A implementação real está em app/services/email/
+Exporta o serviço de email e templates.
 """
 
 from app.services.email.service import EmailService, email_service
