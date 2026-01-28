@@ -55,16 +55,20 @@ class IntegrationsExecutor:
             response = client.search(
                 query=query,
                 search_depth="advanced",
-                max_results=5,
+                max_results=3,  # Menos resultados, mais foco
                 include_answer=True,
+                include_raw_content=True,  # Conteúdo completo
             )
             
             results = []
-            for r in response.get("results", [])[:5]:
+            for r in response.get("results", [])[:3]:
+                # Mais contexto por resultado (1500 chars ao invés de 500)
+                content = r.get("raw_content", r.get("content", ""))[:1300]
                 results.append({
                     "title": r.get("title", ""),
                     "url": r.get("url", ""),
-                    "content": r.get("content", "")[:500],
+                    "content": content,
+                    "source": r.get("url", "").split("/")[2] if r.get("url") else "",  # Domínio fonte
                 })
             
             answer = response.get("answer", "")
@@ -127,7 +131,7 @@ class IntegrationsExecutor:
                 results.append({
                     "title": r.get("title", ""),
                     "url": r.get("url", ""),
-                    "content": r.get("content", "")[:300],
+                    "content": r.get("content", "")[:800],
                 })
             
             return ExecutionResult(

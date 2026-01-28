@@ -110,6 +110,14 @@ class ContextBuilder:
             for cat in expense_cats:
                 lines.append(f"  • {cat['category']}: R$ {cat['total']:,.2f} ({cat['count']} transações)")
 
+        # Receitas por categoria
+        income_cats = [c for c in by_category if c.get("type") == "income"][:5]
+        if income_cats:
+            lines.append("")
+            lines.append("💵 RECEITAS POR CATEGORIA:")
+            for cat in income_cats:
+                lines.append(f"  • {cat['category']}: R$ {cat['total']:,.2f} ({cat['count']} transações)")
+
         # Mês anterior para comparação
         if previous:
             prev_summary = previous.get("summary", {})
@@ -151,13 +159,34 @@ class ContextBuilder:
             "",
         ]
 
-        for r in active[:10]:
-            time_str = r.get("scheduled_time", "Sem horário")
-            recurring = " 🔄" if r.get("is_recurring") else ""
-            lines.append(f"  • {r['title']} - {time_str}{recurring}")
+        # Filtrar apenas lembretes futuros (não vencidos)
+        from datetime import datetime
+        now = datetime.now()
+        
+        future_reminders = []
+        for r in active:
+            scheduled = r.get("scheduled_time", "")
+            if scheduled:
+                try:
+                    # Parse da data/hora do lembrete
+                    reminder_dt = datetime.fromisoformat(scheduled.replace("Z", "+00:00").split("+")[0])
+                    if reminder_dt >= now:
+                        future_reminders.append(r)
+                except (ValueError, TypeError):
+                    future_reminders.append(r)  # Manter se não conseguir parsear
+            else:
+                future_reminders.append(r)
+        
+        if not future_reminders:
+            lines.append("  Nenhum lembrete pendente.")
+        else:
+            for r in future_reminders[:10]:
+                time_str = r.get("scheduled_time", "Sem horário")
+                recurring = " 🔄" if r.get("is_recurring") else ""
+                lines.append(f"  • {r['title']} - {time_str}{recurring}")
 
-        if len(active) > 10:
-            lines.append(f"  ... e mais {len(active) - 10} lembretes")
+            if len(future_reminders) > 10:
+                lines.append(f"  ... e mais {len(future_reminders) - 10} lembretes")
 
         return "\n".join(lines)
 
