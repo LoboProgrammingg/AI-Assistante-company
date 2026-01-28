@@ -128,13 +128,36 @@ class ContextBuilder:
             lines.append(
                 f"  {'🟢' if prev_summary.get('balance', 0) >= 0 else '🔴'} Saldo: R$ {prev_summary.get('balance', 0):,.2f}"
             )
+            
+            # Top 5 maiores gastos do mês anterior
+            prev_transactions = previous.get("transactions", [])
+            prev_expenses = sorted(
+                [t for t in prev_transactions if t["type"] == "expense"],
+                key=lambda x: x["amount"],
+                reverse=True
+            )[:5]
+            if prev_expenses:
+                lines.append("  🔝 Top 5 Gastos:")
+                for i, t in enumerate(prev_expenses, 1):
+                    lines.append(f"    {i}. R$ {t['amount']:,.2f} - {t['description']} ({t['category']})")
+            
+            # Top 5 maiores receitas do mês anterior
+            prev_incomes = sorted(
+                [t for t in prev_transactions if t["type"] == "income"],
+                key=lambda x: x["amount"],
+                reverse=True
+            )[:5]
+            if prev_incomes:
+                lines.append("  💰 Top 5 Receitas:")
+                for i, t in enumerate(prev_incomes, 1):
+                    lines.append(f"    {i}. R$ {t['amount']:,.2f} - {t['description']} ({t['category']})")
 
-        # Lista de transações (se solicitado)
+        # Lista COMPLETA de transações do mês atual
         if include_transactions:
-            transactions = current.get("transactions", [])[:20]
+            transactions = current.get("transactions", [])  # TODAS as transações!
             if transactions:
                 lines.append("")
-                lines.append("📋 ÚLTIMAS 20 TRANSAÇÕES:")
+                lines.append(f"📋 TODAS AS TRANSAÇÕES DO MÊS ({len(transactions)} total):")
                 for t in transactions:
                     emoji = "🟢" if t["type"] == "income" else "🔴"
                     lines.append(
