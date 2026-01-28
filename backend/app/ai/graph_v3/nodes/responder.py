@@ -194,11 +194,27 @@ class ResponderNode:
                     ]
                 )
 
-            if "web_search" in data and data["web_search"].get("answer"):
+            # Web search results (from IntegrationsExecutor)
+            if data.get("answer") and result.action_type in {"web_search", "search_news"}:
                 lines.extend(
                     [
                         "",
-                        "### CONTEXTO DA WEB:",
+                        "### 🌐 RESULTADO DA BUSCA WEB:",
+                        f"**Resposta:** {data['answer']}",
+                        "",
+                    ]
+                )
+                if data.get("results"):
+                    lines.append("**Fontes:**")
+                    for r in data["results"][:3]:
+                        lines.append(f"- [{r.get('title', 'Link')}]({r.get('url', '')})")
+            
+            # Legacy format support
+            elif "web_search" in data and data["web_search"].get("answer"):
+                lines.extend(
+                    [
+                        "",
+                        "### 🌐 CONTEXTO DA WEB:",
                         data["web_search"]["answer"],
                     ]
                 )
