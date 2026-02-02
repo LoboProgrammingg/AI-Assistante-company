@@ -71,6 +71,11 @@ class ResponderNode:
             f"| needs_analysis={needs_analysis}"
         )
 
+        # 🧠 MEMÓRIA PERSISTENTE - SEMPRE incluir
+        memory_context = self._build_memory_context(state)
+        if memory_context:
+            logger.info(f"[RESPONDER] 🧠 Memória persistente: {len(memory_context)} chars")
+
         # Construir contexto SOMENTE se necessário
         if needs_user_data:
             data_context = self._build_data_context(state)
@@ -98,6 +103,7 @@ class ResponderNode:
             RESPONSE_PROMPT.format(
                 datetime_context=get_datetime_context(),
                 user_context=f"👤 Usuário: {user_name}" if user_name else "",
+                memory_context=memory_context,
                 user_message=user_message,
                 data_context=data_context,
             )
@@ -137,6 +143,11 @@ class ResponderNode:
         logger.info(f"[RESPONDER] 📨 Modo GERAL | needs_analysis={needs_analysis}")
         logger.info(f"[RESPONDER] 📝 Message: {user_message[:120]}")
 
+        # 🧠 MEMÓRIA PERSISTENTE - SEMPRE incluir
+        memory_context = self._build_memory_context(state)
+        if memory_context:
+            logger.info(f"[RESPONDER] 🧠 Memória persistente: {len(memory_context)} chars")
+
         full_context = self._build_full_context(state)
         
         # 🔑 HISTÓRICO DE CONVERSAS
@@ -156,6 +167,7 @@ class ResponderNode:
             GENERAL_PROMPT.format(
                 datetime_context=get_datetime_context(),
                 user_context=f"👤 Usuário: {user_name}" if user_name else "",
+                memory_context=memory_context,
                 full_context=full_context,
                 user_message=user_message,
             )
@@ -280,6 +292,70 @@ class ResponderNode:
         lines.append("")  # Linha em branco no final
         
         return "\n".join(lines)
+
+    # ------------------------------------------------------------------
+    # MEMÓRIA PERSISTENTE
+    # ------------------------------------------------------------------
+
+    def _build_memory_context(self, state: IRISStateV3) -> str:
+        """
+        Constrói contexto de memória persistente para o prompt.
+        
+        Prioridade:
+        1. persistent_memory_context (pré-formatado)
+        2. persistent_memory (raw) -> formatar
+        3. context_prompt (legado)
+        """
+        # Tentar usar contexto de memória persistente pré-formatado
+        persistent_context = state.get("persistent_memory_context", "")
+        if persistent_context:
+            return persistent_context
+
+        # Tentar construir a partir dos dados brutos
+        persistent_memory = state.get("persistent_memory", {})
+        if persistent_memory:
+            lines = []
+            
+            # Perfil
+            profile = persistent_memory.get("user_profile", {})
+            if profile.get("name"):
+                lines.append(f"👤 Nome do usuário: {profile['name']}")
+            
+            # Preferências
+            preferences = persistent_memory.get("preferences", [])
+            if preferences:
+                lines.append("\n💜 Preferências do usuário:")
+                for p in preferences[:5]:
+                    lines.append(f"  • {p.get('summary', '')}")
+            
+            # Restrições (CRÍTICO)
+            constraints = persistent_memory.get("constraints", [])
+            if constraints:
+                lines.append("\n⚠️ RESTRIÇÕES (RESPEITAR SEMPRE):")
+                for c in constraints:
+                    lines.append(f"  • {c.get('summary', '')}")
+            
+            # Fatos conhecidos
+            facts = persistent_memory.get("facts", [])
+            if facts:
+                lines.append("\n📋 Fatos conhecidos:")
+                for f in facts[:5]:
+                    lines.append(f"  • {f.get('summary', '')}")
+            
+            # Histórico recente
+            history = persistent_memory.get("conversation_history", [])[-5:]
+            if history:
+                lines.append("\n💬 Conversas recentes:")
+                for msg in history:
+                    role = "👤" if msg.get("role") == "user" else "🤖"
+                    content = msg.get("content", "")[:100]
+                    lines.append(f"  {role} {content}")
+            
+            if lines:
+                return "\n".join(lines)
+
+        # Fallback para context_prompt legado
+        return state.get("context_prompt", "")
 
     # ------------------------------------------------------------------
     # CONTEXTO GERAL (MEMÓRIA / PERFIL)

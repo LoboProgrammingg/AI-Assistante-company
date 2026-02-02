@@ -129,6 +129,13 @@ class IRISStateV3(MessagesState):
     # === Histórico de Conversas ===
     conversation_history: List[Dict[str, Any]] = []
 
+    # === Memória Persistente ===
+    persistent_memory: Dict[str, Any] = {}
+    persistent_memory_context: str = ""
+
+    # === Contexto Pendente (ação aguardando resposta) ===
+    pending_context: Optional[Dict[str, Any]] = None
+
     # === Erro ===
     error: Optional[str] = None
 
@@ -152,6 +159,12 @@ def create_initial_state_v3(
         "context_prompt": ctx.get("context_prompt", ""),
         "rag_context": ctx.get("rag_context", ""),
         "conversation_history": ctx.get("conversation_history", []),
+        # Memória Persistente
+        "persistent_memory": ctx.get("persistent_memory", {}),
+        "persistent_memory_context": ctx.get("persistent_memory_context", ""),
+        # Contexto Pendente
+        "pending_context": ctx.get("pending_context"),
+        # Classificação
         "intent": "general",
         "confidence": 0.0,
         "action": None,

@@ -90,11 +90,37 @@ class FinanceExecutor:
             
             # Validar amount > 0
             if finance_data["amount"] <= 0:
-                logger.warning(f"[FINANCE] ❌ Valor inválido: {finance_data['amount']}")
+                logger.warning(f"[FINANCE] ❌ Valor não informado - salvando contexto pendente")
+                
+                # Salvar contexto pendente para continuar a conversa
+                try:
+                    from app.services.pending_context_service import PendingContextService
+                    
+                    pending_service = PendingContextService(db, user_id)
+                    pending_service.set_pending_context(
+                        action_type="create_finance",
+                        partial_data={
+                            "description": finance_data["description"],
+                            "category": finance_data["category"],
+                            "type": finance_data["type"],
+                            "date": finance_data["date"],
+                        },
+                        awaiting_field="amount",
+                        question_asked="Qual foi o valor?",
+                    )
+                    logger.info(f"[FINANCE] ⏳ Contexto pendente salvo - aguardando valor")
+                except Exception as e:
+                    logger.error(f"[FINANCE] Erro ao salvar contexto pendente: {e}")
+                
+                # Gerar pergunta para o usuário
+                desc = finance_data["description"] or "transação"
+                category = finance_data["category"]
+                
                 return ExecutionResult(
-                    success=False,
+                    success=True,  # Não é erro, é uma pergunta
                     action_type="create_finance",
-                    error="Valor deve ser maior que 0"
+                    data={"awaiting": "amount", "partial_data": finance_data},
+                    response_template=f"Claro! Para registrar o gasto de *{desc}* na categoria *{category}*, preciso saber:\n\n*Qual foi o valor?* 💰"
                 )
 
             service.create_from_entities(user_id, finance_data)

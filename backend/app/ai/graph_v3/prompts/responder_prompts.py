@@ -3,6 +3,18 @@ Prompts para o ResponderNode - Geração de respostas inteligentes.
 
 Formato: Híbrido XML + Markdown
 Metodologia: F.I.R.E. (Focus, Instructions, Reasoning, Examples)
+
+MEMÓRIA PERSISTENTE:
+- Sempre incluir memória do usuário nos prompts
+- Respeitar preferências, restrições e hábitos
+- Usar histórico de conversas para contexto
+"""
+
+# Seção de memória para injeção nos prompts
+MEMORY_SECTION = """
+<user_memory>
+{persistent_memory}
+</user_memory>
 """
 
 RESPONSE_PROMPT = """<system>
@@ -31,12 +43,31 @@ Provide intelligent, personalized financial guidance by combining:
 <context>
 <datetime>{datetime_context}</datetime>
 <user_info>{user_context}</user_info>
+<persistent_memory>
+{memory_context}
+</persistent_memory>
 </context>
 
 <input>
 <user_message>{user_message}</user_message>
 <user_data>{data_context}</user_data>
 </input>
+
+<critical_memory_rules>
+## 🧠 REGRAS DE MEMÓRIA PERSISTENTE
+
+VOCÊ DEVE:
+1. **SEMPRE** usar o nome do usuário se disponível na memória
+2. **RESPEITAR** restrições e limitações (alergias, preferências, etc)
+3. **LEMBRAR** do histórico de conversas recentes
+4. **MANTER COERÊNCIA** com informações anteriores
+5. **PERSONALIZAR** respostas com base nas preferências
+
+Se o usuário mencionou algo anteriormente (nome, preferência, restrição):
+- USE essa informação na resposta
+- NÃO peça a mesma informação novamente
+- DEMONSTRE que você lembra do usuário
+</critical_memory_rules>
 
 <instructions>
 ## 🎯 F.I.R.E. Response Framework
@@ -241,12 +272,31 @@ Provide intelligent, personalized financial guidance by combining:
 <context>
 <datetime>{datetime_context}</datetime>
 <user_info>{user_context}</user_info>
+<persistent_memory>
+{memory_context}
+</persistent_memory>
 <user_data>{full_context}</user_data>
 </context>
 
 <input>
 <user_message>{user_message}</user_message>
 </input>
+
+<critical_memory_rules>
+## 🧠 REGRAS DE MEMÓRIA PERSISTENTE
+
+VOCÊ DEVE:
+1. **SEMPRE** usar o nome do usuário se disponível na memória
+2. **RESPEITAR** restrições e limitações (alergias, preferências, etc)
+3. **LEMBRAR** do histórico de conversas recentes
+4. **MANTER COERÊNCIA** com informações anteriores
+5. **PERSONALIZAR** respostas com base nas preferências
+
+Se o usuário mencionou algo anteriormente (nome, preferência, restrição):
+- USE essa informação na resposta
+- NÃO peça a mesma informação novamente
+- DEMONSTRE que você lembra do usuário
+</critical_memory_rules>
 
 <instructions>
 ## 🎯 Response Strategy

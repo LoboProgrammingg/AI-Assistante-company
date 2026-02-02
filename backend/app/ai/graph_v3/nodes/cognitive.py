@@ -52,16 +52,29 @@ class CognitiveNode:
         logger.info(f"[COGNITIVE] 🧠 Processando mensagem (user={user_id})")
         logger.info(f"[COGNITIVE] 📝 Input: {message_content[:100]}..." if len(message_content) > 100 else f"[COGNITIVE] 📝 Input: {message_content}")
 
+        # 0. VERIFICAR CONTEXTO PENDENTE (resposta a pergunta anterior)
+        pending = state.get("pending_context")
+        if pending and pending.get("resolved_from_pending"):
+            logger.info(f"[COGNITIVE] ⏳ CONTEXTO PENDENTE RESOLVIDO!")
+            logger.info(f"[COGNITIVE]    Action: {pending.get('action_type')}")
+            logger.info(f"[COGNITIVE]    Params: {pending.get('params')}")
+            
+            return self._process_pending_context(pending, message_content)
+
         # 1. Early exit para mensagens triviais
         early = self._check_early_exit(message_content)
         if early:
             logger.info(f"[COGNITIVE] ⚡ EARLY EXIT: {early['intent']} | template={bool(early.get('response_template'))}")
             return early
 
-        # 2. Construir prompt
+        # 2. Construir contexto de memória
+        memory_context = self._build_memory_context(state)
+        
+        # 3. Construir prompt
         prompt = COGNITIVE_PROMPT.format(
             datetime_context=get_datetime_context(),
             context_prompt=state.get("context_prompt", "")[:500] or "Nenhum",
+            memory_context=memory_context or "Nenhuma memória disponível",
             message=message_content[:1000],
         )
         logger.info(f"[COGNITIVE] 📡 Chamando LLM (prompt: {len(prompt)} chars)")
@@ -258,6 +271,113 @@ class CognitiveNode:
             "early_exit": False,
             "response_template": None,
         }
+
+    # ------------------------------------------------------------------
+    # CONTEXTO PENDENTE
+    # ------------------------------------------------------------------
+
+    def _process_pending_context(
+        self, pending: Dict[str, Any], message: str
+    ) -> Dict[str, Any]:
+        """
+        Processa contexto pendente (resposta a pergunta anterior).
+        
+        Quando a IA pergunta algo (ex: "qual o valor?") e o usuário responde,
+        este método usa o contexto pendente para criar a ação completa.
+        """
+        action_type = pending.get("action_type", "")
+        params = pending.get("params", {})
+
+        # Mapear action_type para intent
+        intent_map = {
+            "create_finance": "finance",
+            "query_finance": "finance",
+            "create_reminder": "reminder",
+            "create_task": "task",
+            "create_event": "calendar",
+        }
+        intent = intent_map.get(action_type, "finance")
+
+        logger.info(f"[COGNITIVE] ⏳ Processando pendente: {action_type}")
+        logger.info(f"[COGNITIVE]    Params completos: {params}")
+
+        return {
+            "intent": intent,
+            "confidence": 0.95,
+            "action": ExtractedAction(
+                action_type=action_type,
+                params=params,
+                confidence=0.95,
+                requires_confirmation=False,
+            ),
+            "entities": params,
+            "early_exit": False,
+            "response_template": None,
+            "needs_user_data": True,
+            "needs_web": False,
+            "needs_analysis": False,
+        }
+
+    # ------------------------------------------------------------------
+    # MEMÓRIA PERSISTENTE
+    # ------------------------------------------------------------------
+
+    def _build_memory_context(self, state: IRISStateV3) -> str:
+        """
+        Constrói contexto de memória para o prompt de classificação.
+        
+        Inclui:
+        - Nome do usuário
+        - Preferências
+        - Restrições
+        - Histórico recente de conversas
+        """
+        # Tentar usar contexto pré-formatado
+        persistent_context = state.get("persistent_memory_context", "")
+        if persistent_context:
+            # Truncar para o cognitive (máximo 1500 chars)
+            if len(persistent_context) > 1500:
+                return persistent_context[:1500] + "\n... [truncado]"
+            return persistent_context
+
+        # Construir a partir dos dados brutos
+        persistent_memory = state.get("persistent_memory", {})
+        if persistent_memory:
+            lines = []
+            
+            # Perfil
+            profile = persistent_memory.get("user_profile", {})
+            if profile.get("name"):
+                lines.append(f"👤 Nome: {profile['name']}")
+            
+            # Preferências (max 3)
+            preferences = persistent_memory.get("preferences", [])[:3]
+            if preferences:
+                lines.append("💜 Preferências:")
+                for p in preferences:
+                    lines.append(f"  • {p.get('summary', '')[:50]}")
+            
+            # Restrições (TODAS - crítico)
+            constraints = persistent_memory.get("constraints", [])
+            if constraints:
+                lines.append("⚠️ Restrições:")
+                for c in constraints:
+                    lines.append(f"  • {c.get('summary', '')[:50]}")
+            
+            # Histórico (últimas 3 mensagens)
+            history = persistent_memory.get("conversation_history", [])[-3:]
+            if history:
+                lines.append("💬 Conversas recentes:")
+                for msg in history:
+                    role = "U" if msg.get("role") == "user" else "A"
+                    content = msg.get("content", "")[:80]
+                    lines.append(f"  {role}: {content}")
+            
+            if lines:
+                return "\n".join(lines)
+
+        # Fallback
+        return state.get("context_prompt", "")[:500]
 
     # ------------------------------------------------------------------
     # ROUTING

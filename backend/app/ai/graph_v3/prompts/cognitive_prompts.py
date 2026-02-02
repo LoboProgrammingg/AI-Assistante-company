@@ -14,9 +14,27 @@ Date/Time: {datetime_context}
 User Context: {context_prompt}
 </current_context>
 
+<persistent_memory>
+{memory_context}
+</persistent_memory>
+
 <user_input>
 {message}
 </user_input>
+
+<memory_awareness>
+## 🧠 REGRAS DE MEMÓRIA
+
+Ao classificar a intenção, CONSIDERE:
+1. **Nome do usuário** - Use se disponível na memória
+2. **Histórico de conversas** - Contexto do que foi discutido antes
+3. **Preferências conhecidas** - Adapte a classificação às preferências
+4. **Restrições/Limitações** - Considere ao extrair entidades
+
+Se a mensagem faz referência a algo mencionado anteriormente:
+- Use o contexto da memória para entender a intenção
+- Extraia entidades com base no histórico
+</memory_awareness>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ## 🎯 MANDATORY REASONING PROCESS (Execute in Order)
